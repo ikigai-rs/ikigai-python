@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ikigai"
+version = "0.1.0"
+description = "Pure-Python client and servable peer for the ikigai wire protocol (resource-oriented computing over Unix domain sockets)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Brian Sletten" }]
+keywords = ["ikigai", "resource-oriented", "roc", "rdf", "ipc"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+# Zero runtime dependencies, deliberately: the codec and transport are stdlib
+# (socket / asyncio / struct), mirroring the kernel's runtime-free posture.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.urls]
+Homepage = "https://github.com/ikigai-rs/ikigai-python"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ikigai"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# Prose code blocks are formatted for reading, not to the formatter's taste.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
