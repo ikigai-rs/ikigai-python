@@ -497,6 +497,9 @@ class Server:
                 if self._closing:
                     return
                 raise
+            if self._closing:
+                conn.close()  # the shutdown wake-up connection
+                return
             if self._check_peer_uid and _peer_uid(conn) != _own_uid():
                 conn.close()  # not our user (or unverifiable) — drop it
                 continue
@@ -527,6 +530,15 @@ class Server:
 
     def shutdown(self) -> None:
         self._closing = True
+        # On Linux, closing a listening socket does NOT wake a thread blocked
+        # in accept() — connect once to nudge the accept loop awake, so a
+        # serve_forever thread exits promptly instead of only on join timeout.
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as nudge:
+                nudge.settimeout(1)
+                nudge.connect(str(self.path))
+        except OSError:
+            pass  # nothing accepting (already down) is fine
         self._listener.close()
         self.path.unlink(missing_ok=True)
 
