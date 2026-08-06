@@ -11,6 +11,7 @@ from .client import (
     connect,
     default_socket_path,
 )
+from .serve import ArgSpec, EndpointDef, Server, endpoint, serve
 from .wire import (
     PROTOCOL_VERSION,
     CacheStatus,
@@ -32,10 +33,15 @@ from .wire import (
 __all__ = [
     "DEFAULT_TIMEOUT",
     "PROTOCOL_VERSION",
+    "ArgSpec",
     "Client",
     "ConnectionLost",
+    "EndpointDef",
+    "Server",
     "connect",
     "default_socket_path",
+    "endpoint",
+    "serve",
     "CacheStatus",
     "Capability",
     "Content",
