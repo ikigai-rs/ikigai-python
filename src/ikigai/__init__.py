@@ -4,6 +4,13 @@ L0 of the polyglot ladder: stdlib-only (socket/asyncio/struct), speaking the
 length-prefixed postcard wire protocol over Unix domain sockets.
 """
 
+from .client import (
+    DEFAULT_TIMEOUT,
+    Client,
+    ConnectionLost,
+    connect,
+    default_socket_path,
+)
 from .wire import (
     PROTOCOL_VERSION,
     CacheStatus,
@@ -23,7 +30,12 @@ from .wire import (
 )
 
 __all__ = [
+    "DEFAULT_TIMEOUT",
     "PROTOCOL_VERSION",
+    "Client",
+    "ConnectionLost",
+    "connect",
+    "default_socket_path",
     "CacheStatus",
     "Capability",
     "Content",
