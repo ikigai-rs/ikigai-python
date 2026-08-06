@@ -34,7 +34,9 @@ rep.text                      # "HI"
 rep.media_type                # "text/plain;charset=utf-8"
 rep.cache_status              # how the server's cache answered (HIT/MISS/UNCACHEABLE)
 k.sink("urn:file:notes.txt", "content goes as the `content` arg")
-k.exists("urn:fn:toUpper")    # the endpoint's answer (conventionally "true")
+k.exists("urn:file:notes.txt")  # "true" — the file the sink just wrote
+# NB exists still routes through the endpoint, so a function endpoint wants its
+# required args: k.exists("urn:fn:toUpper", **{"in": "hi"})
 k.meta("urn:fn:toUpper")      # self-description, text/turtle by default
 k.describe("urn:fn:toUpper")  # the JSON Meta face, parsed — ArgSpecs and all
 k.entries()                   # the catalog: [SpaceEntry(pattern, endpoint, origin)]
