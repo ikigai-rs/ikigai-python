@@ -182,6 +182,24 @@ def test_colliding_endpoints_fail_loud(socket_dir):
         Server([hello, other], socket_dir / "clash.sock")
 
 
+def test_shutdown_wakes_the_accept_loop_promptly(socket_dir):
+    # On Linux, closing a listening socket does not wake a blocked accept();
+    # shutdown() must nudge the loop so the serving thread exits fast (this
+    # is what keeps every fixture teardown from burning its join timeout).
+    import time
+
+    path = socket_dir / "prompt.sock"
+    server = Server([hello], path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.05)
+    start = time.monotonic()
+    server.shutdown()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert time.monotonic() - start < 2
+
+
 def test_verbs_and_request_shapes():
     # The described verbs must be the serde names.
     assert Verb.SOURCE.wire_name == "Source"
