@@ -65,6 +65,91 @@ class StubServer:
         self._listener.close()
 
 
+class ExamplesPeer:
+    """The examples' endpoint set served in-process on a temp socket, with
+    ``IKIGAI_SOCKET`` pointing at it — what every example app reads at
+    startup."""
+
+    def __init__(self, path: Path, endpoints):
+        from ikigai.serve import Server
+
+        self.path = path
+        self.server = Server(endpoints, path)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.server.shutdown()
+        self.thread.join(timeout=5)
+
+
+@pytest.fixture
+def examples_peer(socket_dir, monkeypatch):
+    from examples.endpoints import ENDPOINTS
+
+    peer = ExamplesPeer(socket_dir / "examples.sock", ENDPOINTS)
+    monkeypatch.setenv("IKIGAI_SOCKET", str(peer.path))
+    yield peer
+    peer.stop()
+
+
+@pytest.fixture
+def partial_peer(socket_dir, monkeypatch):
+    """A space serving ONLY urn:py:hello — /upper then hits an unresolved
+    target, which is how the smoke tests exercise the 502 mapping."""
+    from examples.endpoints import hello
+
+    peer = ExamplesPeer(socket_dir / "partial.sock", [hello])
+    monkeypatch.setenv("IKIGAI_SOCKET", str(peer.path))
+    yield peer
+    peer.stop()
+
+
+class DyingPeer:
+    """Answers the wire v6 hello, then hangs up on the first real Call.
+
+    The example apps connect fine at startup, but their first resolution
+    gets EOF -> ``ConnectionLost`` -> the 503 mapping under test. (Simply
+    shutting an ``ikigai.serve`` Server down does not sever connections it
+    has already accepted, so this stub plays the dying peer instead.)"""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self._listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._listener.bind(str(path))
+        self._listener.listen()
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    def _serve(self):
+        while True:
+            try:
+                conn, _ = self._listener.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def _handle(self, conn: socket.socket):
+        with conn, conn.makefile("rwb") as f:
+            try:
+                if wire.decode_hello(wire.read_frame(f)) is not None:
+                    wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
+                    wire.read_frame(f)  # the first real Call...
+            except (EOFError, OSError):
+                pass
+            # ...answered by hanging up.
+
+    def close(self):
+        self._listener.close()
+
+
+@pytest.fixture
+def dying_peer(socket_dir, monkeypatch):
+    peer = DyingPeer(socket_dir / "dying.sock")
+    monkeypatch.setenv("IKIGAI_SOCKET", str(peer.path))
+    yield peer
+    peer.close()
+
+
 @pytest.fixture
 def stub_server(socket_dir):
     servers = []

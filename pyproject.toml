@@ -25,6 +25,14 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
+# The examples/ REST faces. Minima are the versions the smoke tests were
+# built and verified against.
+examples = [
+  "litestar>=2.22",  # FromPath/FromQuery landed in 2.22
+  "falcon>=4",
+  "python-fasthtml>=0.13.1",  # the Lifespan class our async-gen lifespan rides on
+  "httpx>=0.27",  # litestar's and starlette's test clients ride on it
+]
 
 [project.urls]
 Homepage = "https://github.com/ikigai-rs/ikigai-python"
@@ -34,7 +42,7 @@ packages = ["src/ikigai"]
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "examples", "."]
 # Prose code blocks are formatted for reading, not to the formatter's taste.
 extend-exclude = ["*.md"]
 
@@ -43,3 +51,6 @@ select = ["E", "F", "W", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The examples/ package lives at the repo root (it is not shipped in the
+# wheel); the smoke tests import it, so put the root on sys.path.
+pythonpath = ["."]

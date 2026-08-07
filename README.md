@@ -134,6 +134,16 @@ One `entries` answer cannot serve both mount modes correctly at once.
   arguments (`ArgRef::Reference`/`Content`) are refused loudly: an L0 peer
   has no back-channel to the host to dereference them.
 
+## Examples: REST faces over the client
+
+`examples/` shows three web frameworks built on this client — Litestar
+(typed handlers), Falcon (bare ASGI), FastHTML (hypermedia/htmx) — each a
+thin face over `kernel.source(...)`, with a browsable catalog and wire
+errors mapped to 502/503. They run pure-Python against
+`python -m examples.endpoints`, or through a Rust kernel to pick up its
+caching unchanged. See `examples/README.md`; install with
+`pip install -e '.[dev,examples]'`.
+
 ## Security posture
 
 A UDS peer trusts its connections: the socket is `0600`, and both the Python
