@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import struct
+import sys
 from pathlib import Path
 
 from . import wire
@@ -178,15 +179,61 @@ async def connect(
     *,
     capability: Capability | None = None,
     timeout: float | None = DEFAULT_TIMEOUT,
+    mode: wire.HelloMode = wire.HelloMode.VERBATIM,
 ) -> AsyncClient:
     """Connect to a kernel server's Unix socket (same default path as the
-    sync client and the Rust CLI)."""
+    sync client and the Rust CLI). Opens with the wire v6 hello, with the
+    same one-version legacy fallback as the sync client."""
     path = Path(path) if path is not None else default_socket_path()
+    reader, writer = await _dial(path)
+    server_version: int | None = wire.PROTOCOL_VERSION
     try:
-        reader, writer = await asyncio.open_unix_connection(str(path))
+        writer.write(wire.frame(wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode))))
+        await writer.drain()
+        answer = wire.decode_hello(await _read_frame(reader, timeout))
+    except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError, OSError):
+        # A <= v5 server hangs up on the hello, silently. Reconnect legacy.
+        writer.close()
+        print(
+            f"ikigai: the kernel server at {path} hung up on the version hello — it likely "
+            "predates wire v6; reconnected WITHOUT the hello (tolerated until v7). "
+            "Update the server.",
+            file=sys.stderr,
+        )
+        reader, writer = await _dial(path)
+        server_version = None
+    else:
+        if answer is None:
+            writer.close()
+            raise ProtocolError(
+                "the kernel server answered the version hello with something else entirely"
+            )
+        if answer.version != wire.PROTOCOL_VERSION:
+            writer.close()
+            raise ProtocolError(
+                f"the kernel server speaks wire v{answer.version}, this client speaks "
+                f"v{wire.PROTOCOL_VERSION} — update the older side"
+            )
+    client = AsyncClient(reader, writer, capability=capability, timeout=timeout)
+    client.server_version = server_version
+    return client
+
+
+async def _dial(path: Path):
+    try:
+        return await asyncio.open_unix_connection(str(path))
     except OSError as e:
         raise ConnectionLost(
             f"cannot reach a kernel server at {path} ({e}); "
             "is `ikigai serve` (or the daemon) running?"
         ) from e
-    return AsyncClient(reader, writer, capability=capability, timeout=timeout)
+
+
+async def _read_frame(reader: asyncio.StreamReader, timeout: float | None) -> bytes:
+    header = await asyncio.wait_for(reader.readexactly(4), timeout=timeout)
+    (length,) = struct.unpack(">I", header)
+    if length > wire.MAX_FRAME:
+        raise ProtocolError(
+            f"framed message of {length} bytes exceeds the {wire.MAX_FRAME}-byte limit"
+        )
+    return await asyncio.wait_for(reader.readexactly(length), timeout=timeout)

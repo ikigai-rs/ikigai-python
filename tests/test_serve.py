@@ -5,6 +5,7 @@ import threading
 import pytest
 
 import ikigai
+from ikigai import wire
 from ikigai.serve import Server, endpoint
 from ikigai.wire import CacheStatus, Verb
 
@@ -59,15 +60,18 @@ def test_alias_stripped_target_also_resolves(served):
         assert k.source("urn:hello", who="Ada").text == "Hello, Ada!"
 
 
-def test_entries_list_the_alias_stripped_patterns(served):
-    with ikigai.connect(served) as k:
-        entries = {e.pattern: e.endpoint for e in k.entries()}
-        # Alias-stripped so the host's --mount re-prefixing reads correctly.
-        assert entries == {
-            "urn:hello": "hello",
-            "urn:reverse": "reverse",
-            "urn:boom": "boom",
-        }
+def test_entries_follow_the_hello_mode_per_connection(served):
+    # The v6 hello's mode decides the entries form PER CONNECTION — the fix
+    # for "a peer cannot know its mount mode". An alias-mode client gets the
+    # stripped patterns its mount will re-prefix; a verbatim client (a plain
+    # client, or an --override/--prefer mount) gets the declared IRIs — even
+    # from the same server, at the same time.
+    with ikigai.connect(served, mode=wire.HelloMode.ALIAS) as k:
+        stripped = {e.pattern for e in k.entries()}
+        assert stripped == {"urn:hello", "urn:reverse", "urn:boom"}
+    with ikigai.connect(served) as k:  # verbatim is the default
+        verbatim = {e.pattern for e in k.entries()}
+        assert verbatim == {"urn:py:hello", "urn:py:reverse", "urn:py:boom"}
 
 
 def test_describe_face_routes_named_args(served):

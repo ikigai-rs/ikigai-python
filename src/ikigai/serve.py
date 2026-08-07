@@ -332,15 +332,18 @@ class Space:
             raise ValueError(f"two endpoints answer {target}: {held.id} and {d.id}")
         self._by_target[target] = d
 
-    def entries(self) -> tuple[SpaceEntry, ...]:
+    def entries(self, strip_alias: bool | None = None) -> tuple[SpaceEntry, ...]:
+        """``strip_alias=None`` uses the server's configured default; a v6
+        connection overrides it per its hello mode, which is what retires the
+        guessing (a peer finally KNOWS how its mounter addresses it)."""
+        strip = self.strip_alias if strip_alias is None else strip_alias
         return tuple(
-            SpaceEntry((d.alias_iri if self.strip_alias else None) or d.iri, d.id)
-            for d in self._defs
+            SpaceEntry((d.alias_iri if strip else None) or d.iri, d.id) for d in self._defs
         )
 
-    def dispatch(self, call: wire.Call) -> Reply:
+    def dispatch(self, call: wire.Call, strip_alias: bool | None = None) -> Reply:
         if isinstance(call, EntriesCall):
-            return EntriesReply(self.entries())
+            return EntriesReply(self.entries(strip_alias))
         if isinstance(call, IsCached):
             return Cached(False)  # this peer keeps no representation cache
         if isinstance(call, Issue | IssueAs):
@@ -507,26 +510,61 @@ class Server:
 
     def _handle(self, conn: socket.socket) -> None:
         with conn, conn.makefile("rwb") as f:
-            while True:
+            # The FIRST frame decides the connection's era (wire v6): a hello
+            # is answered with ours — equal versions proceed (and its mode
+            # picks this connection's entries form), unequal versions get the
+            # answer (so the client names both in its error) and a close. A
+            # frame WITHOUT the magic is a <= v5 client's first Call: served
+            # under the server's configured default, with a warning — the
+            # one-version tolerance removed at v7.
+            strip_alias: bool | None = None
+            try:
+                first = wire.read_frame(f)
+            except (EOFError, OSError):
+                return
+            hello = wire.decode_hello(first)
+            if hello is not None:
                 try:
-                    call = wire.decode_call(wire.read_frame(f))
-                except (EOFError, OSError):
-                    return  # peer hung up
-                except wire.ProtocolError as e:
-                    # An undecodable frame (likely a protocol-version mismatch:
-                    # this server speaks v5 and the wire has no handshake).
-                    # Answer once, loudly, then drop the connection — framing
-                    # after a bad frame is unreliable.
-                    try:
-                        reply = ErrorReply(f"endpoint error: {e}")
-                        wire.write_frame(f, wire.encode_reply(reply))
-                    except OSError:
-                        pass
-                    return
-                try:
-                    wire.write_frame(f, wire.encode_reply(self.space.dispatch(call)))
+                    wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
                 except OSError:
                     return
+                if hello.version != wire.PROTOCOL_VERSION:
+                    return  # the client renders the mismatch
+                strip_alias = hello.mode == wire.HelloMode.ALIAS
+            else:
+                print(
+                    "ikigai-python: a client connected without the version hello "
+                    "(wire <= v5) — served in legacy mode (tolerated until v7). "
+                    "Update the client.",
+                    file=sys.stderr,
+                )
+                if not self._serve_one_frame(f, first, strip_alias):
+                    return
+            while True:
+                try:
+                    frame = wire.read_frame(f)
+                except (EOFError, OSError):
+                    return  # peer hung up
+                if not self._serve_one_frame(f, frame, strip_alias):
+                    return
+
+    def _serve_one_frame(self, f, frame: bytes, strip_alias: bool | None) -> bool:
+        """Decode and answer one Call frame; ``False`` ends the connection."""
+        try:
+            call = wire.decode_call(frame)
+        except wire.ProtocolError as e:
+            # An undecodable frame. Answer once, loudly, then drop the
+            # connection — framing after a bad frame is unreliable.
+            try:
+                wire.write_frame(f, wire.encode_reply(ErrorReply(f"endpoint error: {e}")))
+            except OSError:
+                pass
+            return False
+        try:
+            wire.write_frame(f, wire.encode_reply(self.space.dispatch(call, strip_alias)))
+        except OSError:
+            return False
+        return True
 
     def shutdown(self) -> None:
         self._closing = True
