@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import sys
 from pathlib import Path
 
 from . import wire
@@ -97,12 +98,22 @@ class Client:
     """A connected kernel client. One request in flight at a time (the wire
     is strictly call/reply per connection, like the Rust ``IpcResolver``)."""
 
-    def __init__(self, sock: socket.socket, *, capability: Capability | None = None):
+    def __init__(
+        self,
+        sock: socket.socket,
+        *,
+        capability: Capability | None = None,
+        file=None,
+        server_version: int | None = None,
+    ):
         self._sock = sock
-        self._file = sock.makefile("rwb")
+        self._file = file if file is not None else sock.makefile("rwb")
         #: When set, requests go as ``Call::IssueAs`` under this capability
         #: (which the server clamps to its authenticated principal).
         self.capability = capability
+        #: The version the server declared in its hello, or ``None`` for a
+        #: legacy (<= v5) server reached through the fallback.
+        self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
 
@@ -229,11 +240,55 @@ def connect(
     *,
     capability: Capability | None = None,
     timeout: float | None = DEFAULT_TIMEOUT,
+    mode: wire.HelloMode = wire.HelloMode.VERBATIM,
 ) -> Client:
     """Connect to a kernel server's Unix socket. ``path`` defaults to the
     same per-user location the Rust CLI uses; ``timeout`` bounds each socket
-    read/write (``None`` blocks indefinitely)."""
+    read/write (``None`` blocks indefinitely). ``mode`` is the hello's
+    addressing hint — a plain client is verbatim; only an alias mount says
+    otherwise."""
     path = Path(path) if path is not None else default_socket_path()
+    sock = _dial(path, timeout)
+    # The version hello (wire v6): first frame each way. A <= v5 Rust server
+    # cannot answer it — it drops the connection silently — so an EOF here
+    # means "legacy server": reconnect WITHOUT the hello and warn (the
+    # one-version tolerance the design doc removes at v7). A mismatch from a
+    # hello-speaking server errors immediately, naming both versions.
+    file = sock.makefile("rwb")
+    server_version: int | None = wire.PROTOCOL_VERSION
+    try:
+        wire.write_frame(file, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode)))
+        answer = wire.decode_hello(wire.read_frame(file))
+    except (EOFError, ConnectionError, BrokenPipeError, OSError):
+        file.close()
+        sock.close()
+        print(
+            f"ikigai: the kernel server at {path} hung up on the version hello — it likely "
+            "predates wire v6; reconnected WITHOUT the hello (tolerated until v7). "
+            "Update the server.",
+            file=sys.stderr,
+        )
+        sock = _dial(path, timeout)
+        file = sock.makefile("rwb")
+        server_version = None
+    else:
+        if answer is None:
+            file.close()
+            sock.close()
+            raise wire.ProtocolError(
+                "the kernel server answered the version hello with something else entirely"
+            )
+        if answer.version != wire.PROTOCOL_VERSION:
+            file.close()
+            sock.close()
+            raise wire.ProtocolError(
+                f"the kernel server speaks wire v{answer.version}, this client speaks "
+                f"v{wire.PROTOCOL_VERSION} — update the older side"
+            )
+    return Client(sock, capability=capability, file=file, server_version=server_version)
+
+
+def _dial(path: Path, timeout: float | None) -> socket.socket:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.settimeout(timeout)
     try:
@@ -244,4 +299,4 @@ def connect(
             f"cannot reach a kernel server at {path} ({e}); "
             "is `ikigai serve` (or the daemon) running?"
         ) from e
-    return Client(sock, capability=capability)
+    return sock

@@ -183,12 +183,12 @@ def test_args_encode_in_btreemap_key_order():
 
 
 def test_unknown_call_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"v5"):
+    with pytest.raises(ProtocolError, match=r"v6"):
         wire.decode_call(b"\x09")
 
 
 def test_unknown_reply_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"protocol v5"):
+    with pytest.raises(ProtocolError, match=r"protocol v6"):
         wire.decode_reply(b"\x2a")
 
 

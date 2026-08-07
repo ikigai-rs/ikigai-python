@@ -8,10 +8,15 @@ field-for-field; the Rust declaration is the normative source
 Framing: a ``u32`` **big-endian** length header, then the postcard payload.
 Frames above 64 MiB are rejected before allocation, both directions.
 
-There is **no version negotiation on the wire**: ``PROTOCOL_VERSION`` is a
-compile-time constant on the Rust side (only advertised out-of-band via mDNS
-TXT records). A mismatch therefore surfaces as a decode failure, which this
-module reports loudly, naming the version it speaks.
+Since v6 the connection opens with a **hello exchange** (see the Rust
+``docs/wire-hello-design.md``): the first frame each way is
+``b"IKWH" + u32 BE version + u8 mode``, deliberately NOT postcard (the codec
+whose version is being negotiated must not be needed to negotiate it), and
+readers ignore trailing bytes — that is the extension mechanism. A version
+mismatch is finally a clean error naming both sides instead of garbled
+postcard. Pre-v6 peers are tolerated for one version: a server hung up on our
+hello means a ≤v5 Rust server (reconnect without the hello, warn), and a
+first frame without the magic means a ≤v5 client (serve it, warn).
 """
 
 from __future__ import annotations
@@ -25,7 +30,12 @@ from .postcard import DecodeError, Reader, encode_varint
 
 # Bumped in lockstep with the Rust `ikigai_wire::PROTOCOL_VERSION`. v5 era:
 # core 0.1.48 `TraceEvent.notes` changed the postcard layout of traced replies.
-PROTOCOL_VERSION = 5
+# v6 adds the hello exchange (version + mount mode at connection open).
+PROTOCOL_VERSION = 6
+
+# The magic prefix of a hello payload; a first frame without it is a legacy
+# (<= v5) Call.
+HELLO_MAGIC = b"IKWH"
 
 # The largest framed message accepted (matches the Rust MAX_FRAME).
 MAX_FRAME = 64 * 1024 * 1024
@@ -710,6 +720,40 @@ def read_frame(reader: BinaryIO) -> bytes:
     if length > MAX_FRAME:
         raise ProtocolError(f"framed message of {length} bytes exceeds the {MAX_FRAME}-byte limit")
     return _read_exact(reader, length)
+
+
+class HelloMode(IntEnum):
+    """How the dialing side will address the connection — a hint for peers
+    whose canonical IRIs carry a namespace prefix (this package's servers),
+    which otherwise cannot know what form ``Entries`` should list."""
+
+    VERBATIM = 0  # plain client / --connect / --override / --prefer
+    ALIAS = 1  # an alias --mount: IRIs arrive prefix-stripped
+
+
+@dataclass(frozen=True)
+class Hello:
+    """One side's hello: ``HELLO_MAGIC + u32 BE version + u8 mode``."""
+
+    version: int
+    mode: HelloMode = HelloMode.VERBATIM
+
+
+def encode_hello(hello: Hello) -> bytes:
+    return HELLO_MAGIC + struct.pack(">I", hello.version) + bytes([hello.mode])
+
+
+def decode_hello(payload: bytes) -> Hello | None:
+    """``None`` if the magic is absent (a legacy first frame). A missing mode
+    byte defaults to verbatim; an UNKNOWN mode value also falls back to
+    verbatim rather than failing — the mode is a hint, and a newer peer's new
+    mode must not break an older reader. Trailing bytes are ignored: that is
+    the extension mechanism."""
+    if len(payload) < 8 or payload[:4] != HELLO_MAGIC:
+        return None
+    (version,) = struct.unpack(">I", payload[4:8])
+    mode = HelloMode.ALIAS if len(payload) > 8 and payload[8] == 1 else HelloMode.VERBATIM
+    return Hello(version, mode)
 
 
 def decode_error_message(message: str) -> str:
