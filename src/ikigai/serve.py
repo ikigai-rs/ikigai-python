@@ -7,13 +7,24 @@ declared ArgSpecs, invoked over the wire::
 
     from ikigai import endpoint, serve
 
-    @endpoint("urn:py:hello", summary="Greet someone",
-              args=[{"name": "who", "required": True,
-                     "class": "http://www.w3.org/2001/XMLSchema#string"}])
-    def hello(who: str) -> str:
-        return f"Hello, {who}!"
+    @endpoint("urn:py:hello", summary="Greet someone")
+    def hello(who: str, greeting: str = "Hello") -> str:
+        return f"{greeting}, {who}!"
 
     serve([hello], "/tmp/py.sock")   # blocks
+
+**The signature is the contract.** Without an ``args=`` list the ArgSpecs
+are derived from the function signature: ``who`` above is required
+(xsd:string), ``greeting`` optional with default ``"Hello"``. ``int`` /
+``float`` / ``bool`` map to their XSD datatypes and incoming wire text is
+coerced back to the annotated type before the handler runs;
+``typing.Literal`` becomes (enforced) ``one_of``; ``Optional[T]`` /
+``T | None`` marks the argument optional; ``Annotated[T, "…"]`` carries the
+per-argument summary; a trailing underscore maps a reserved word onto the
+wire (``in_`` declares and receives the argument ``in``). Unannotated
+parameters are accepted with no class — gradual typing, gradually rewarded.
+An explicit ``args=`` list still wins wholesale (no merging), with a loud
+error when its names do not match the signature.
 
 **Alias mounts strip the prefix.** ``--mount urn:py:=<socket>`` rewrites
 ``urn:py:hello`` to ``urn:hello`` before forwarding, and re-prefixes catalog
@@ -33,12 +44,15 @@ the same transport trust as the Rust IPC server. A capability carried on
 
 from __future__ import annotations
 
+import inspect
 import json
 import socket
 import struct
 import sys
 import threading
 import time
+import types
+import typing
 from pathlib import Path
 
 from . import wire
@@ -89,6 +103,13 @@ class ArgSpec:
         self.cls = cls
         self.default = default
         self.one_of = list(one_of or [])
+        # Invocation routing (never serialized): which Python parameter this
+        # spec delivers to, whether that parameter has its own (typed)
+        # default, and — for signature-derived specs — the annotated type
+        # incoming wire text is coerced back to.
+        self.py_name = name
+        self.py_has_default = False
+        self.py_type: type | None = None
 
     @classmethod
     def of(cls, spec) -> ArgSpec:
@@ -125,6 +146,164 @@ class ArgSpec:
         return out
 
 
+# ---------------------------------------------------------------------------
+# Deriving ArgSpecs from function signatures
+# ---------------------------------------------------------------------------
+
+_XSD = {
+    str: "http://www.w3.org/2001/XMLSchema#string",
+    int: "http://www.w3.org/2001/XMLSchema#integer",
+    float: "http://www.w3.org/2001/XMLSchema#double",
+    bool: "http://www.w3.org/2001/XMLSchema#boolean",
+}
+
+
+def _render_value(value) -> str:
+    """A default or Literal member as wire text (bools as the REPL grammar's
+    ``true``/``false``; everything else via ``str``)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _wire_name(name: str) -> str:
+    """``in_`` → ``in``: PEP 8's own trailing-underscore convention maps a
+    reserved-word parameter onto its wire name."""
+    if name.endswith("_") and not name.endswith("__") and len(name) > 1:
+        return name[:-1]
+    return name
+
+
+def _annotation_facts(annotation) -> tuple[str, type | None, list[str], bool]:
+    """Unwind one annotation to ``(summary, base type, one_of, optional)``.
+
+    ``base type`` is a key of ``_XSD`` or ``bytes`` when the annotation names
+    one scalar, else ``None``. Unknown shapes come back as (.., None, [], ..)
+    — accepted with no class, never an error (gradual typing)."""
+    summary = ""
+    optional = False
+    while True:
+        origin = typing.get_origin(annotation)
+        if origin is typing.Annotated:
+            metadata = typing.get_args(annotation)
+            for item in metadata[1:]:
+                if isinstance(item, str) and not summary:
+                    summary = item
+            annotation = metadata[0]
+            continue
+        if origin is typing.Union or origin is types.UnionType:
+            members = typing.get_args(annotation)
+            rest = [m for m in members if m is not type(None)]
+            if len(rest) < len(members):
+                optional = True  # Optional[T] / T | None
+            if len(rest) == 1:
+                annotation = rest[0]
+                continue
+            return summary, None, [], optional  # a many-typed union: no one class
+        break
+    if typing.get_origin(annotation) is typing.Literal:
+        members = typing.get_args(annotation)
+        member_types = {type(m) for m in members}
+        base = member_types.pop() if len(member_types) == 1 else None
+        if base is not None and base not in _XSD and base is not bytes:
+            base = None
+        return summary, base, [_render_value(m) for m in members], optional
+    if annotation in _XSD or annotation is bytes:
+        return summary, annotation, [], optional
+    return summary, None, [], optional
+
+
+def derive_args(fn) -> list[ArgSpec]:
+    """Derive ArgSpecs from ``fn``'s signature — the ``@endpoint`` behavior
+    when no ``args=`` list is given. The signature is the contract: names,
+    required/optional, XSD classes from annotations, defaults, Literal →
+    ``one_of``, ``Annotated`` summaries, ``in_`` → ``in``."""
+    try:
+        signature = inspect.signature(fn)
+    except (TypeError, ValueError):  # not introspectable (C callable, …)
+        return []
+    try:
+        hints = typing.get_type_hints(fn, include_extras=True)
+    except Exception:  # unresolvable annotations: accepted untyped, never an error
+        hints = {}
+    specs: list[ArgSpec] = []
+    for name, param in signature.parameters.items():
+        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue  # *args/**kwargs declare nothing by themselves
+        if param.kind is inspect.Parameter.POSITIONAL_ONLY:
+            raise TypeError(
+                f"{fn.__name__}(): positional-only parameter `{name}` cannot be routed "
+                "by name; make it keyword-addressable or declare args= explicitly"
+            )
+        summary, base, one_of, optional = _annotation_facts(hints.get(name, param.empty))
+        has_default = param.default is not inspect.Parameter.empty
+        default = None
+        if has_default and param.default is not None:
+            default = _render_value(param.default)
+        spec = ArgSpec(
+            _wire_name(name),
+            summary=summary,
+            required=not (has_default or optional),
+            cls=_XSD.get(base),
+            default=default,
+            one_of=one_of,
+        )
+        spec.py_type = base
+        specs.append(spec)
+    return specs
+
+
+def _check_explicit_args(handler, iri: str, specs: list[ArgSpec]) -> None:
+    """An explicit ``args=`` wins over the signature wholesale, but a NAME
+    mismatch between the two is a bug in the declaration — fail loud at
+    decoration time, not at first invocation."""
+    try:
+        params = inspect.signature(handler).parameters
+    except (TypeError, ValueError):
+        return
+    has_var_kw = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+    named = {
+        n: p
+        for n, p in params.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    for spec in specs:
+        if spec.name in named or spec.name + "_" in named or has_var_kw:
+            continue
+        raise TypeError(
+            f"endpoint {iri}: declared arg `{spec.name}` matches no parameter of "
+            f"{handler.__name__}() (parameters: {', '.join(named) or 'none'}) — "
+            "explicit args= wins, so fix the declaration or the signature"
+        )
+    declared = {s.name for s in specs}
+    for name, param in named.items():
+        if param.default is not inspect.Parameter.empty:
+            continue  # the Python default covers it
+        if name in declared or _wire_name(name) in declared:
+            continue
+        raise TypeError(
+            f"endpoint {iri}: required parameter `{name}` of {handler.__name__}() is not "
+            "declared in args= — the endpoint could never invoke it"
+        )
+
+
+def _map_parameters(handler, specs: list[ArgSpec]) -> None:
+    """Bind each spec to the Python parameter it delivers to (``in`` → ``in_``
+    when the reserved-word convention is in play; specs a ``**kwargs`` absorbs
+    keep their wire name)."""
+    try:
+        params = inspect.signature(handler).parameters
+    except (TypeError, ValueError):
+        return
+    for spec in specs:
+        for candidate in (spec.name, spec.name + "_"):
+            param = params.get(candidate)
+            if param is not None:
+                spec.py_name = candidate
+                spec.py_has_default = param.default is not inspect.Parameter.empty
+                break
+
+
 class EndpointDef:
     """A served endpoint: a handler plus its self-description."""
 
@@ -148,7 +327,15 @@ class EndpointDef:
         self.id = id or handler.__name__
         self.title = title
         self.summary = summary or (handler.__doc__ or "").strip().split("\n")[0]
-        self.args = [ArgSpec.of(a) for a in (args or [])]
+        # No args= list → the signature IS the contract. An explicit list
+        # wins wholesale (no merging) after a loud name-mismatch check.
+        self.derived = args is None
+        if self.derived:
+            self.args = derive_args(handler)
+        else:
+            self.args = [ArgSpec.of(a) for a in args]
+            _check_explicit_args(handler, iri, self.args)
+        _map_parameters(handler, self.args)
         self.output = output
         self.cacheable = cacheable
         self.requires = list(requires or [])
@@ -270,11 +457,21 @@ def endpoint(
     cacheable: bool = False,
     requires: list[str] | None = None,
 ):
-    """Declare a function as a single-verb Source endpoint. The ArgSpecs are
-    explicit spec data in L0 (typing-derived specs are a later rung) but they
-    are REAL: the host engine routes ``key=value`` arguments by this
-    declaration. ``cacheable=True`` marks the result a pure function of its
-    inputs (``Expiry::Never``) — the HOST kernel then caches it."""
+    """Declare a function as a single-verb Source endpoint.
+
+    With no ``args=`` list the ArgSpecs are DERIVED from the signature (see
+    the module docstring for the full table): annotations become XSD classes
+    (and incoming wire text is coerced back to the annotated type), defaults
+    mark arguments optional, ``Literal`` becomes enforced ``one_of``,
+    ``Annotated[T, "…"]`` carries per-argument summaries, and a trailing
+    underscore names a reserved word (``in_`` serves the argument ``in`` —
+    no ``**kwargs`` workaround needed). An explicit ``args=`` list wins
+    wholesale — handlers then receive the wire text uncoerced, exactly as
+    before — and a name mismatch with the signature fails at decoration time.
+
+    Either way the declaration is REAL: the host engine routes ``key=value``
+    arguments by it. ``cacheable=True`` marks the result a pure function of
+    its inputs (``Expiry::Never``) — the HOST kernel then caches it."""
 
     def wrap(fn):
         fn.ikigai_endpoint = EndpointDef(
@@ -308,6 +505,38 @@ def _decode_arg(name: str, arg) -> str | bytes:
     # fetch a Content id — fail loud rather than hand the handler an IRI
     # pretending to be a value.
     raise LookupError(f"argument `{name}` arrived by reference; this peer only takes inline values")
+
+
+def _coerce_derived(spec: ArgSpec, value: str | bytes):
+    """Honor the signature a derived spec came from: the wire delivers text,
+    the handler declared a type. Explicit args= endpoints keep receiving the
+    wire text untouched (backward compatible)."""
+    if spec.one_of:
+        if not (isinstance(value, str) and value in spec.one_of):
+            raise ValueError(
+                f"argument `{spec.name}` must be one of {', '.join(spec.one_of)} (got {value!r})"
+            )
+    base = spec.py_type
+    if base is bytes:
+        return value.encode("utf-8") if isinstance(value, str) else value
+    if base is None:
+        return value
+    if isinstance(value, bytes):  # only invalid UTF-8 arrives as bytes
+        raise ValueError(f"argument `{spec.name}` is not valid UTF-8 text")
+    if base is str:
+        return value
+    if base is bool:
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        raise ValueError(f"argument `{spec.name}` must be `true` or `false` (got {value!r})")
+    try:
+        return base(value)  # int or float
+    except ValueError:
+        raise ValueError(
+            f"argument `{spec.name}` must be an {base.__name__} (got {value!r})"
+        ) from None
 
 
 class Space:
@@ -394,12 +623,23 @@ class Space:
         try:
             for arg in d.args:
                 if arg.name in request.args:
-                    kwargs[arg.name] = _decode_arg(arg.name, request.args[arg.name])
-                elif arg.default is not None:
-                    kwargs[arg.name] = arg.default
+                    value = _decode_arg(arg.name, request.args[arg.name])
+                    if d.derived:
+                        value = _coerce_derived(arg, value)
+                    kwargs[arg.py_name] = value
                 elif arg.required:
                     return ErrorReply(f"missing required argument `{arg.name}`")
+                elif d.derived:
+                    # The Python default (typed, e.g. int 3 stays an int) fills
+                    # an absent optional argument; an Optional[T] parameter
+                    # without one gets None.
+                    if not arg.py_has_default:
+                        kwargs[arg.py_name] = None
+                elif arg.default is not None:
+                    kwargs[arg.py_name] = arg.default
         except LookupError as e:
+            return ErrorReply(f"endpoint error: {e}")
+        except ValueError as e:  # a derived-spec coercion failure
             return ErrorReply(f"endpoint error: {e}")
         try:
             result = d.handler(**kwargs)
