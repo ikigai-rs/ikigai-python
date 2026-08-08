@@ -13,14 +13,21 @@ Since v6 the connection opens with a **hello exchange** (see the Rust
 ``b"IKWH" + u32 BE version + u8 mode``, deliberately NOT postcard (the codec
 whose version is being negotiated must not be needed to negotiate it), and
 readers ignore trailing bytes — that is the extension mechanism. A version
-mismatch is finally a clean error naming both sides instead of garbled
-postcard. Pre-v6 peers are tolerated for one version: a server hung up on our
-hello means a ≤v5 Rust server (reconnect without the hello, warn), and a
-first frame without the magic means a ≤v5 client (serve it, warn).
+mismatch is a clean error naming both sides instead of garbled postcard.
+
+Since v7 the hello is REQUIRED (the one-version pre-v6 tolerances are gone:
+no legacy client reconnect, no serving a first frame without the magic), and
+the error TAXONOMY crosses the wire: ``Reply::ErrorTyped`` carries the same
+variant the server saw (Unresolved / MissingArgument / InvalidArgument /
+Endpoint / Denied / NotFound / Timeout / Unavailable), decoded here as a
+typed exception hierarchy under :class:`EndpointError` — a remote denial
+stays a permanent denial, a remote timeout stays TRANSIENT, and an HTTP face
+can answer 403/404/400 instead of a blanket 502.
 """
 
 from __future__ import annotations
 
+import builtins
 import struct
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -31,10 +38,12 @@ from .postcard import DecodeError, Reader, encode_varint
 # Bumped in lockstep with the Rust `ikigai_wire::PROTOCOL_VERSION`. v5 era:
 # core 0.1.48 `TraceEvent.notes` changed the postcard layout of traced replies.
 # v6 adds the hello exchange (version + mount mode at connection open).
-PROTOCOL_VERSION = 6
+# v7 adds Reply::ErrorTyped (the taxonomy crosses) and removes the v6
+# tolerances (hello required; no legacy fallback either direction).
+PROTOCOL_VERSION = 7
 
 # The magic prefix of a hello payload; a first frame without it is a legacy
-# (<= v5) Call.
+# (<= v5) client and is refused since v7.
 HELLO_MAGIC = b"IKWH"
 
 # The largest framed message accepted (matches the Rust MAX_FRAME).
@@ -48,16 +57,99 @@ class WireError(Exception):
 class ProtocolError(WireError):
     """A frame or message that violates the wire protocol.
 
-    Since v6 the hello exchange settles versions at connection open, so this
-    normally means same-version layout corruption. The exception is a legacy
-    ≤v5 peer on the no-hello fallback path, where garbled postcard is still
-    how a mismatch surfaces — the message names the version this package
-    speaks so that case stays diagnosable.
+    The hello exchange settles versions at connection open (and since v7 it
+    is required — no legacy fallback path remains), so this means
+    same-version layout corruption, a hello-refusing pre-v6 peer, or a
+    version mismatch reported at connect. The message names the version this
+    package speaks so every case stays diagnosable.
     """
 
 
 class EndpointError(WireError):
-    """A server-reported resolution failure (the wire's ``Reply::Error``)."""
+    """A server-reported resolution failure, and the base of the typed
+    hierarchy the v7 wire carries (``Reply::ErrorTyped``, a field-for-field
+    mirror of ``ikigai_core::Error``). The base class itself is the
+    ``Endpoint`` variant — a domain failure inside the endpoint — and is also
+    what a flat v6 ``Reply::Error`` string and an unknown-future variant
+    surface as.
+
+    ``message`` is the endpoint's own message (no ``endpoint error: `` /
+    ``denied: `` rendering prefix — the TYPE carries the taxonomy).
+    ``transient`` is True only for Timeout/Unavailable: re-issuing might
+    succeed, which is what retry/failover logic gates on (mirrors
+    ``ikigai_core::Error::is_transient``)."""
+
+    transient = False
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+    # Structural equality (type + args), so replies carrying errors compare
+    # by value like every other wire type — exceptions default to identity,
+    # which would make ErrorTypedReply round-trip comparisons meaningless.
+    def __eq__(self, other) -> bool:
+        return type(self) is type(other) and self.args == other.args
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.args))
+
+
+class UnresolvedError(EndpointError):
+    """``WireError::Unresolved``: the KERNEL found no binding for the target
+    (contrast :class:`NotFoundError` — a bound endpoint reporting the thing
+    it fronts absent). Permanent."""
+
+    def __init__(self, iri: str):
+        super().__init__(f"no endpoint resolved for {iri}")
+        self.iri = iri
+
+
+class MissingArgumentError(EndpointError):
+    """``WireError::MissingArgument``: a required argument was absent.
+    Permanent."""
+
+    def __init__(self, name: str):
+        super().__init__(f"missing required argument `{name}`")
+        self.name = name
+
+
+class InvalidArgumentError(EndpointError):
+    """``WireError::InvalidArgument``: an argument was present but unusable.
+    Permanent."""
+
+    def __init__(self, name: str, detail: str):
+        super().__init__(f"invalid argument `{name}`: {detail}")
+        self.name = name
+        self.detail = detail
+
+
+class DeniedError(EndpointError):
+    """``WireError::Denied``: the capability did not authorize it — a
+    PERMANENT denial (a failover must not paper over it; an HTTP face says
+    403)."""
+
+
+class NotFoundError(EndpointError):
+    """``WireError::NotFound``: a bound endpoint reports the fronted thing
+    absent — a permanent 404-equivalent."""
+
+
+class TimeoutError(EndpointError, builtins.TimeoutError):
+    """``WireError::Timeout``: the operation exceeded its time budget on the
+    SERVER side. TRANSIENT — re-issuing an idempotent verb may succeed. Also
+    a ``builtins.TimeoutError`` (the asyncio precedent for shadowing the
+    name), so generic timeout handling catches it — but note a LOCAL read
+    deadline surfaces as ``client.ConnectionLost``, not this."""
+
+    transient = True
+
+
+class UnavailableError(EndpointError):
+    """``WireError::Unavailable``: a dependency or transport is down /
+    refused / unreachable. TRANSIENT, like :class:`TimeoutError`."""
+
+    transient = True
 
 
 # ---------------------------------------------------------------------------
@@ -337,7 +429,10 @@ class EntriesReply:
 
 @dataclass(frozen=True)
 class ErrorReply:
-    """``Reply::Error`` (variant 3): the server's rendered error string."""
+    """``Reply::Error`` (variant 3): the server's rendered error string.
+    Since v7 servers answer with :class:`ErrorTypedReply` instead; this
+    variant remains decodable (discriminants are append-only) but is no
+    longer sent."""
 
     message: str
 
@@ -351,7 +446,17 @@ class ResolvedTraced:
     events: tuple[TraceEvent, ...]
 
 
-Reply = Resolved | Cached | EntriesReply | ErrorReply | ResolvedTraced
+@dataclass(frozen=True)
+class ErrorTypedReply:
+    """``Reply::ErrorTyped`` (variant 5, wire v7): a failure with its
+    taxonomy intact. ``error`` is the typed exception the client raises —
+    the same ``ikigai_core::Error`` variant the server saw, rebuilt (the
+    Rust ``WireError`` enum, variants 0-7 in declaration order)."""
+
+    error: EndpointError
+
+
+Reply = Resolved | Cached | EntriesReply | ErrorReply | ResolvedTraced | ErrorTypedReply
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +554,38 @@ def _put_space_entry(out: bytearray, entry: SpaceEntry) -> None:
         _put_string(out, entry.origin)
 
 
+def _put_wire_error(out: bytearray, error: EndpointError) -> None:
+    """The Rust ``WireError`` enum: variant index in declaration order, then
+    the payload. Subclass checks come first — the base class IS variant 3."""
+    if isinstance(error, UnresolvedError):
+        out += encode_varint(0)
+        _put_string(out, error.iri)
+    elif isinstance(error, MissingArgumentError):
+        out += encode_varint(1)
+        _put_string(out, error.name)
+    elif isinstance(error, InvalidArgumentError):
+        out += encode_varint(2)
+        _put_string(out, error.name)
+        _put_string(out, error.detail)
+    elif isinstance(error, DeniedError):
+        out += encode_varint(4)
+        _put_string(out, error.message)
+    elif isinstance(error, NotFoundError):
+        out += encode_varint(5)
+        _put_string(out, error.message)
+    elif isinstance(error, TimeoutError):
+        out += encode_varint(6)
+        _put_string(out, error.message)
+    elif isinstance(error, UnavailableError):
+        out += encode_varint(7)
+        _put_string(out, error.message)
+    elif isinstance(error, EndpointError):
+        out += encode_varint(3)  # WireError::Endpoint
+        _put_string(out, error.message)
+    else:
+        raise TypeError(f"not an EndpointError: {error!r}")
+
+
 def _put_trace_event(out: bytearray, event: TraceEvent) -> None:
     _put_string(out, event.target)
     _put_string(out, event.thread)
@@ -523,6 +660,9 @@ def encode_reply(reply: Reply) -> bytes:
         out += encode_varint(len(reply.events))
         for event in reply.events:
             _put_trace_event(out, event)
+    elif isinstance(reply, ErrorTypedReply):
+        out += encode_varint(5)
+        _put_wire_error(out, reply.error)
     else:
         raise TypeError(f"not a Reply: {reply!r}")
     return bytes(out)
@@ -536,9 +676,8 @@ def encode_reply(reply: Reply) -> bytes:
 def _version_mismatch(what: str, discriminant: int) -> ProtocolError:
     return ProtocolError(
         f"unknown {what} variant {discriminant}: this side speaks ikigai wire "
-        f"protocol v{PROTOCOL_VERSION}; the hello exchange rules out a "
-        "cross-version v6+ peer, so this is a corrupt frame or a legacy "
-        "(<= v5) peer on the no-hello fallback path"
+        f"protocol v{PROTOCOL_VERSION}, and the required hello exchange rules "
+        "out a cross-version peer, so this is a corrupt frame"
     )
 
 
@@ -613,6 +752,37 @@ def _get_space_entry(r: Reader) -> SpaceEntry:
     return SpaceEntry(pattern, endpoint, origin)
 
 
+def _get_wire_error(r: Reader) -> EndpointError:
+    variant = r.varint(32)
+    if variant == 0:
+        return UnresolvedError(r.string())
+    if variant == 1:
+        return MissingArgumentError(r.string())
+    if variant == 2:
+        return InvalidArgumentError(r.string(), r.string())
+    if variant == 3:
+        return EndpointError(r.string())
+    if variant == 4:
+        return DeniedError(r.string())
+    if variant == 5:
+        return NotFoundError(r.string())
+    if variant == 6:
+        return TimeoutError(r.string())
+    if variant == 7:
+        return UnavailableError(r.string())
+    # A NEWER peer's taxonomy addition (the enum is append-only, and additions
+    # are wire-version events, so the hello should have refused this peer —
+    # belt and braces). The payload layout is unknowable, so consume the rest
+    # of the frame and degrade to the base class, loudly named, rather than
+    # failing the whole reply.
+    r.remainder()
+    return EndpointError(
+        f"unknown wire error variant {variant} from a newer peer "
+        f"(this side speaks wire protocol v{PROTOCOL_VERSION}; "
+        "the failure's message could not be decoded)"
+    )
+
+
 def _get_trace_event(r: Reader) -> TraceEvent:
     target = r.string()
     thread = r.string()
@@ -675,6 +845,8 @@ def decode_reply(payload: bytes) -> Reply:
             status = _get_cache_status(r)
             events = tuple(_get_trace_event(r) for _ in range(r.varint()))
             reply = ResolvedTraced(representation, status, events)
+        elif variant == 5:
+            reply = ErrorTypedReply(_get_wire_error(r))
         else:
             raise _version_mismatch("Reply", variant)
         r.finish()

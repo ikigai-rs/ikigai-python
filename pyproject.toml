@@ -59,6 +59,3 @@ pythonpath = ["."]
 # every hello frame, so every stub-based client test silently exercised the
 # legacy-reconnect fallback instead of the v6 wire path.
 filterwarnings = ["error::pytest.PytestUnhandledThreadExceptionWarning"]
-markers = [
-  "wire_v7_legacy: exercises the pre-v6 one-version tolerance; delete with the tolerance at wire v7",
-]

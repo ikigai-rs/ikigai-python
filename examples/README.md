@@ -19,8 +19,13 @@ Every app serves the same surface:
 - `GET /reverse?text=…` → resolves `urn:py:reverse`
 - `GET /catalog` → `kernel.entries()` as JSON (HTML in FastHTML) — the app
   *discovers* what it can reach instead of hard-coding it
-- an `EndpointError` from the wire → **502** carrying the server's message;
-  a `ConnectionLost` → **503** ("is the peer running?")
+- a typed wire error picks its HTTP status (the wire v7 payoff, shared as
+  `examples.error_status`): `DeniedError` → **403**, `NotFoundError` →
+  **404**, `MissingArgumentError`/`InvalidArgumentError` → **400**,
+  transient (`TimeoutError`/`UnavailableError`) → **503**, anything else
+  (`UnresolvedError`, a handler fault) → **502** — each carrying the
+  endpoint's own message; a `ConnectionLost` → **503** ("is the peer
+  running?")
 
 `examples/endpoints.py` is the endpoint set they resolve: three
 `@endpoint`-decorated pure functions, `cacheable=True`, ArgSpecs declared.

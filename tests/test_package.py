@@ -2,5 +2,6 @@ import ikigai
 
 
 def test_protocol_version_is_pinned():
-    # v6 is the ikigai-wire era this package mirrors (the hello exchange).
-    assert ikigai.PROTOCOL_VERSION == 6
+    # v7 is the ikigai-wire era this package mirrors (typed errors on the
+    # wire; hello required).
+    assert ikigai.PROTOCOL_VERSION == 7

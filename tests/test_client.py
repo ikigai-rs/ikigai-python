@@ -56,9 +56,8 @@ def upper_socket(stub_server):
 
 def test_source_round_trip(upper_socket):
     with ikigai.connect(upper_socket) as k:
-        # The stub answers the hello: these tests exercise the v6 wire path,
-        # not the legacy-reconnect fallback (test_hello covers that, marked
-        # wire_v7_legacy).
+        # The stub answers the hello (required since v7); the failure shapes
+        # of the exchange itself live in test_hello.
         assert k.server_version == wire.PROTOCOL_VERSION
         rep = k.source("urn:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
@@ -73,10 +72,54 @@ def test_unresolved_target_raises_endpoint_error(upper_socket):
 
 
 def test_endpoint_error_prefix_is_stripped(stub_server):
+    # The flat v6 Reply::Error is no longer sent but stays decodable; its
+    # rendered string surfaces as the base EndpointError, prefix stripped.
     path = stub_server(lambda call: ErrorReply("endpoint error: boom"))
     with ikigai.connect(path) as k:
         with pytest.raises(ikigai.EndpointError, match="^boom$"):
             k.source("urn:x")
+
+
+@pytest.mark.parametrize(
+    "error,transient",
+    [
+        (ikigai.DeniedError("needs urn:cap:x"), False),
+        (ikigai.NotFoundError("no such row"), False),
+        (ikigai.TimeoutError("5s elapsed"), True),
+        (ikigai.UnavailableError("connection refused"), True),
+        (ikigai.MissingArgumentError("in"), False),
+        (ikigai.InvalidArgumentError("n", "not a number"), False),
+        (ikigai.UnresolvedError("urn:x"), False),
+    ],
+    ids=lambda v: type(v).__name__ if isinstance(v, Exception) else str(v),
+)
+def test_typed_errors_are_raised_as_their_taxonomy(stub_server, error, transient):
+    # The wire v7 payoff on the client: the SAME variant the server saw is
+    # what the caller catches, transience intact.
+    path = stub_server(lambda call: wire.ErrorTypedReply(error))
+    with ikigai.connect(path) as k:
+        with pytest.raises(type(error)) as caught:
+            k.source("urn:x")
+    assert type(caught.value) is type(error)
+    assert caught.value.message == error.message
+    assert caught.value.transient is transient
+    # Every typed error is still an EndpointError — existing broad handlers
+    # keep working unchanged.
+    assert isinstance(caught.value, ikigai.EndpointError)
+
+
+def test_typed_errors_cross_the_async_client_too(stub_server):
+    path = stub_server(lambda call: wire.ErrorTypedReply(ikigai.DeniedError("no grant")))
+
+    async def scenario():
+        k = await aio.connect(path)
+        try:
+            with pytest.raises(ikigai.DeniedError, match="no grant"):
+                await k.source("urn:x")
+        finally:
+            await k.close()
+
+    asyncio.run(scenario())
 
 
 def test_entries(upper_socket):

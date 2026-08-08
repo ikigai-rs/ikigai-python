@@ -8,10 +8,11 @@ The front door for scripts and notebooks::
         rep = k.source("urn:fn:toUpper", **{"in": "hi"})
         rep.text  # "HI"
 
-Errors surface as exceptions carrying the server's error string (with the
-``endpoint error: `` prefix stripped, the way the Rust wire clients do); the
-wire does not yet carry a structured error taxonomy, so none is fabricated
-here.
+Errors surface as TYPED exceptions since wire v7: the server's failure
+crosses with its taxonomy intact and is raised as the matching subclass of
+:class:`ikigai.EndpointError` (``DeniedError``, ``NotFoundError``,
+``TimeoutError``, ``UnavailableError``, …), with ``.message`` carrying the
+endpoint's own message and ``.transient`` True only for Timeout/Unavailable.
 """
 
 from __future__ import annotations
@@ -19,7 +20,6 @@ from __future__ import annotations
 import json
 import os
 import socket
-import sys
 from pathlib import Path
 
 from . import wire
@@ -31,6 +31,7 @@ from .wire import (
     EntriesCall,
     EntriesReply,
     ErrorReply,
+    ErrorTypedReply,
     Inline,
     IsCached,
     Issue,
@@ -94,6 +95,19 @@ def build_request(verb: Verb, iri: str, args: dict) -> Request:
     return Request(verb, iri, {name: coerce_arg(value) for name, value in args.items()})
 
 
+def reply_error(reply: Reply) -> EndpointError | None:
+    """The exception a Reply carries, or ``None`` for a success. A typed
+    (v7 ``ErrorTyped``) failure is raised as-is; a flat v6 ``Error`` string
+    (still decodable, no longer sent) becomes the base :class:`EndpointError`
+    with the ``endpoint error: `` rendering prefix stripped, the way the Rust
+    wire clients strip it."""
+    if isinstance(reply, ErrorTypedReply):
+        return reply.error
+    if isinstance(reply, ErrorReply):
+        return EndpointError(wire.decode_error_message(reply.message))
+    return None
+
+
 class Client:
     """A connected kernel client. One request in flight at a time (the wire
     is strictly call/reply per connection, like the Rust ``IpcResolver``)."""
@@ -111,8 +125,10 @@ class Client:
         #: When set, requests go as ``Call::IssueAs`` under this capability
         #: (which the server clamps to its authenticated principal).
         self.capability = capability
-        #: The version the server declared in its hello, or ``None`` for a
-        #: legacy (<= v5) server reached through the fallback.
+        #: The version the server declared in its hello. A ``connect()``-made
+        #: client always holds ``PROTOCOL_VERSION`` (a mismatch raises there
+        #: instead); ``None`` only marks a hand-constructed client whose
+        #: server version is genuinely unknown.
         self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
@@ -135,8 +151,9 @@ class Client:
             representation = reply.representation
             representation.cache_status = reply.cache_status
             return representation
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to {type(call).__name__}: {reply!r}")
 
     # -- the five verbs ----------------------------------------------------
@@ -191,8 +208,9 @@ class Client:
         reply = self._round_trip(EntriesCall())
         if isinstance(reply, EntriesReply):
             return None if reply.entries is None else list(reply.entries)
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to Entries: {reply!r}")
 
     def is_cached(self, iri: str, **args) -> bool:
@@ -216,8 +234,9 @@ class Client:
             representation = reply.representation
             representation.cache_status = reply.cache_status
             return representation, list(reply.events)
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to IssueTraced: {reply!r}")
 
     # -- lifecycle ---------------------------------------------------------
@@ -249,43 +268,44 @@ def connect(
     otherwise."""
     path = Path(path) if path is not None else default_socket_path()
     sock = _dial(path, timeout)
-    # The version hello (wire v6): first frame each way. A <= v5 Rust server
-    # cannot answer it — it drops the connection silently — so an EOF here
-    # means "legacy server": reconnect WITHOUT the hello and warn (the
-    # one-version tolerance the design doc removes at v7). A mismatch from a
-    # hello-speaking server errors immediately, naming both versions.
+    # The version hello (required since wire v7): first frame each way. A
+    # mismatch from a hello-speaking server errors naming both versions. A
+    # hang-up (EOF/reset) on the hello is the pre-v6 signature — a <= v5
+    # server drops a frame it cannot decode, silently — and is REFUSED with
+    # that diagnosis (the v6 legacy-reconnect tolerance is gone). SILENCE is
+    # a hang: the server may merely be overloaded, so it is reported as hung,
+    # never misdiagnosed as ancient.
     file = sock.makefile("rwb")
-    server_version: int | None = wire.PROTOCOL_VERSION
     try:
         wire.write_frame(file, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode)))
         answer = wire.decode_hello(wire.read_frame(file))
-    except (EOFError, ConnectionError, BrokenPipeError, OSError):
+    except TimeoutError as e:
         file.close()
         sock.close()
-        print(
-            f"ikigai: the kernel server at {path} hung up on the version hello — it likely "
-            "predates wire v6; reconnected WITHOUT the hello (tolerated until v7). "
-            "Update the server.",
-            file=sys.stderr,
+        raise ConnectionLost(
+            "no answer to the version hello within the deadline (server hung or overloaded)"
+        ) from e
+    except (EOFError, ConnectionError, BrokenPipeError, OSError) as e:
+        file.close()
+        sock.close()
+        raise wire.ProtocolError(
+            f"the kernel server at {path} hung up on the version hello — it predates "
+            f"wire v6 and cannot speak v{wire.PROTOCOL_VERSION}; update the server"
+        ) from e
+    if answer is None:
+        file.close()
+        sock.close()
+        raise wire.ProtocolError(
+            "the kernel server answered the version hello with something else entirely"
         )
-        sock = _dial(path, timeout)
-        file = sock.makefile("rwb")
-        server_version = None
-    else:
-        if answer is None:
-            file.close()
-            sock.close()
-            raise wire.ProtocolError(
-                "the kernel server answered the version hello with something else entirely"
-            )
-        if answer.version != wire.PROTOCOL_VERSION:
-            file.close()
-            sock.close()
-            raise wire.ProtocolError(
-                f"the kernel server speaks wire v{answer.version}, this client speaks "
-                f"v{wire.PROTOCOL_VERSION} — update the older side"
-            )
-    return Client(sock, capability=capability, file=file, server_version=server_version)
+    if answer.version != wire.PROTOCOL_VERSION:
+        file.close()
+        sock.close()
+        raise wire.ProtocolError(
+            f"the kernel server speaks wire v{answer.version}, this client speaks "
+            f"v{wire.PROTOCOL_VERSION} — update the older side"
+        )
+    return Client(sock, capability=capability, file=file, server_version=answer.version)
 
 
 def _dial(path: Path, timeout: float | None) -> socket.socket:
