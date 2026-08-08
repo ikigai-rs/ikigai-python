@@ -56,6 +56,10 @@ def upper_socket(stub_server):
 
 def test_source_round_trip(upper_socket):
     with ikigai.connect(upper_socket) as k:
+        # The stub answers the hello: these tests exercise the v6 wire path,
+        # not the legacy-reconnect fallback (test_hello covers that, marked
+        # wire_v7_legacy).
+        assert k.server_version == wire.PROTOCOL_VERSION
         rep = k.source("urn:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
         assert rep.media_type == "text/plain;charset=utf-8"
