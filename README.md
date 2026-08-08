@@ -9,7 +9,9 @@ resources that a Rust host mounts.
 A binding = client + servable peer space; the module mechanism IS
 mount-over-wire.
 
-Wire protocol version: **5** (`ikigai.PROTOCOL_VERSION`). Developed and
+Wire protocol version: **6** (`ikigai.PROTOCOL_VERSION`): the connection
+opens with a version hello each way (see the wire-protocol notes below), and
+pre-v6 peers are tolerated for one version, until v7. Developed and
 integration-tested against `ikigai-cli 0.1.9` (the binary has no `--version`
 flag yet; the version comes from the install metadata).
 
@@ -114,13 +116,15 @@ What a served endpoint gets for free, because its describe face is real:
 `--mount urn:py:=<socket>` is an **alias** mount: the host rewrites
 `urn:py:hello` → `urn:hello` before forwarding, and re-prefixes catalog
 patterns coming back. This server therefore answers **both** the declared IRI
-and its alias-stripped form, and by default lists the alias-stripped form in
-`entries` so an alias mount's catalog reads correctly. If you serve for an
-`--override urn:py:=<socket>` mount (IRIs forwarded verbatim) pass
-`strip_alias=False` — with the default, an override's catalog view of this
-peer is empty (invocation still works); with `strip_alias=False` under an
-*alias* mount, patterns double-prefix in `list` (invocation still works).
-One `entries` answer cannot serve both mount modes correctly at once.
+and its alias-stripped form. Since wire v6 each connection's hello declares
+its mount mode, and `entries` answers accordingly *per connection*: an alias
+mount sees the stripped patterns, a verbatim client (plain `--connect`,
+`--override`, `--prefer`) sees the declared IRIs — from the same server, at
+the same time. `strip_alias` remains only as the default for legacy (≤ v5)
+clients that send no hello: the default (`True`) reads correctly under an
+alias mount; pass `strip_alias=False` if the legacy peers you expect are
+override/verbatim. Either way invocation always works — only the catalog
+view is affected.
 
 ### Handlers
 
@@ -150,10 +154,20 @@ record the layout. Highlights that a public ABI document should state:
 
 - Framing: `u32` **big-endian** length + [postcard](https://postcard.jamesmunns.com)
   payload; 64 MiB frame cap, checked before allocation.
-- **No version handshake on the wire.** `PROTOCOL_VERSION` (5) is a
-  compile-time constant; a mismatch surfaces as a decode failure. This
-  package pins v5 and raises `ProtocolError` naming its version on any
-  undecodable message.
+- **Version hello (since v6).** The first frame each way is
+  `b"IKWH"` + `u32` big-endian version + `u8` mode — deliberately *not*
+  postcard, because the codec whose version is being negotiated must not be
+  needed to negotiate it. Readers ignore trailing bytes; that is the
+  extension mechanism. The mode byte (0 = verbatim, 1 = alias mount) tells a
+  served peer how its mounter addresses it. A version mismatch is a clean
+  error naming both sides instead of garbled postcard. Legacy (≤ v5) peers
+  are tolerated for one version, until v7: a server that hangs up on the
+  hello is taken to be ≤ v5 and the client reconnects without one (with a
+  warning; `Client.server_version` is `None` for such a server), and a first
+  frame without the magic is a ≤ v5 client's `Call`, served in legacy mode
+  (with a warning). This package speaks v6 (`ikigai.PROTOCOL_VERSION`) and
+  still raises `ProtocolError` naming its version on any undecodable
+  message.
 - Enum discriminants are the **declaration index** as a varint —
   `Verb::Source` is `0` on the wire even though it is declared
   `#[repr(u8)] Source = 1` (those codes are only for identity hashing).
