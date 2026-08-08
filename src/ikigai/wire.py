@@ -1,6 +1,6 @@
 """The ikigai IPC wire protocol: types, postcard codec, and framing.
 
-Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 5. The codec is
+Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 6. The codec is
 non-self-describing, so every type here restates a Rust layout
 field-for-field; the Rust declaration is the normative source
 (``ikigai-wire/src/lib.rs`` and the ``ikigai-core`` types it serializes).
@@ -46,11 +46,13 @@ class WireError(Exception):
 
 
 class ProtocolError(WireError):
-    """A frame or message that violates wire protocol v5.
+    """A frame or message that violates the wire protocol.
 
-    Because the wire carries no version handshake, a peer speaking a different
-    protocol version also lands here — the message names the version this
-    package speaks so the mismatch is diagnosable.
+    Since v6 the hello exchange settles versions at connection open, so this
+    normally means same-version layout corruption. The exception is a legacy
+    ≤v5 peer on the no-hello fallback path, where garbled postcard is still
+    how a mismatch surfaces — the message names the version this package
+    speaks so that case stays diagnosable.
     """
 
 
@@ -534,8 +536,9 @@ def encode_reply(reply: Reply) -> bytes:
 def _version_mismatch(what: str, discriminant: int) -> ProtocolError:
     return ProtocolError(
         f"unknown {what} variant {discriminant}: this side speaks ikigai wire "
-        f"protocol v{PROTOCOL_VERSION}; the peer is probably a different version "
-        "(the wire carries no version handshake, so a mismatch surfaces here)"
+        f"protocol v{PROTOCOL_VERSION}; the hello exchange rules out a "
+        "cross-version v6+ peer, so this is a corrupt frame or a legacy "
+        "(<= v5) peer on the no-hello fallback path"
     )
 
 
