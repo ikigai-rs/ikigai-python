@@ -1,6 +1,5 @@
 """aio.lifespan (the one lifespan helper) and the AsyncClient constructor
-surface, driven against a real ikigai.serve Server (which answers the v6
-hello, unlike the scripted stub)."""
+surface, driven against a real ikigai.serve Server."""
 
 from __future__ import annotations
 

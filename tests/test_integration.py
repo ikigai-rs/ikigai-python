@@ -1,15 +1,21 @@
 """Integration against the installed Rust host, both directions.
 
 Skips cleanly when the ``ikigai`` binary is absent (CI has no Rust host;
-these run locally against ``~/.cargo/bin/ikigai``).
+these run locally against ``~/.cargo/bin/ikigai``). When the binary speaks a
+DIFFERENT wire version than this package, the functional tests skip and the
+pairing tests assert the mismatch is diagnosed cleanly instead — both
+versions named by the hello, never garbled postcard.
 """
 
 from __future__ import annotations
 
+import functools
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
@@ -19,6 +25,43 @@ from ikigai.serve import Server, endpoint
 IKIGAI = shutil.which("ikigai")
 
 pytestmark = pytest.mark.skipif(IKIGAI is None, reason="no `ikigai` binary on PATH")
+
+
+@functools.lru_cache(maxsize=1)
+def wire_mismatch() -> str | None:
+    """``None`` when the installed host speaks this package's wire version;
+    otherwise the clean mismatch message the hello produced. Probed once, by
+    connecting to a throwaway ``ikigai serve``."""
+    with tempfile.TemporaryDirectory(prefix="ik-probe-") as d:
+        path = Path(d) / "kernel.sock"
+        process = subprocess.Popen(
+            [IKIGAI, "serve", str(path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            deadline = time.monotonic() + 15
+            while not path.exists():
+                if time.monotonic() > deadline or process.poll() is not None:
+                    pytest.fail("ikigai serve did not come up for the version probe")
+                time.sleep(0.1)
+            try:
+                ikigai.connect(path).close()
+                return None
+            except ikigai.ProtocolError as e:
+                return str(e)
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
+
+
+@pytest.fixture
+def matched_host():
+    """Skips a functional test when the installed binary is on another wire
+    version (the pairing tests still assert the mismatch is clean)."""
+    mismatch = wire_mismatch()
+    if mismatch is not None:
+        pytest.skip(f"installed ikigai speaks another wire version: {mismatch}")
 
 
 def run_repl(*commands: str, mount: str | None = None, timeout: float = 60.0) -> str:
@@ -58,7 +101,7 @@ def reverse(**kwargs) -> str:
 
 
 @pytest.fixture
-def python_peer(socket_dir):
+def python_peer(socket_dir, matched_host):
     path = socket_dir / "py.sock"
     server = Server([hello, reverse], path)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -114,7 +157,7 @@ def test_python_error_text_reaches_the_rust_user(python_peer):
 
 
 @pytest.fixture
-def rust_server(socket_dir):
+def rust_server(socket_dir, matched_host):
     path = socket_dir / "kernel.sock"
     process = subprocess.Popen(
         [IKIGAI, "serve", str(path)],
@@ -165,3 +208,51 @@ def test_rust_error_string_crosses_to_python(rust_server):
     with ikigai.connect(rust_server) as k:
         with pytest.raises(ikigai.EndpointError, match="no endpoint resolved for urn:fn:nope"):
             k.source("urn:fn:nope")
+
+
+def test_rust_error_taxonomy_crosses_typed(rust_server):
+    # The v7 payoff across the language boundary: the Rust kernel's
+    # Unresolved arrives as the SAME variant, not a flattened string.
+    with ikigai.connect(rust_server) as k:
+        with pytest.raises(ikigai.UnresolvedError) as e:
+            k.source("urn:fn:nope")
+        assert e.value.iri == "urn:fn:nope"
+        assert e.value.transient is False
+
+
+# -- version pairing (these run under mismatch too) -------------------------
+
+
+def test_python_client_and_rust_server_pair_cleanly():
+    # Matched versions: the probe connected. Mismatched: the hello produced a
+    # clean error naming BOTH versions — never garbled postcard.
+    mismatch = wire_mismatch()
+    if mismatch is not None:
+        assert f"v{ikigai.PROTOCOL_VERSION}" in mismatch
+        assert "speaks wire v" in mismatch
+
+
+def test_rust_client_and_python_server_pair_cleanly(socket_dir):
+    # The other direction: the Rust host mounts a Python peer. Matched: the
+    # resolution succeeds. Mismatched: the Rust side reports the versions the
+    # hello exchanged, not a decode failure.
+    path = socket_dir / "py.sock"
+    server = Server([hello], path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        done = subprocess.run(
+            [IKIGAI, "--mount", f"urn:py:={path}", "-c", "source urn:py:hello who=Ada"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        combined = done.stdout + done.stderr
+        if wire_mismatch() is None:
+            assert done.returncode == 0, combined
+            assert "Hello, Ada!" in combined
+        else:
+            assert "wire v" in combined, f"expected a clean version diagnosis, got:\n{combined}"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)

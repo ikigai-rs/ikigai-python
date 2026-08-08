@@ -27,7 +27,7 @@ def socket_dir():
 
 
 class StubServer:
-    """Accepts connections, answers the wire v6 hello, then answers each
+    """Accepts connections, answers the version hello, then answers each
     decoded Call via ``respond``."""
 
     def __init__(self, path: Path, respond):
@@ -49,20 +49,18 @@ class StubServer:
 
     def _handle(self, conn: socket.socket):
         with conn, conn.makefile("rwb") as f:
-            # The first frame decides the era, mirroring ``ikigai.serve``: a
-            # hello is answered with ours (so clients under test exercise the
-            # v6 wire path, not their legacy-reconnect fallback); a frame
-            # without the magic is a <= v5 client's first Call, served as one.
+            # The first frame must be the hello, mirroring ``ikigai.serve``
+            # since wire v7: answered with ours, and a frame without the
+            # magic ends the connection (nothing legacy left to serve).
             try:
                 first = wire.read_frame(f)
             except (EOFError, OSError):
                 return
-            if wire.decode_hello(first) is not None:
-                try:
-                    wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
-                except OSError:
-                    return
-            elif not self._serve_one_frame(f, first):
+            if wire.decode_hello(first) is None:
+                return
+            try:
+                wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
+            except OSError:
                 return
             while True:
                 try:
@@ -182,6 +180,29 @@ def stub_server(socket_dir):
     def start(respond) -> Path:
         path = socket_dir / f"stub-{len(servers)}.sock"
         servers.append(StubServer(path, respond))
+        return path
+
+    yield start
+    for server in servers:
+        server.close()
+
+
+@pytest.fixture
+def typed_error_peer(socket_dir, monkeypatch):
+    """A factory: a stub peer that answers every resolution with the given
+    typed error (wire v7 ``ErrorTyped``), with ``IKIGAI_SOCKET`` pointing at
+    it — how the example smoke tests drive each taxonomy → HTTP mapping."""
+    servers = []
+
+    def start(error) -> Path:
+        def respond(call):
+            if isinstance(call, wire.EntriesCall):
+                return wire.EntriesReply(())
+            return wire.ErrorTypedReply(error)
+
+        path = socket_dir / f"typed-{len(servers)}.sock"
+        servers.append(StubServer(path, respond))
+        monkeypatch.setenv("IKIGAI_SOCKET", str(path))
         return path
 
     yield start

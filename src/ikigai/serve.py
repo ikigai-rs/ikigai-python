@@ -30,10 +30,18 @@ error when its names do not match the signature.
 ``urn:py:hello`` to ``urn:hello`` before forwarding, and re-prefixes catalog
 patterns coming back. This server therefore answers BOTH the declared IRI
 (``urn:py:hello`` — for ``--override`` mounts and direct ``--connect``
-clients) and its alias-stripped form (``urn:hello``), and by default lists
-the alias-stripped form in ``entries`` so an alias mount's catalog reads
-correctly. Pass ``strip_alias=False`` when serving for an ``--override``
-mount (patterns then list verbatim; an alias mount would double-prefix them).
+clients) and its alias-stripped form (``urn:hello``). Every connection's
+hello declares its mount mode (the hello is required since wire v7), and
+``entries`` answers in that mode's form per connection; the ``strip_alias``
+constructor default now only governs direct ``Space.entries()`` calls.
+
+**Failures cross typed** (wire v7): unknown IRI → ``Unresolved``, missing
+required argument → ``MissingArgument``, an unusable value →
+``InvalidArgument``, a handler exception → ``Endpoint``. A handler may also
+RAISE the taxonomy deliberately (``NotFoundError``, ``DeniedError``,
+``TimeoutError``, ``UnavailableError`` from :mod:`ikigai.wire`) and the
+variant crosses intact — the far side's HTTP face can answer 404/403/…
+instead of a blanket 502.
 
 **Security posture**: the socket is ``0600`` in a ``0700`` directory and
 peers are refused unless their kernel-verified UID matches the server's —
@@ -59,15 +67,18 @@ from . import wire
 from .wire import (
     Cached,
     CacheStatus,
+    EndpointError,
     EntriesCall,
     EntriesReply,
-    ErrorReply,
+    ErrorTypedReply,
     Expiry,
     Inline,
+    InvalidArgumentError,
     IsCached,
     Issue,
     IssueAs,
     IssueTraced,
+    MissingArgumentError,
     Reply,
     Representation,
     Request,
@@ -75,6 +86,7 @@ from .wire import (
     ResolvedTraced,
     SpaceEntry,
     TraceEvent,
+    UnresolvedError,
     Verb,
 )
 
@@ -503,26 +515,26 @@ def _decode_arg(name: str, arg) -> str | bytes:
             return arg.data
     # A peer has no back-channel to the host to dereference a Reference or
     # fetch a Content id — fail loud rather than hand the handler an IRI
-    # pretending to be a value.
-    raise LookupError(f"argument `{name}` arrived by reference; this peer only takes inline values")
+    # pretending to be a value. The detail is bare: the InvalidArgument
+    # carrier already names the argument.
+    raise ValueError("arrived by reference; this peer only takes inline values")
 
 
 def _coerce_derived(spec: ArgSpec, value: str | bytes):
     """Honor the signature a derived spec came from: the wire delivers text,
     the handler declared a type. Explicit args= endpoints keep receiving the
-    wire text untouched (backward compatible)."""
+    wire text untouched (backward compatible). Failure details are bare of
+    the argument name — the typed InvalidArgument carrier states it."""
     if spec.one_of:
         if not (isinstance(value, str) and value in spec.one_of):
-            raise ValueError(
-                f"argument `{spec.name}` must be one of {', '.join(spec.one_of)} (got {value!r})"
-            )
+            raise ValueError(f"must be one of {', '.join(spec.one_of)} (got {value!r})")
     base = spec.py_type
     if base is bytes:
         return value.encode("utf-8") if isinstance(value, str) else value
     if base is None:
         return value
     if isinstance(value, bytes):  # only invalid UTF-8 arrives as bytes
-        raise ValueError(f"argument `{spec.name}` is not valid UTF-8 text")
+        raise ValueError("not valid UTF-8 text")
     if base is str:
         return value
     if base is bool:
@@ -530,13 +542,11 @@ def _coerce_derived(spec: ArgSpec, value: str | bytes):
             return True
         if value == "false":
             return False
-        raise ValueError(f"argument `{spec.name}` must be `true` or `false` (got {value!r})")
+        raise ValueError(f"must be `true` or `false` (got {value!r})")
     try:
         return base(value)  # int or float
     except ValueError:
-        raise ValueError(
-            f"argument `{spec.name}` must be an {base.__name__} (got {value!r})"
-        ) from None
+        raise ValueError(f"must be an {base.__name__} (got {value!r})") from None
 
 
 class Space:
@@ -562,9 +572,9 @@ class Space:
         self._by_target[target] = d
 
     def entries(self, strip_alias: bool | None = None) -> tuple[SpaceEntry, ...]:
-        """``strip_alias=None`` uses the server's configured default; a v6
-        connection overrides it per its hello mode, which is what retires the
-        guessing (a peer finally KNOWS how its mounter addresses it)."""
+        """``strip_alias=None`` uses the server's configured default; a served
+        connection always overrides it per its hello mode (a peer KNOWS how
+        its mounter addresses it — the hello is required since v7)."""
         strip = self.strip_alias if strip_alias is None else strip_alias
         return tuple(
             SpaceEntry((d.alias_iri if strip else None) or d.iri, d.id) for d in self._defs
@@ -581,8 +591,8 @@ class Space:
             started = int(time.time() * 1000)
             reply = self._resolve(call.request)
             ended = int(time.time() * 1000)
-            if isinstance(reply, ErrorReply):
-                return reply
+            if not isinstance(reply, Resolved):
+                return reply  # a typed error crosses untraced
             capability = call.capability
             event = TraceEvent(
                 target=call.request.target,
@@ -596,14 +606,14 @@ class Space:
             )
             assert isinstance(reply, Resolved)
             return ResolvedTraced(reply.representation, reply.cache_status, (event,))
-        return ErrorReply(f"endpoint error: unsupported call {type(call).__name__}")
+        return ErrorTypedReply(EndpointError(f"unsupported call {type(call).__name__}"))
 
     def _resolve(self, request: Request) -> Reply:
         d = self._by_target.get(request.target)
         if d is None:
-            # Exactly the Rust Error::Unresolved rendering, so the host-side
-            # engine reports it natively.
-            return ErrorReply(f"no endpoint resolved for {request.target}")
+            # The same variant the Rust kernel answers with, so the host-side
+            # engine rebuilds Error::Unresolved natively.
+            return ErrorTypedReply(UnresolvedError(request.target))
         if request.verb == Verb.META:
             return self._meta(d, request)
         if request.verb == Verb.EXISTS:
@@ -612,39 +622,45 @@ class Space:
                 CacheStatus.UNCACHEABLE,
             )
         if request.verb != Verb.SOURCE:
-            return ErrorReply(
-                f"endpoint error: verb {request.verb.wire_name} is not supported by "
-                f"`{d.id}` (a single-verb Source endpoint)"
+            return ErrorTypedReply(
+                EndpointError(
+                    f"verb {request.verb.wire_name} is not supported by "
+                    f"`{d.id}` (a single-verb Source endpoint)"
+                )
             )
         return self._invoke(d, request)
 
     def _invoke(self, d: EndpointDef, request: Request) -> Reply:
         kwargs = {}
-        try:
-            for arg in d.args:
-                if arg.name in request.args:
+        for arg in d.args:
+            if arg.name in request.args:
+                try:
                     value = _decode_arg(arg.name, request.args[arg.name])
                     if d.derived:
                         value = _coerce_derived(arg, value)
-                    kwargs[arg.py_name] = value
-                elif arg.required:
-                    return ErrorReply(f"missing required argument `{arg.name}`")
-                elif d.derived:
-                    # The Python default (typed, e.g. int 3 stays an int) fills
-                    # an absent optional argument; an Optional[T] parameter
-                    # without one gets None.
-                    if not arg.py_has_default:
-                        kwargs[arg.py_name] = None
-                elif arg.default is not None:
-                    kwargs[arg.py_name] = arg.default
-        except LookupError as e:
-            return ErrorReply(f"endpoint error: {e}")
-        except ValueError as e:  # a derived-spec coercion failure
-            return ErrorReply(f"endpoint error: {e}")
+                except ValueError as e:  # by-reference arg, or coercion failure
+                    return ErrorTypedReply(InvalidArgumentError(arg.name, str(e)))
+                kwargs[arg.py_name] = value
+            elif arg.required:
+                return ErrorTypedReply(MissingArgumentError(arg.name))
+            elif d.derived:
+                # The Python default (typed, e.g. int 3 stays an int) fills
+                # an absent optional argument; an Optional[T] parameter
+                # without one gets None.
+                if not arg.py_has_default:
+                    kwargs[arg.py_name] = None
+            elif arg.default is not None:
+                kwargs[arg.py_name] = arg.default
         try:
             result = d.handler(**kwargs)
+        except EndpointError as e:
+            # A handler may RAISE the taxonomy deliberately (NotFoundError for
+            # an absent row, DeniedError for a refused grant, …) — it crosses
+            # the wire typed, and an HTTP face on the far side answers
+            # 404/403/… instead of a blanket 502.
+            return ErrorTypedReply(e)
         except Exception as e:  # a handler bug crosses as an endpoint error
-            return ErrorReply(f"endpoint error: {e}")
+            return ErrorTypedReply(EndpointError(str(e)))
         return Resolved(*self._representation(d, result))
 
     def _representation(self, d: EndpointDef, result) -> tuple[Representation, CacheStatus]:
@@ -680,7 +696,9 @@ class Space:
             body = json.dumps(d.description_json(), separators=(",", ":")).encode("utf-8")
             rep = Representation(body, "application/json")
         else:
-            return ErrorReply(f"endpoint error: meta renderer does not support target `{target}`")
+            return ErrorTypedReply(
+                EndpointError(f"meta renderer does not support target `{target}`")
+            )
         return Resolved(rep, CacheStatus.UNCACHEABLE)
 
 
@@ -750,36 +768,32 @@ class Server:
 
     def _handle(self, conn: socket.socket) -> None:
         with conn, conn.makefile("rwb") as f:
-            # The FIRST frame decides the connection's era (wire v6): a hello
+            # The FIRST frame must be the hello (required since wire v7). It
             # is answered with ours — equal versions proceed (and its mode
             # picks this connection's entries form), unequal versions get the
             # answer (so the client names both in its error) and a close. A
-            # frame WITHOUT the magic is a <= v5 client's first Call: served
-            # under the server's configured default, with a warning — the
-            # one-version tolerance removed at v7.
-            strip_alias: bool | None = None
+            # frame WITHOUT the magic is a <= v5 client's first Call and is
+            # REFUSED — the v6 serve-it-anyway tolerance is over.
             try:
                 first = wire.read_frame(f)
             except (EOFError, OSError):
                 return
             hello = wire.decode_hello(first)
-            if hello is not None:
-                try:
-                    wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
-                except OSError:
-                    return
-                if hello.version != wire.PROTOCOL_VERSION:
-                    return  # the client renders the mismatch
-                strip_alias = hello.mode == wire.HelloMode.ALIAS
-            else:
+            if hello is None:
                 print(
-                    "ikigai-python: a client connected without the version hello "
-                    "(wire <= v5) — served in legacy mode (tolerated until v7). "
-                    "Update the client.",
+                    "ikigai-python: refused a client that connected without the "
+                    f"version hello (wire <= v5; v{wire.PROTOCOL_VERSION} requires "
+                    "it). Update the client.",
                     file=sys.stderr,
                 )
-                if not self._serve_one_frame(f, first, strip_alias):
-                    return
+                return
+            try:
+                wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
+            except OSError:
+                return
+            if hello.version != wire.PROTOCOL_VERSION:
+                return  # the client renders the mismatch
+            strip_alias = hello.mode == wire.HelloMode.ALIAS
             while True:
                 try:
                     frame = wire.read_frame(f)
@@ -796,7 +810,7 @@ class Server:
             # An undecodable frame. Answer once, loudly, then drop the
             # connection — framing after a bad frame is unreliable.
             try:
-                wire.write_frame(f, wire.encode_reply(ErrorReply(f"endpoint error: {e}")))
+                wire.write_frame(f, wire.encode_reply(ErrorTypedReply(EndpointError(str(e)))))
             except OSError:
                 pass
             return False

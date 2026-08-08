@@ -19,19 +19,23 @@ from __future__ import annotations
 import asyncio
 import json
 import struct
-import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from . import wire
-from .client import DEFAULT_TIMEOUT, ConnectionLost, build_request, default_socket_path
+from .client import (
+    DEFAULT_TIMEOUT,
+    ConnectionLost,
+    build_request,
+    default_socket_path,
+    reply_error,
+)
 from .wire import (
     Cached,
     Capability,
     EndpointError,
     EntriesCall,
     EntriesReply,
-    ErrorReply,
     IsCached,
     Issue,
     IssueAs,
@@ -69,8 +73,10 @@ class AsyncClient:
         #: When set, requests go as ``Call::IssueAs`` under this capability
         #: (which the server clamps to its authenticated principal).
         self.capability = capability
-        #: The version the server declared in its hello, or ``None`` for a
-        #: legacy (<= v5) server reached through the fallback.
+        #: The version the server declared in its hello. A ``connect()``-made
+        #: client always holds ``PROTOCOL_VERSION`` (a mismatch raises there
+        #: instead); ``None`` only marks a hand-constructed client whose
+        #: server version is genuinely unknown.
         self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
@@ -105,8 +111,9 @@ class AsyncClient:
             representation = reply.representation
             representation.cache_status = reply.cache_status
             return representation
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to {type(call).__name__}: {reply!r}")
 
     # -- the five verbs ----------------------------------------------------
@@ -146,8 +153,9 @@ class AsyncClient:
         reply = await self._round_trip(EntriesCall())
         if isinstance(reply, EntriesReply):
             return None if reply.entries is None else list(reply.entries)
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to Entries: {reply!r}")
 
     async def is_cached(self, iri: str, **args) -> bool:
@@ -165,8 +173,9 @@ class AsyncClient:
             representation = reply.representation
             representation.cache_status = reply.cache_status
             return representation, list(reply.events)
-        if isinstance(reply, ErrorReply):
-            raise EndpointError(wire.decode_error_message(reply.message))
+        error = reply_error(reply)
+        if error is not None:
+            raise error
         raise ProtocolError(f"unexpected reply to IssueTraced: {reply!r}")
 
     # -- lifecycle ---------------------------------------------------------
@@ -193,44 +202,46 @@ async def connect(
     mode: wire.HelloMode = wire.HelloMode.VERBATIM,
 ) -> AsyncClient:
     """Connect to a kernel server's Unix socket (same default path as the
-    sync client and the Rust CLI). Opens with the wire v6 hello, with the
-    same one-version legacy fallback as the sync client."""
+    sync client and the Rust CLI). Opens with the required version hello and
+    diagnoses the same three failure shapes as the sync client: a mismatch
+    names both versions, a hang-up on the hello is a pre-v6 server, and
+    SILENCE is a hang (the server may be overloaded, not ancient)."""
     path = Path(path) if path is not None else default_socket_path()
     reader, writer = await _dial(path)
-    server_version: int | None = wire.PROTOCOL_VERSION
     try:
         writer.write(wire.frame(wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode))))
         await writer.drain()
         answer = wire.decode_hello(await _read_frame(reader, timeout))
-    except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError, OSError):
-        # A <= v5 server hangs up on the hello, silently. Reconnect legacy.
+    except TimeoutError as e:
         writer.close()
-        print(
-            f"ikigai: the kernel server at {path} hung up on the version hello — it likely "
-            "predates wire v6; reconnected WITHOUT the hello (tolerated until v7). "
-            "Update the server.",
-            file=sys.stderr,
+        raise ConnectionLost(
+            "no answer to the version hello within the deadline (server hung or overloaded)"
+        ) from e
+    except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError, OSError) as e:
+        # A <= v5 server cannot decode the hello and hangs up, silently. The
+        # v6 legacy-reconnect tolerance is gone: refuse, with the diagnosis.
+        writer.close()
+        raise ProtocolError(
+            f"the kernel server at {path} hung up on the version hello — it predates "
+            f"wire v6 and cannot speak v{wire.PROTOCOL_VERSION}; update the server"
+        ) from e
+    if answer is None:
+        writer.close()
+        raise ProtocolError(
+            "the kernel server answered the version hello with something else entirely"
         )
-        reader, writer = await _dial(path)
-        server_version = None
-    else:
-        if answer is None:
-            writer.close()
-            raise ProtocolError(
-                "the kernel server answered the version hello with something else entirely"
-            )
-        if answer.version != wire.PROTOCOL_VERSION:
-            writer.close()
-            raise ProtocolError(
-                f"the kernel server speaks wire v{answer.version}, this client speaks "
-                f"v{wire.PROTOCOL_VERSION} — update the older side"
-            )
+    if answer.version != wire.PROTOCOL_VERSION:
+        writer.close()
+        raise ProtocolError(
+            f"the kernel server speaks wire v{answer.version}, this client speaks "
+            f"v{wire.PROTOCOL_VERSION} — update the older side"
+        )
     return AsyncClient(
         reader,
         writer,
         capability=capability,
         timeout=timeout,
-        server_version=server_version,
+        server_version=answer.version,
     )
 
 

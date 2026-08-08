@@ -37,10 +37,20 @@ def boom() -> str:
     raise RuntimeError("kaboom")
 
 
+@endpoint("urn:py:vault", summary="Raises the taxonomy deliberately", args=["key"])
+def vault(key: str) -> str:
+    # A handler that KNOWS its failure taxonomy: absent → NotFound, refused →
+    # Denied — the typed variant must cross the wire intact, not be flattened
+    # into a generic endpoint error.
+    if key == "secret":
+        raise ikigai.DeniedError("needs urn:cap:vault")
+    raise ikigai.NotFoundError(f"no entry for `{key}`")
+
+
 @pytest.fixture
 def served(socket_dir):
     path = socket_dir / "py.sock"
-    server = Server([hello, reverse, boom], path)
+    server = Server([hello, reverse, boom, vault], path)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield path
@@ -61,17 +71,17 @@ def test_alias_stripped_target_also_resolves(served):
 
 
 def test_entries_follow_the_hello_mode_per_connection(served):
-    # The v6 hello's mode decides the entries form PER CONNECTION — the fix
+    # The hello's mode decides the entries form PER CONNECTION — the fix
     # for "a peer cannot know its mount mode". An alias-mode client gets the
     # stripped patterns its mount will re-prefix; a verbatim client (a plain
     # client, or an --override/--prefer mount) gets the declared IRIs — even
     # from the same server, at the same time.
     with ikigai.connect(served, mode=wire.HelloMode.ALIAS) as k:
         stripped = {e.pattern for e in k.entries()}
-        assert stripped == {"urn:hello", "urn:reverse", "urn:boom"}
+        assert stripped == {"urn:hello", "urn:reverse", "urn:boom", "urn:vault"}
     with ikigai.connect(served) as k:  # verbatim is the default
         verbatim = {e.pattern for e in k.entries()}
-        assert verbatim == {"urn:py:hello", "urn:py:reverse", "urn:py:boom"}
+        assert verbatim == {"urn:py:hello", "urn:py:reverse", "urn:py:boom", "urn:py:vault"}
 
 
 def test_describe_face_routes_named_args(served):
@@ -98,22 +108,40 @@ def test_meta_faces(served):
             k.meta("urn:py:hello", as_="application/pdf")
 
 
-def test_missing_required_argument_is_the_rust_error_text(served):
+def test_missing_required_argument_crosses_typed(served):
     with ikigai.connect(served) as k:
-        with pytest.raises(ikigai.EndpointError, match="missing required argument `who`"):
+        with pytest.raises(
+            ikigai.MissingArgumentError, match="missing required argument `who`"
+        ) as e:
             k.source("urn:py:hello")
+        assert e.value.name == "who"
 
 
-def test_unresolved_target_is_the_rust_error_text(served):
+def test_unresolved_target_crosses_typed(served):
     with ikigai.connect(served) as k:
-        with pytest.raises(ikigai.EndpointError, match="no endpoint resolved for urn:py:nope"):
+        with pytest.raises(
+            ikigai.UnresolvedError, match="no endpoint resolved for urn:py:nope"
+        ) as e:
             k.source("urn:py:nope")
+        assert e.value.iri == "urn:py:nope"
 
 
 def test_handler_exception_crosses_as_an_endpoint_error(served):
     with ikigai.connect(served) as k:
-        with pytest.raises(ikigai.EndpointError, match="kaboom"):
+        with pytest.raises(ikigai.EndpointError, match="kaboom") as e:
             k.source("urn:py:boom")
+        assert type(e.value) is ikigai.EndpointError  # the Endpoint variant, untyped domain failure
+
+
+def test_handler_raised_taxonomy_crosses_typed(served):
+    # A handler that raises NotFoundError/DeniedError sends the VARIANT, not
+    # a flattened endpoint-error string — the far side can answer 404/403.
+    with ikigai.connect(served) as k:
+        with pytest.raises(ikigai.NotFoundError, match="no entry for `x`"):
+            k.source("urn:py:vault", key="x")
+        with pytest.raises(ikigai.DeniedError, match="needs urn:cap:vault") as e:
+            k.source("urn:py:vault", key="secret")
+        assert e.value.transient is False
 
 
 def test_cacheable_result_carries_expiry_never(served):

@@ -108,6 +108,12 @@ class Reader:
             return True
         raise DecodeError(f"invalid Option tag 0x{b:02x}")
 
+    def remainder(self) -> bytes:
+        """Consume and return everything left. For payloads whose layout this
+        side cannot know (an unknown enum variant from a newer peer) — the
+        codec is non-self-describing, so skipping is all-or-nothing."""
+        return self.take(len(self._data) - self._pos)
+
     def finish(self) -> None:
         """Assert the message was consumed exactly."""
         if self._pos != len(self._data):

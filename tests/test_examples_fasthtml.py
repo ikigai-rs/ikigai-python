@@ -4,6 +4,8 @@ no browser or JS runtime needed to verify them)."""
 
 import pytest
 
+import ikigai
+
 fasthtml = pytest.importorskip("fasthtml", reason="examples extras not installed")
 
 from starlette.testclient import TestClient  # noqa: E402
@@ -52,3 +54,24 @@ def test_peer_gone_maps_to_503(dying_peer):
         response = client.get("/hello/Ada")
         assert response.status_code == 503
         assert "is the peer running?" in response.text
+
+
+@pytest.mark.parametrize(
+    "error,status",
+    [
+        (ikigai.DeniedError("needs urn:cap:demo"), 403),
+        (ikigai.NotFoundError("no such row"), 404),
+        (ikigai.MissingArgumentError("who"), 400),
+        (ikigai.InvalidArgumentError("who", "not a name"), 400),
+        (ikigai.TimeoutError("5s elapsed"), 503),
+        (ikigai.UnavailableError("upstream down"), 503),
+    ],
+    ids=lambda v: type(v).__name__ if isinstance(v, Exception) else str(v),
+)
+def test_wire_taxonomy_maps_to_http_status(typed_error_peer, error, status):
+    # The wire v7 payoff: the peer's typed failure picks the HTTP status.
+    typed_error_peer(error)
+    with TestClient(app) as client:
+        response = client.get("/hello/Ada")
+        assert response.status_code == status
+        assert error.message in response.text

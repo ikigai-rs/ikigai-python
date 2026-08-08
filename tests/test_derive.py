@@ -301,11 +301,16 @@ def test_optional_without_a_default_arrives_as_none(served):
         assert k.source("urn:py:repeat", text="a", times="2").text == "aa"  # sep=None
 
 
-def test_coercion_failures_are_endpoint_errors(served):
+def test_coercion_failures_are_typed_invalid_arguments(served):
     with ikigai.connect(served) as k:
-        with pytest.raises(ikigai.EndpointError, match="`times` must be an int"):
+        with pytest.raises(
+            ikigai.InvalidArgumentError, match="invalid argument `times`: must be an int"
+        ) as e:
             k.source("urn:py:repeat", text="ab", times="lots")
-        with pytest.raises(ikigai.EndpointError, match="`loud` must be `true` or `false`"):
+        assert (e.value.name, e.value.detail) == ("times", "must be an int (got 'lots')")
+        with pytest.raises(
+            ikigai.InvalidArgumentError, match="invalid argument `loud`: must be `true` or `false`"
+        ):
             k.source("urn:py:shout", text="hi", loud="yes")
 
 
@@ -313,7 +318,9 @@ def test_literal_membership_is_enforced(served):
     with ikigai.connect(served) as k:
         assert k.source("urn:py:pace").text == "going slow"
         assert k.source("urn:py:pace", mode="fast").text == "going fast"
-        with pytest.raises(ikigai.EndpointError, match="`mode` must be one of fast, slow"):
+        with pytest.raises(
+            ikigai.InvalidArgumentError, match="invalid argument `mode`: must be one of fast, slow"
+        ):
             k.source("urn:py:pace", mode="warp")
 
 

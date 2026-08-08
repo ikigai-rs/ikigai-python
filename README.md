@@ -9,11 +9,11 @@ resources that a Rust host mounts.
 A binding = client + servable peer space; the module mechanism IS
 mount-over-wire.
 
-Wire protocol version: **6** (`ikigai.PROTOCOL_VERSION`): the connection
-opens with a version hello each way (see the wire-protocol notes below), and
-pre-v6 peers are tolerated for one version, until v7. Developed and
-integration-tested against `ikigai-cli 0.1.9` (the binary has no `--version`
-flag yet; the version comes from the install metadata).
+Wire protocol version: **7** (`ikigai.PROTOCOL_VERSION`): the connection
+opens with a version hello each way — REQUIRED since v7 (the pre-v6
+tolerances are gone) — and failures cross the wire **typed** (see the
+wire-protocol notes below). A v6 peer still fails cleanly: the hello itself
+names both versions.
 
 ## Install
 
@@ -54,11 +54,18 @@ Notes:
 - `connect(capability=ikigai.Capability.scoped([...]))` sends requests as
   `Call::IssueAs` under that capability; the server clamps it to the
   principal the channel authenticated.
-- Errors surface as `ikigai.EndpointError` carrying the server's error string
-  (`endpoint error: ` prefix stripped, as the Rust wire clients do). A dead
-  socket raises `ikigai.ConnectionLost`; a hung server trips the read
-  deadline (default 300 s — long resolutions are silent, so silence is not
-  proof of death; same rationale as the Rust client).
+- Errors surface **typed** (wire v7): the server's failure crosses with its
+  taxonomy intact and is raised as the matching subclass of
+  `ikigai.EndpointError` — `UnresolvedError`, `MissingArgumentError`,
+  `InvalidArgumentError` (with `.name`/`.detail`), `DeniedError`,
+  `NotFoundError`, `ikigai.TimeoutError` (also a `builtins.TimeoutError`),
+  `UnavailableError`. `.message` is the endpoint's own message; `.transient`
+  is `True` only for Timeout/Unavailable (re-issuing may succeed — what
+  retry/failover logic gates on). A plain `except ikigai.EndpointError`
+  still catches everything. A dead socket raises `ikigai.ConnectionLost`; a
+  hung server trips the read deadline (default 300 s — long resolutions are
+  silent, so silence is not proof of death; same rationale as the Rust
+  client).
 
 `ikigai.aio` exposes the same surface as `async` methods over asyncio
 streams, sharing the same codec:
@@ -146,34 +153,42 @@ What a served endpoint gets for free, because its describe face is real:
 `--mount urn:py:=<socket>` is an **alias** mount: the host rewrites
 `urn:py:hello` → `urn:hello` before forwarding, and re-prefixes catalog
 patterns coming back. This server therefore answers **both** the declared IRI
-and its alias-stripped form. Since wire v6 each connection's hello declares
-its mount mode, and `entries` answers accordingly *per connection*: an alias
-mount sees the stripped patterns, a verbatim client (plain `--connect`,
-`--override`, `--prefer`) sees the declared IRIs — from the same server, at
-the same time. `strip_alias` remains only as the default for legacy (≤ v5)
-clients that send no hello: the default (`True`) reads correctly under an
-alias mount; pass `strip_alias=False` if the legacy peers you expect are
-override/verbatim. Either way invocation always works — only the catalog
-view is affected.
+and its alias-stripped form. Each connection's hello declares its mount mode
+(the hello is required since wire v7), and `entries` answers accordingly
+*per connection*: an alias mount sees the stripped patterns, a verbatim
+client (plain `--connect`, `--override`, `--prefer`) sees the declared IRIs
+— from the same server, at the same time. The `strip_alias` constructor
+default now only governs direct `Space.entries()` calls. Either way
+invocation always works — only the catalog view is affected.
 
 ### Handlers
 
 - Return `str` or `bytes` (encoded with the endpoint's declared `output`
   media type), a `(value, media_type)` tuple, or a full
   `ikigai.Representation`.
-- A raised exception crosses the wire as `endpoint error: …` — never a hang.
-- Missing required arguments are reported with the exact error text the Rust
-  kernel uses, so the host-side experience is native.
+- Failures cross the wire **typed** (wire v7): an unknown IRI is
+  `Unresolved`, a missing required argument `MissingArgument`, an unusable
+  value `InvalidArgument`, and a raised exception an `Endpoint` error —
+  never a hang, and the host rebuilds the same variant natively.
+- A handler may **raise the taxonomy deliberately** — `raise
+  ikigai.NotFoundError("no such row")`, `DeniedError`, `TimeoutError`,
+  `UnavailableError` — and the variant crosses intact: the far side's HTTP
+  face answers 404/403/503 instead of a blanket 502, and transient failures
+  stay transient for retry/failover logic.
 - Arguments arrive utf-8-decoded (bytes if not valid utf-8). By-reference
-  arguments (`ArgRef::Reference`/`Content`) are refused loudly: an L0 peer
-  has no back-channel to the host to dereference them.
+  arguments (`ArgRef::Reference`/`Content`) are refused loudly (as
+  `InvalidArgument`): an L0 peer has no back-channel to the host to
+  dereference them.
 
 ## Examples: REST faces over the client
 
 `examples/` shows three web frameworks built on this client — Litestar
 (typed handlers), Falcon (bare ASGI), FastHTML (hypermedia/htmx) — each a
-thin face over `kernel.source(...)`, with a browsable catalog and wire
-errors mapped to 502/503. They run pure-Python against
+thin face over `kernel.source(...)`, with a browsable catalog and the wire's
+typed errors mapped onto HTTP statuses: `DeniedError`→403,
+`NotFoundError`→404, `MissingArgumentError`/`InvalidArgumentError`→400,
+transient (`TimeoutError`/`UnavailableError`)→503, anything else→502, and
+`ConnectionLost`→503. They run pure-Python against
 `python -m examples.endpoints`, or through a Rust kernel to pick up its
 caching unchanged. See `examples/README.md`; install with
 `pip install -e '.[dev,examples]'`.
@@ -194,20 +209,29 @@ record the layout. Highlights that a public ABI document should state:
 
 - Framing: `u32` **big-endian** length + [postcard](https://postcard.jamesmunns.com)
   payload; 64 MiB frame cap, checked before allocation.
-- **Version hello (since v6).** The first frame each way is
-  `b"IKWH"` + `u32` big-endian version + `u8` mode — deliberately *not*
+- **Version hello (since v6, REQUIRED since v7).** The first frame each way
+  is `b"IKWH"` + `u32` big-endian version + `u8` mode — deliberately *not*
   postcard, because the codec whose version is being negotiated must not be
   needed to negotiate it. Readers ignore trailing bytes; that is the
   extension mechanism. The mode byte (0 = verbatim, 1 = alias mount) tells a
   served peer how its mounter addresses it. A version mismatch is a clean
-  error naming both sides instead of garbled postcard. Legacy (≤ v5) peers
-  are tolerated for one version, until v7: a server that hangs up on the
-  hello is taken to be ≤ v5 and the client reconnects without one (with a
-  warning; `Client.server_version` is `None` for such a server), and a first
-  frame without the magic is a ≤ v5 client's `Call`, served in legacy mode
-  (with a warning). This package speaks v6 (`ikigai.PROTOCOL_VERSION`) and
-  still raises `ProtocolError` naming its version on any undecodable
-  message.
+  error naming both sides instead of garbled postcard. The v6 one-version
+  tolerances are gone: a server that hangs up on the hello is refused with
+  the pre-v6 diagnosis (no legacy reconnect) — while a server that is merely
+  *silent* is reported as hung or overloaded, never misdiagnosed as ancient
+  — and a first frame without the magic is refused by the server. This
+  package speaks v7 (`ikigai.PROTOCOL_VERSION`) and still raises
+  `ProtocolError` naming its version on any undecodable message.
+- **Typed errors (since v7).** A failure crosses as `Reply::ErrorTyped`
+  (postcard discriminant 5) carrying the `WireError` enum — variants 0–7 in
+  declaration order: `Unresolved(iri)`, `MissingArgument(name)`,
+  `InvalidArgument{name, detail}`, `Endpoint(message)`, `Denied(message)`,
+  `NotFound(message)`, `Timeout(message)`, `Unavailable(message)` — an
+  append-only, wire-local mirror of `ikigai_core::Error` (a taxonomy
+  addition is a wire-version event). Timeout/Unavailable are transient;
+  the rest permanent. An unknown future variant degrades to the base
+  `EndpointError`, loudly named. The flat `Reply::Error` string (variant 3)
+  remains decodable but is no longer sent.
 - Enum discriminants are the **declaration index** as a varint —
   `Verb::Source` is `0` on the wire even though it is declared
   `#[repr(u8)] Source = 1` (those codes are only for identity hashing).

@@ -20,6 +20,7 @@ import os
 import falcon
 import falcon.asgi
 
+from examples import error_status
 from ikigai import ConnectionLost, EndpointError, aio, default_socket_path
 
 
@@ -81,7 +82,9 @@ class CatalogResource:
 
 
 async def endpoint_error(req, resp, exc: EndpointError, params):
-    raise falcon.HTTPBadGateway(description=str(exc))
+    # The typed taxonomy picks the status (wire v7): Denied→403, NotFound→404,
+    # bad input→400, transient→503, anything else→502.
+    raise falcon.HTTPError(falcon.util.code_to_http_status(error_status(exc)), description=str(exc))
 
 
 async def connection_lost(req, resp, exc: ConnectionLost, params):

@@ -8,15 +8,21 @@ from ikigai.wire import (
     CacheStatus,
     Capability,
     Content,
+    DeniedError,
+    EndpointError,
     EntriesCall,
     EntriesReply,
     ErrorReply,
+    ErrorTypedReply,
     Expiry,
     Inline,
+    InvalidArgumentError,
     IsCached,
     Issue,
     IssueAs,
     IssueTraced,
+    MissingArgumentError,
+    NotFoundError,
     ProtocolError,
     Reference,
     Representation,
@@ -24,8 +30,11 @@ from ikigai.wire import (
     Resolved,
     ResolvedTraced,
     SpaceEntry,
+    TimeoutError,
     TraceContext,
     TraceEvent,
+    UnavailableError,
+    UnresolvedError,
     Verb,
 )
 
@@ -71,6 +80,13 @@ def test_resolved_reply_bytes():
 def test_framing_is_u32_be_length_prefixed():
     framed = wire.frame(b"\x02")
     assert framed == b"\x00\x00\x00\x01\x02"
+
+
+def test_error_typed_wire_discriminant_is_five():
+    # ErrorTyped's postcard discriminant is part of the public ABI — lock it
+    # (the Rust suite pins the same vector).
+    assert wire.encode_reply(ErrorTypedReply(EndpointError("x")))[0] == 5
+    assert wire.encode_reply(ErrorTypedReply(DeniedError("x"))) == b"\x05\x04\x01x"
 
 
 # --- round trips over every variant ---
@@ -131,6 +147,14 @@ REPLIES = [
         )
     ),
     ErrorReply("endpoint error: boom"),
+    ErrorTypedReply(UnresolvedError("urn:x:y")),
+    ErrorTypedReply(MissingArgumentError("in")),
+    ErrorTypedReply(InvalidArgumentError("n", "not a number")),
+    ErrorTypedReply(EndpointError("boom")),
+    ErrorTypedReply(DeniedError("needs urn:cap:x")),
+    ErrorTypedReply(NotFoundError("no such row")),
+    ErrorTypedReply(TimeoutError("5s elapsed")),
+    ErrorTypedReply(UnavailableError("connection refused")),
     ResolvedTraced(
         Representation(b"HI", "text/plain"),
         CacheStatus.MISS,
@@ -183,13 +207,66 @@ def test_args_encode_in_btreemap_key_order():
 
 
 def test_unknown_call_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"v6"):
+    with pytest.raises(ProtocolError, match=r"v7"):
         wire.decode_call(b"\x09")
 
 
 def test_unknown_reply_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"protocol v6"):
+    with pytest.raises(ProtocolError, match=r"protocol v7"):
         wire.decode_reply(b"\x2a")
+
+
+def test_typed_errors_round_trip_with_taxonomy_intact():
+    # Every taxonomy variant crosses and comes back as the SAME exception
+    # type, with transience preserved — the property the HTTP faces and any
+    # retry/failover logic depend on (mirrors the Rust suite's
+    # typed_errors_round_trip_with_taxonomy_intact).
+    cases = [
+        (UnresolvedError("urn:x:y"), False),
+        (MissingArgumentError("in"), False),
+        (InvalidArgumentError("n", "not a number"), False),
+        (EndpointError("boom"), False),
+        (DeniedError("needs urn:cap:x"), False),
+        (NotFoundError("no such row"), False),
+        (TimeoutError("5s elapsed"), True),
+        (UnavailableError("connection refused"), True),
+    ]
+    for original, transient in cases:
+        got = wire.decode_reply(wire.encode_reply(ErrorTypedReply(original))).error
+        assert type(got) is type(original), original
+        assert got.message == original.message
+        assert got.transient is transient, original
+
+
+def test_typed_error_fields_survive_the_wire():
+    encoded = wire.encode_reply(ErrorTypedReply(InvalidArgumentError("n", "x")))
+    got = wire.decode_reply(encoded).error
+    assert (got.name, got.detail) == ("n", "x")
+    assert got.message == "invalid argument `n`: x"
+    unresolved = wire.decode_reply(b"\x05\x00\x05urn:x").error
+    assert unresolved.iri == "urn:x"
+    assert unresolved.message == "no endpoint resolved for urn:x"
+    missing = wire.decode_reply(b"\x05\x01\x02in").error
+    assert missing.name == "in"
+    assert missing.message == "missing required argument `in`"
+
+
+def test_a_remote_timeout_is_also_a_builtin_timeout():
+    import builtins
+
+    got = wire.decode_reply(b"\x05\x06\x04slow").error
+    assert isinstance(got, builtins.TimeoutError)
+    assert isinstance(got, EndpointError)
+
+
+def test_unknown_future_error_variant_degrades_to_the_base_loudly():
+    # A newer peer's taxonomy addition: the payload layout is unknowable, so
+    # the reply degrades to the BASE EndpointError naming the variant — never
+    # a mistyped (e.g. transient) failure, never a decode crash.
+    reply = wire.decode_reply(b"\x05\x63\x04\xde\xad\xbe\xef")
+    assert type(reply.error) is EndpointError
+    assert "unknown wire error variant 99" in reply.error.message
+    assert reply.error.transient is False
 
 
 def test_truncated_payload_is_a_decode_error():
