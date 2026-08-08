@@ -56,6 +56,7 @@ def test_a_version_mismatch_names_both_versions(socket_dir):
     listener.close()
 
 
+@pytest.mark.wire_v7_legacy
 def test_a_new_client_falls_back_against_a_pre_hello_server(socket_dir, capsys):
     # A <= v5 RUST server drops an undecodable frame SILENTLY; the client
     # must reconnect without the hello (warning loudly) and still work.
@@ -94,6 +95,7 @@ def test_a_new_client_falls_back_against_a_pre_hello_server(socket_dir, capsys):
     assert "predates wire v6" in capsys.readouterr().err
 
 
+@pytest.mark.wire_v7_legacy
 def test_a_legacy_client_without_a_hello_is_still_served(socket_dir, capsys):
     # A <= v5 client's first frame is a Call; the server serves it (warning)
     # under its configured default entries form.

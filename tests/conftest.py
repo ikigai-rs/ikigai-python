@@ -27,7 +27,8 @@ def socket_dir():
 
 
 class StubServer:
-    """Accepts connections and answers each decoded Call via ``respond``."""
+    """Accepts connections, answers the wire v6 hello, then answers each
+    decoded Call via ``respond``."""
 
     def __init__(self, path: Path, respond):
         self.path = path
@@ -48,18 +49,42 @@ class StubServer:
 
     def _handle(self, conn: socket.socket):
         with conn, conn.makefile("rwb") as f:
+            # The first frame decides the era, mirroring ``ikigai.serve``: a
+            # hello is answered with ours (so clients under test exercise the
+            # v6 wire path, not their legacy-reconnect fallback); a frame
+            # without the magic is a <= v5 client's first Call, served as one.
+            try:
+                first = wire.read_frame(f)
+            except (EOFError, OSError):
+                return
+            if wire.decode_hello(first) is not None:
+                try:
+                    wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
+                except OSError:
+                    return
+            elif not self._serve_one_frame(f, first):
+                return
             while True:
                 try:
-                    call = wire.decode_call(wire.read_frame(f))
+                    frame = wire.read_frame(f)
                 except (EOFError, OSError):
                     return
-                reply = self._respond(call)
-                if reply is None:
-                    # Scripted hang: hold the connection open, say nothing —
-                    # the client's read deadline is what's under test.
-                    time.sleep(10)
+                if not self._serve_one_frame(f, frame):
                     return
-                wire.write_frame(f, wire.encode_reply(reply))
+
+    def _serve_one_frame(self, f, frame: bytes) -> bool:
+        """Answer one Call frame; ``False`` ends the connection."""
+        reply = self._respond(wire.decode_call(frame))
+        if reply is None:
+            # Scripted hang: hold the connection open, say nothing —
+            # the client's read deadline is what's under test.
+            time.sleep(10)
+            return False
+        try:
+            wire.write_frame(f, wire.encode_reply(reply))
+        except OSError:
+            return False
+        return True
 
     def close(self):
         self._listener.close()
