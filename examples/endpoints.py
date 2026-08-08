@@ -16,44 +16,30 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Annotated
 
 from ikigai import endpoint, serve
 from ikigai.client import default_socket_path
 
-XSD_STRING = "http://www.w3.org/2001/XMLSchema#string"
+# The specs are DERIVED from the signatures (the L2 rung): each parameter's
+# annotation becomes its XSD class on the describe face, ``Annotated``
+# metadata becomes its summary, and a default would mark it optional. The
+# explicit args= dicts these endpoints used to declare produce byte-for-byte
+# the same face — args= remains available as the explicit override.
 
 
-@endpoint(
-    "urn:py:hello",
-    summary="Greet someone",
-    args=[{"name": "who", "required": True, "summary": "the name to greet", "class": XSD_STRING}],
-    cacheable=True,
-)
-def hello(who: str) -> str:
+@endpoint("urn:py:hello", summary="Greet someone", cacheable=True)
+def hello(who: Annotated[str, "the name to greet"]) -> str:
     return f"Hello, {who}!"
 
 
-@endpoint(
-    "urn:py:upper",
-    summary="Uppercase a string",
-    args=[
-        {"name": "text", "required": True, "summary": "the text to uppercase", "class": XSD_STRING}
-    ],
-    cacheable=True,
-)
-def upper(text: str) -> str:
+@endpoint("urn:py:upper", summary="Uppercase a string", cacheable=True)
+def upper(text: Annotated[str, "the text to uppercase"]) -> str:
     return text.upper()
 
 
-@endpoint(
-    "urn:py:reverse",
-    summary="Reverse a string",
-    args=[
-        {"name": "text", "required": True, "summary": "the text to reverse", "class": XSD_STRING}
-    ],
-    cacheable=True,
-)
-def reverse(text: str) -> str:
+@endpoint("urn:py:reverse", summary="Reverse a string", cacheable=True)
+def reverse(text: Annotated[str, "the text to reverse"]) -> str:
     return text[::-1]
 
 

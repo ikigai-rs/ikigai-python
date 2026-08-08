@@ -74,14 +74,37 @@ await k.close()
 ```python
 from ikigai import serve, endpoint
 
-@endpoint("urn:py:hello", summary="Greet someone",
-          args=[{"name": "who", "required": True,
-                 "class": "http://www.w3.org/2001/XMLSchema#string"}])
-def hello(who: str) -> str:
-    return f"Hello, {who}!"
+@endpoint("urn:py:hello", summary="Greet someone")
+def hello(who: str, greeting: str = "Hello") -> str:
+    return f"{greeting}, {who}!"
 
 serve([hello], "/tmp/py.sock")   # blocks; speaks the wire protocol
 ```
+
+**The signature is the contract.** With no `args=` list the ArgSpecs are
+derived from the function signature:
+
+- `who: str` → required, `xsd:string`; `greeting: str = "Hello"` → optional
+  with that default. `int` → `xsd:integer`, `float` → `xsd:double`, `bool` →
+  `xsd:boolean`, `bytes` → accepted with no class (raw bytes).
+- Incoming wire text is **coerced back to the annotated type** before the
+  handler runs (`times="3"` arrives as `int` 3, `loud="true"` as `True` —
+  the REPL's `true`/`false` convention); a value that will not coerce is an
+  endpoint error, not a handler crash.
+- `typing.Literal["fast", "slow"]` → `one_of` (enforced at invocation).
+- `Optional[T]` / `T | None` → optional; absent without a default, the
+  handler receives `None`.
+- `Annotated[str, "the name to greet"]` → the per-argument summary.
+- A trailing underscore maps a reserved word onto the wire: `def rev(in_:
+  str)` declares and receives the argument `in` (PEP 8's own convention) —
+  no `**kwargs` workaround needed.
+- Unannotated parameters are accepted with no class — gradual typing,
+  gradually rewarded; annotations are never *required*.
+
+An explicit `args=` list of spec dicts still works unchanged and wins
+wholesale over the signature (no merging; handlers then receive the wire
+text uncoerced, exactly as before). A name mismatch between the explicit
+list and the signature raises at decoration time.
 
 Then from a Rust host:
 
