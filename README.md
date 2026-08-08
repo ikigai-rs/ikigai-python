@@ -71,6 +71,13 @@ rep = await k.source("urn:fn:toUpper", **{"in": "hi"})
 await k.close()
 ```
 
+For web apps, `aio.lifespan(path)` packages the connect/publish/close cycle
+as an ASGI-style lifespan — one kernel connection for the app's lifetime,
+published on `app.state.kernel`. It is usable directly by Litestar
+(`lifespan=[aio.lifespan(path)]`) and adapts in one line for
+FastHTML/Starlette and Falcon; the docstring carries a snippet per
+framework.
+
 ## Serve (the peer-module seed)
 
 ```python

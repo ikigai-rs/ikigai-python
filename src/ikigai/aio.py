@@ -8,6 +8,10 @@ differs (asyncio streams instead of a blocking socket)::
     k = await aio.connect()
     rep = await k.source("urn:fn:toUpper", **{"in": "hi"})
     await k.close()
+
+For web apps, :func:`lifespan` packages the connect/publish/close cycle as
+an ASGI-style lifespan (one connection for the app's lifetime — see its
+docstring for the Litestar/FastHTML/Falcon shapes).
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import asyncio
 import json
 import struct
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from . import wire
@@ -55,12 +60,18 @@ class AsyncClient:
         *,
         capability: Capability | None = None,
         timeout: float | None = DEFAULT_TIMEOUT,
+        server_version: int | None = None,
     ):
         self._reader = reader
         self._writer = writer
         self._timeout = timeout
         self._lock = asyncio.Lock()
+        #: When set, requests go as ``Call::IssueAs`` under this capability
+        #: (which the server clamps to its authenticated principal).
         self.capability = capability
+        #: The version the server declared in its hello, or ``None`` for a
+        #: legacy (<= v5) server reached through the fallback.
+        self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
 
@@ -214,9 +225,76 @@ async def connect(
                 f"the kernel server speaks wire v{answer.version}, this client speaks "
                 f"v{wire.PROTOCOL_VERSION} — update the older side"
             )
-    client = AsyncClient(reader, writer, capability=capability, timeout=timeout)
-    client.server_version = server_version
-    return client
+    return AsyncClient(
+        reader,
+        writer,
+        capability=capability,
+        timeout=timeout,
+        server_version=server_version,
+    )
+
+
+def lifespan(
+    path: str | Path | None = None,
+    *,
+    state_attr: str = "kernel",
+    capability: Capability | None = None,
+    timeout: float | None = DEFAULT_TIMEOUT,
+    mode: wire.HelloMode = wire.HelloMode.VERBATIM,
+):
+    """One kernel connection for an app's lifetime, as an ASGI-style lifespan.
+
+    Returns an async-context-manager factory: called (with or without the app
+    instance) it connects, yields the :class:`AsyncClient`, and closes it on
+    exit. When the app has a ``state`` (Litestar, Starlette, FastHTML), the
+    client is also published there as ``state.<state_attr>`` (default
+    ``state.kernel``) so handlers can reach it; pass ``state_attr=""`` to skip
+    that. One connection per app is the intended shape — never connect per
+    request; a single client serializes concurrent requests internally.
+
+    **Litestar** — usable directly::
+
+        app = Litestar(route_handlers=[...], lifespan=[aio.lifespan(path)])
+        # handlers: await state.kernel.source(...)
+
+    **FastHTML / Starlette** — these want an async *generator* function, so
+    adapt in one line::
+
+        connection = aio.lifespan(path)
+        async def kernel_lifespan(app):
+            async with connection(app):
+                yield  # handlers: await app.state.kernel.source(...)
+        app, rt = fast_app(lifespan=kernel_lifespan)
+
+    **Falcon (ASGI)** — drive the same context manager from lifespan
+    middleware::
+
+        class KernelConnection:
+            def __init__(self, path=None):
+                self._cm = aio.lifespan(path)()
+            async def process_startup(self, scope, event):
+                self.kernel = await self._cm.__aenter__()
+            async def process_shutdown(self, scope, event):
+                await self._cm.__aexit__(None, None, None)
+
+    Outside a framework it is an ordinary context manager::
+
+        async with aio.lifespan(path)() as kernel:
+            await kernel.source(...)
+    """
+
+    @asynccontextmanager
+    async def connection(app=None):
+        kernel = await connect(path, capability=capability, timeout=timeout, mode=mode)
+        state = getattr(app, "state", None)
+        if state is not None and state_attr:
+            setattr(state, state_attr, kernel)
+        try:
+            yield kernel
+        finally:
+            await kernel.close()
+
+    return connection
 
 
 async def _dial(path: Path):
