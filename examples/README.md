@@ -70,7 +70,7 @@ curl -i 'localhost:8000/upper?text=roc'   # X-Ikigai-Cache: HIT — the kernel c
 ```
 
 Nothing in the app changed — same code, same IRIs; only `IKIGAI_SOCKET`
-moved. `/catalog` now lists the kernel's whole space (`urn:fn:*`,
+moved. `/catalog` now lists the kernel's whole space (`urn:iki:fn:*`,
 `urn:kernel:*`, …) with the `urn:py:*` entries composed in. The Litestar app
 surfaces the cache verdict as an `X-Ikigai-Cache` response header (Falcon
 too); the FastHTML app prints it in each result fragment.

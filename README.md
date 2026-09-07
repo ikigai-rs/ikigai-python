@@ -25,25 +25,51 @@ Dev setup: `pip install -e '.[dev]'`, then `ruff check .`,
 `ruff format --check .`, `pytest`. The integration tests drive the real
 `ikigai` binary and skip themselves when it is not on `PATH`.
 
+### You also need a host, and it must be recent enough
+
+This package only speaks to a running kernel; it binds nothing itself. Every
+example below names resources in the **`urn:iki:`** namespace, which the Rust
+host adopted in **`ikigai-cli` 0.1.18**. So:
+
+> **Requires `ikigai-cli` >= 0.1.18.** Nothing mechanical checks this — Python
+> packaging cannot express a floor on a Rust binary — so it is stated here
+> instead. On an older host every example in this README fails with
+> `no endpoint resolved for urn:iki:fn:toUpper`, and *that message is the only
+> symptom*: the name is simply unknown there. Older hosts used `urn:fn:`.
+
+```sh
+cargo install ikigai-cli --locked     # NOT `cargo install ikigai` — that is an
+                                      # unrelated crate by another author; ours
+                                      # publishes as `ikigai-cli` and installs a
+                                      # binary named `ikigai`.
+ikigai -c 'source urn:iki:fn:toUpper in="hi"'    # HI  ⇒ your host is new enough
+```
+
+0.1.18 also aliases the old spelling, so `urn:fn:toUpper` still resolves there
+— but the alias **canonicalizes before anything observes the name**. A request
+for `urn:fn:nope` comes back as `no endpoint resolved for urn:iki:fn:nope`, and
+trace events report `urn:iki:fn:toUpper` whichever spelling you sent. Code that
+matches on returned IRIs must expect the canonical form.
+
 ## Client (the notebook front door)
 
 ```python
 import ikigai
 
 k = ikigai.connect()          # default socket path, same as the Rust CLI
-rep = k.source("urn:fn:toUpper", **{"in": "hi"})
+rep = k.source("urn:iki:fn:toUpper", **{"in": "hi"})
 rep.text                      # "HI"
 rep.media_type                # "text/plain;charset=utf-8"
 rep.cache_status              # how the server's cache answered (HIT/MISS/UNCACHEABLE)
 k.sink("urn:file:notes.txt", "content goes as the `content` arg")
 k.exists("urn:file:notes.txt")  # "true" — the file the sink just wrote
 # NB exists still routes through the endpoint, so a function endpoint wants its
-# required args: k.exists("urn:fn:toUpper", **{"in": "hi"})
-k.meta("urn:fn:toUpper")      # self-description, text/turtle by default
-k.describe("urn:fn:toUpper")  # the JSON Meta face, parsed — ArgSpecs and all
+# required args: k.exists("urn:iki:fn:toUpper", **{"in": "hi"})
+k.meta("urn:iki:fn:toUpper")      # self-description, text/turtle by default
+k.describe("urn:iki:fn:toUpper")  # the JSON Meta face, parsed — ArgSpecs and all
 k.entries()                   # the catalog: [SpaceEntry(pattern, endpoint, origin)]
-k.is_cached("urn:fn:toUpper", **{"in": "hi"})
-k.source_traced("urn:fn:toUpper", **{"in": "hi"})   # (rep, [TraceEvent…])
+k.is_cached("urn:iki:fn:toUpper", **{"in": "hi"})
+k.source_traced("urn:iki:fn:toUpper", **{"in": "hi"})   # (rep, [TraceEvent…])
 k.close()                     # or use it as a context manager
 ```
 
@@ -74,7 +100,7 @@ streams, sharing the same codec:
 from ikigai import aio
 
 k = await aio.connect()
-rep = await k.source("urn:fn:toUpper", **{"in": "hi"})
+rep = await k.source("urn:iki:fn:toUpper", **{"in": "hi"})
 await k.close()
 ```
 
