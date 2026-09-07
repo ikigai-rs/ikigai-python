@@ -38,9 +38,22 @@ from ikigai.wire import (
     Verb,
 )
 
+# The one IRI the byte-exact fixtures below encode. It is deliberately in the
+# urn:test: namespace: a codec fixture is not a real module, so it must not move
+# when ikigai-fn is renamed. ikigai-cli's crates/ikigai-wire/src/lib.rs and
+# ikigai-deno's tests/wire_test.ts pin this same value, which is what makes these
+# vectors comparable across the three implementations.
+SHARED_IRI = "urn:test:upper"
+
+# Its postcard encoding: a varint length prefix then the UTF-8 bytes. Spelled as
+# a literal here (that is the point of a byte-exact fixture) and checked against
+# SHARED_IRI by test_shared_iri_encoding_matches_the_literal, so a rename cannot
+# leave a stale prefix that silently decodes a truncated IRI.
+SHARED_IRI_BYTES = b"\x0eurn:test:upper"
+
 
 def upper_request() -> Request:
-    return Request(Verb.SOURCE, "urn:iki:fn:toUpper", {"in": Inline(b"hi")})
+    return Request(Verb.SOURCE, SHARED_IRI, {"in": Inline(b"hi")})
 
 
 # --- byte-exact fixtures (hand-derived from the Rust type declarations) ---
@@ -55,13 +68,21 @@ def test_issue_call_bytes():
     expected = (
         b"\x00"  # Call::Issue
         b"\x00"  # Verb::Source (variant index 0, NOT the repr(u8) value 1)
-        b"\x12urn:iki:fn:toUpper"  # Iri newtype = string (0x12 = 18 bytes)
-        b"\x01"  # args: 1 entry
-        b"\x02in"  # key
-        b"\x01"  # ArgRef::Inline
-        b"\x02hi"  # value bytes
+        + SHARED_IRI_BYTES  # Iri newtype = string (0x0e = 14 bytes)
+        + (
+            b"\x01"  # args: 1 entry
+            b"\x02in"  # key
+            b"\x01"  # ArgRef::Inline
+            b"\x02hi"  # value bytes
+        )
     )
     assert encoded == expected
+
+
+def test_shared_iri_encoding_matches_the_literal():
+    # Guards the length trap: SHARED_IRI_BYTES is hand-written, so recompute the
+    # prefix from the string every run. 14 bytes => 0x0e.
+    assert SHARED_IRI_BYTES == bytes([len(SHARED_IRI.encode())]) + SHARED_IRI.encode()
 
 
 def test_resolved_reply_bytes():
@@ -142,7 +163,7 @@ REPLIES = [
     EntriesReply(()),
     EntriesReply(
         (
-            SpaceEntry("urn:iki:fn:toUpper", "toUpper"),
+            SpaceEntry(SHARED_IRI, "upper"),
             SpaceEntry("urn:py:hello", "hello", origin="/tmp/py.sock"),
         )
     ),
@@ -160,7 +181,7 @@ REPLIES = [
         CacheStatus.MISS,
         (
             TraceEvent(
-                target="urn:iki:fn:toUpper",
+                target=SHARED_IRI,
                 thread="ikigai-sched-0",
                 started=None,
                 ended=None,
