@@ -5,7 +5,7 @@ The front door for scripts and notebooks::
     import ikigai
 
     with ikigai.connect() as k:
-        rep = k.source("urn:fn:toUpper", **{"in": "hi"})
+        rep = k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         rep.text  # "HI"
 
 Errors surface as TYPED exceptions since wire v7: the server's failure

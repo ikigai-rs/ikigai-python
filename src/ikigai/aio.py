@@ -6,7 +6,7 @@ differs (asyncio streams instead of a blocking socket)::
     from ikigai import aio
 
     k = await aio.connect()
-    rep = await k.source("urn:fn:toUpper", **{"in": "hi"})
+    rep = await k.source("urn:iki:fn:toUpper", **{"in": "hi"})
     await k.close()
 
 For web apps, :func:`lifespan` packages the connect/publish/close cycle as

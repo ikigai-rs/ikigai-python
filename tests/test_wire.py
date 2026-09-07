@@ -40,7 +40,7 @@ from ikigai.wire import (
 
 
 def upper_request() -> Request:
-    return Request(Verb.SOURCE, "urn:fn:toUpper", {"in": Inline(b"hi")})
+    return Request(Verb.SOURCE, "urn:iki:fn:toUpper", {"in": Inline(b"hi")})
 
 
 # --- byte-exact fixtures (hand-derived from the Rust type declarations) ---
@@ -55,7 +55,7 @@ def test_issue_call_bytes():
     expected = (
         b"\x00"  # Call::Issue
         b"\x00"  # Verb::Source (variant index 0, NOT the repr(u8) value 1)
-        b"\x0eurn:fn:toUpper"  # Iri newtype = string
+        b"\x12urn:iki:fn:toUpper"  # Iri newtype = string (0x12 = 18 bytes)
         b"\x01"  # args: 1 entry
         b"\x02in"  # key
         b"\x01"  # ArgRef::Inline
@@ -142,7 +142,7 @@ REPLIES = [
     EntriesReply(()),
     EntriesReply(
         (
-            SpaceEntry("urn:fn:toUpper", "toUpper"),
+            SpaceEntry("urn:iki:fn:toUpper", "toUpper"),
             SpaceEntry("urn:py:hello", "hello", origin="/tmp/py.sock"),
         )
     ),
@@ -160,7 +160,7 @@ REPLIES = [
         CacheStatus.MISS,
         (
             TraceEvent(
-                target="urn:fn:toUpper",
+                target="urn:iki:fn:toUpper",
                 thread="ikigai-sched-0",
                 started=None,
                 ended=None,

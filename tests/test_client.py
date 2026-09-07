@@ -29,14 +29,14 @@ from ikigai.wire import (
 
 
 def upper_responder(call):
-    """A stub kernel: urn:fn:toUpper plus canned entries."""
+    """A stub kernel: urn:iki:fn:toUpper plus canned entries."""
     if isinstance(call, EntriesCall):
-        return EntriesReply((SpaceEntry("urn:fn:toUpper", "toUpper"),))
+        return EntriesReply((SpaceEntry("urn:iki:fn:toUpper", "toUpper"),))
     if isinstance(call, IsCached):
         return Cached(call.request.args.get("in") == Inline(b"cached"))
     if isinstance(call, Issue | IssueAs | IssueTraced):
         request = call.request
-        if request.target != "urn:fn:toUpper":
+        if request.target != "urn:iki:fn:toUpper":
             return ErrorReply(f"no endpoint resolved for {request.target}")
         arg = request.args.get("in")
         if not isinstance(arg, Inline):
@@ -59,7 +59,7 @@ def test_source_round_trip(upper_socket):
         # The stub answers the hello (required since v7); the failure shapes
         # of the exchange itself live in test_hello.
         assert k.server_version == wire.PROTOCOL_VERSION
-        rep = k.source("urn:fn:toUpper", **{"in": "hi"})
+        rep = k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
         assert rep.media_type == "text/plain;charset=utf-8"
         assert rep.cache_status == CacheStatus.MISS
@@ -125,20 +125,20 @@ def test_typed_errors_cross_the_async_client_too(stub_server):
 def test_entries(upper_socket):
     with ikigai.connect(upper_socket) as k:
         entries = k.entries()
-        assert entries == [SpaceEntry("urn:fn:toUpper", "toUpper")]
+        assert entries == [SpaceEntry("urn:iki:fn:toUpper", "toUpper")]
 
 
 def test_is_cached(upper_socket):
     with ikigai.connect(upper_socket) as k:
-        assert k.is_cached("urn:fn:toUpper", **{"in": "cached"})
-        assert not k.is_cached("urn:fn:toUpper", **{"in": "fresh"})
+        assert k.is_cached("urn:iki:fn:toUpper", **{"in": "cached"})
+        assert not k.is_cached("urn:iki:fn:toUpper", **{"in": "fresh"})
 
 
 def test_source_traced_returns_events(upper_socket):
     with ikigai.connect(upper_socket) as k:
-        rep, events = k.source_traced("urn:fn:toUpper", **{"in": "hi"})
+        rep, events = k.source_traced("urn:iki:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
-        assert [e.target for e in events] == ["urn:fn:toUpper"]
+        assert [e.target for e in events] == ["urn:iki:fn:toUpper"]
 
 
 def test_capability_rides_as_issue_as(stub_server):
@@ -181,7 +181,7 @@ def test_hung_server_times_out_instead_of_hanging(stub_server):
     with ikigai.connect(path, timeout=0.2) as k:
         start = time.monotonic()
         with pytest.raises(ikigai.ConnectionLost, match="hung or gone"):
-            k.source("urn:fn:toUpper", **{"in": "hi"})
+            k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         assert time.monotonic() - start < 2
 
 
@@ -204,13 +204,13 @@ def test_async_client_shares_the_surface(upper_socket):
     async def scenario():
         k = await aio.connect(upper_socket)
         try:
-            rep = await k.source("urn:fn:toUpper", **{"in": "hi"})
+            rep = await k.source("urn:iki:fn:toUpper", **{"in": "hi"})
             assert rep.text == "HI"
             entries = await k.entries()
-            assert entries == [SpaceEntry("urn:fn:toUpper", "toUpper")]
+            assert entries == [SpaceEntry("urn:iki:fn:toUpper", "toUpper")]
             with pytest.raises(ikigai.EndpointError):
                 await k.source("urn:nope")
-            rep, events = await k.source_traced("urn:fn:toUpper", **{"in": "yo"})
+            rep, events = await k.source_traced("urn:iki:fn:toUpper", **{"in": "yo"})
             assert rep.text == "YO"
             assert len(events) == 1
         finally:
@@ -234,7 +234,7 @@ def test_async_hung_server_times_out(stub_server):
         k = await aio.connect(path, timeout=0.2)
         try:
             with pytest.raises(ikigai.ConnectionLost, match="hung or gone"):
-                await k.source("urn:fn:toUpper", **{"in": "hi"})
+                await k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         finally:
             await k.close()
 

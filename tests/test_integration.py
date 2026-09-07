@@ -5,6 +5,13 @@ these run locally against ``~/.cargo/bin/ikigai``). When the binary speaks a
 DIFFERENT wire version than this package, the functional tests skip and the
 pairing tests assert the mismatch is diagnosed cleanly instead — both
 versions named by the hello, never garbled postcard.
+
+⚠ These require ``ikigai-cli`` **>= 0.1.18**, which is the release that moved
+the host's resources into ``urn:iki:``. There is no version handshake for
+that — only the wire version is negotiated — so an older host fails these
+with ``no endpoint resolved for urn:iki:fn:toUpper`` and nothing else. If you
+see that, upgrade the host (``cargo install ikigai-cli --locked``); the name
+is not wrong, it is merely newer than your binary.
 """
 
 from __future__ import annotations
@@ -178,36 +185,36 @@ def rust_server(socket_dir, matched_host):
 
 def test_python_client_drives_the_rust_kernel(rust_server):
     with ikigai.connect(rust_server) as k:
-        rep = k.source("urn:fn:toUpper", **{"in": "hi"})
+        rep = k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
         assert rep.media_type.startswith("text/plain")
         entries = k.entries()
         assert any(e.endpoint == "toUpper" for e in entries)
-        description = k.describe("urn:fn:toUpper")
+        description = k.describe("urn:iki:fn:toUpper")
         assert description["id"] == "toUpper"
         assert any(i["name"] == "in" for i in description["inputs"])
 
 
 def test_python_client_sees_the_rust_cache(rust_server):
     with ikigai.connect(rust_server) as k:
-        first = k.source("urn:fn:toUpper", **{"in": "cache me"})
+        first = k.source("urn:iki:fn:toUpper", **{"in": "cache me"})
         assert first.cache_status == ikigai.CacheStatus.MISS
-        second = k.source("urn:fn:toUpper", **{"in": "cache me"})
+        second = k.source("urn:iki:fn:toUpper", **{"in": "cache me"})
         assert second.cache_status == ikigai.CacheStatus.HIT
-        assert k.is_cached("urn:fn:toUpper", **{"in": "cache me"})
+        assert k.is_cached("urn:iki:fn:toUpper", **{"in": "cache me"})
 
 
 def test_python_client_traces_the_rust_kernel(rust_server):
     with ikigai.connect(rust_server) as k:
-        rep, events = k.source_traced("urn:fn:toUpper", **{"in": "hi"})
+        rep, events = k.source_traced("urn:iki:fn:toUpper", **{"in": "hi"})
         assert rep.text == "HI"
-        assert any(e.target == "urn:fn:toUpper" for e in events)
+        assert any(e.target == "urn:iki:fn:toUpper" for e in events)
 
 
 def test_rust_error_string_crosses_to_python(rust_server):
     with ikigai.connect(rust_server) as k:
-        with pytest.raises(ikigai.EndpointError, match="no endpoint resolved for urn:fn:nope"):
-            k.source("urn:fn:nope")
+        with pytest.raises(ikigai.EndpointError, match="no endpoint resolved for urn:iki:fn:nope"):
+            k.source("urn:iki:fn:nope")
 
 
 def test_rust_error_taxonomy_crosses_typed(rust_server):
@@ -215,9 +222,23 @@ def test_rust_error_taxonomy_crosses_typed(rust_server):
     # Unresolved arrives as the SAME variant, not a flattened string.
     with ikigai.connect(rust_server) as k:
         with pytest.raises(ikigai.UnresolvedError) as e:
-            k.source("urn:fn:nope")
-        assert e.value.iri == "urn:fn:nope"
+            k.source("urn:iki:fn:nope")
+        assert e.value.iri == "urn:iki:fn:nope"
         assert e.value.transient is False
+
+
+def test_the_alias_canonicalizes_before_the_name_is_observed(rust_server):
+    # 0.1.18 aliases urn:fn: → urn:iki:fn:, and the rewrite happens BEFORE
+    # anything reads the name back out: an error names the canonical form, not
+    # the form the caller sent. Pinned here because it is the difference
+    # between a client that can match on a returned IRI and one that cannot —
+    # and because it is what makes the old spelling unusable in an assertion
+    # even while it still resolves.
+    with ikigai.connect(rust_server) as k:
+        assert k.source("urn:fn:toUpper", **{"in": "hi"}).text == "HI"  # still resolves
+        with pytest.raises(ikigai.UnresolvedError) as e:
+            k.source("urn:fn:nope")  # sent with the OLD spelling…
+        assert e.value.iri == "urn:iki:fn:nope"  # …and comes back canonical
 
 
 # -- version pairing (these run under mismatch too) -------------------------
