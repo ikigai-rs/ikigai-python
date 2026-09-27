@@ -156,6 +156,9 @@ class ArgSpec:
         # incoming wire text is coerced back to.
         self.py_name = name
         self.py_has_default = False
+        #: False only for an input the host must SEND but the handler never
+        #: asked for (a Sink's auto-declared ``content``): validated, not passed.
+        self.py_deliver = True
         self.py_type: type | None = None
 
     @classmethod
@@ -370,7 +373,9 @@ def _binding_specs(handler, where: str, template: UriTemplate) -> list[ArgSpec]:
     except (TypeError, ValueError):
         has_var_kw = True  # not introspectable: trust it, as derive_args does
     specs = []
-    for var in template.variables:
+    # `{a}:{a}` is legal (core's Bindings is a map; the last capture wins) and
+    # is ONE input, as core has one binding.
+    for var in dict.fromkeys(template.variables):
         spec = by_name.get(var)
         if spec is None:
             if not has_var_kw:
@@ -385,6 +390,19 @@ def _binding_specs(handler, where: str, template: UriTemplate) -> list[ArgSpec]:
         spec.source = "binding"
         specs.append(spec)
     return specs
+
+
+def _can_receive(handler, name: str) -> bool:
+    """Whether ``handler`` takes a keyword ``name`` (or ``name_``, or ``**kwargs``)."""
+    try:
+        params = inspect.signature(handler).parameters
+    except (TypeError, ValueError):
+        return True
+    return (
+        name in params
+        or name + "_" in params
+        or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+    )
 
 
 def _is_mutating(verb: Verb) -> bool:
@@ -430,9 +448,23 @@ class Action:
                         f"template {template.source} — a binding and an argument cannot "
                         "share a name"
                     )
+                if spec.source == "binding":
+                    raise TypeError(
+                        f"{where}: declares `{spec.name}` as a binding, but bindings come "
+                        "from the template's variables (and their parameters), not from args="
+                    )
             _check_explicit_args(handler, where, rest, bound=variables)
+        auto_content = None
+        if verb == Verb.SINK and not any(spec.name == "content" for spec in rest):
+            # The pipeline rule: the host engine routes every piped or trailing
+            # value to `content`, so a Sink declares it whether or not its
+            # handler reads it. Required, like the Deno face's.
+            auto_content = ArgSpec("content", summary="the body to write")
+            rest.append(auto_content)
         self.args = bindings + rest
         _map_parameters(handler, self.args)
+        if auto_content is not None and not _can_receive(handler, "content"):
+            auto_content.py_deliver = False
         self.output = output
         self.cacheable = cacheable
         self.requires = list(requires or [])
@@ -500,9 +532,13 @@ class _Door:
         return [v for v in _VERB_ORDER if v in self.actions] + [Verb.META]
 
     def answered_verbs(self) -> list[Verb]:
-        """What a request may actually use: the declared verbs plus Exists,
-        which every door answers (see :meth:`Space._exists`)."""
-        verbs = [v for v in _VERB_ORDER if v in self.actions or v is Verb.EXISTS]
+        """What a request may actually use: the declared verbs, plus Exists
+        wherever it has a default (see :meth:`Space._exists`) — every flat
+        door, and a family that declares Source."""
+        has_default_exists = self.flat or Verb.SOURCE in self.actions
+        verbs = [
+            v for v in _VERB_ORDER if v in self.actions or (v is Verb.EXISTS and has_default_exists)
+        ]
         return verbs + [Verb.META]
 
     # The flat form's top-level fields. A family states everything per
@@ -778,24 +814,28 @@ class Family(_Door):
     (``Expiry::Never``); a ``sink``/``delete`` answer never is, whatever the
     handler returns. A Sink receives its body as ``content`` — the
     ecosystem's pipeline rule (the host engine always routes a piped or
-    trailing value there), so a Sink that can be piped into declares
-    ``content``. A ``sink``/``delete`` handler returning ``None`` answers
+    trailing value there), so every Sink declares a required ``content``:
+    if the handler's contract does not name it, it is added (summary "the
+    body to write") and validated, and handed to the handler only if it can
+    receive it. A ``sink``/``delete`` handler returning ``None`` answers
     ``ok``; an ``exists`` handler may return a ``bool``.
 
     **Exists** defaults to "Source would succeed": the source handler runs,
     a result answers ``true``, a raised ``NotFoundError`` answers ``false``,
-    and any other failure crosses as itself. Declare ``.exists`` to answer it
-    more cheaply. (The default runs the Source handler, so it counts as a
-    read wherever reads are counted.) A family with no Source answers
-    ``true`` — it is bound. A verb the family does not declare is refused
-    with an ``EndpointError`` naming the verbs it does answer.
+    and any other failure crosses as itself; the answer is cacheable exactly
+    when Source is. Declare ``.exists`` to answer it more cheaply. (The
+    default runs the Source handler, so it counts as a read wherever reads
+    are counted.) A family with neither Source nor Exists refuses Exists. A
+    verb the family does not declare is refused with an ``EndpointError``
+    naming the verbs it does answer. ``id`` defaults to the pattern's last
+    variable-free segment (``stored`` for ``urn:py:stored:{x}:{y}``).
 
     The host kernel cuts the target's golden thread after every successful
     Sink or Delete it forwards here (ikigai-core >= 0.1.73), so a cacheable
     Source needs no invalidation code on this side."""
 
-    def __init__(self, pattern: str, *, id: str, title: str = "", summary: str = ""):
-        super().__init__(pattern, id, title, summary)
+    def __init__(self, pattern: str, *, id: str | None = None, title: str = "", summary: str = ""):
+        super().__init__(pattern, id or _default_id(pattern), title, summary)
 
     def _declare(self, verb: Verb, fn, **contract):
         held = self.actions.get(verb)
@@ -870,8 +910,17 @@ class Family(_Door):
         return self._decorator(Verb.EXISTS, fn, contract)
 
 
-def family(pattern: str, *, id: str, title: str = "", summary: str = "") -> Family:
-    """A multi-verb endpoint over ``pattern`` — see :class:`Family`."""
+def _default_id(pattern: str) -> str:
+    """The last segment with no variable in it: ``urn:py:stored:{x}:{y}`` is
+    ``stored`` (the Deno face's rule, so a family ported between the two
+    keeps its catalog name)."""
+    plain = [segment for segment in pattern.split(":") if "{" not in segment]
+    return plain[-1] if plain else pattern
+
+
+def family(pattern: str, *, id: str | None = None, title: str = "", summary: str = "") -> Family:
+    """A multi-verb endpoint over ``pattern`` — see :class:`Family`. ``id``
+    defaults to the pattern's last variable-free segment."""
     return Family(pattern, id=id, title=title, summary=summary)
 
 
@@ -938,8 +987,21 @@ def _coerce_binding(spec: ArgSpec, text: str):
     return _coerce_derived(spec, text)
 
 
-def _ok_text(text: str) -> Resolved:
-    return Resolved(Representation(text.encode("utf-8"), TEXT_PLAIN), CacheStatus.UNCACHEABLE)
+def _yes_no(value: bool, *, cacheable: bool) -> Resolved:
+    rep = Representation(
+        b"true" if value else b"false",
+        TEXT_PLAIN,
+        expiry=Expiry.never() if cacheable else Expiry.always(),
+    )
+    return Resolved(rep, CacheStatus.MISS if cacheable else CacheStatus.UNCACHEABLE)
+
+
+def _refuse(d, verb: Verb) -> ErrorTypedReply:
+    """An undeclared verb: an Endpoint failure naming what IS answered."""
+    answered = ", ".join(v.wire_name for v in d.answered_verbs())
+    return ErrorTypedReply(
+        EndpointError(f"verb {verb.wire_name} is not supported by `{d.id}` (it answers {answered})")
+    )
 
 
 class Space:
@@ -947,9 +1009,9 @@ class Space:
 
     **Routing mirrors ``ikigai_core::EndpointSpace``: the first declared door
     whose pattern matches wins** — declare a specific door before a general
-    template that would also match it. (An EXACT door that an earlier
-    template already matches could never answer, so that is refused at
-    construction rather than left dead.) Each door is matched in two forms,
+    template that would also match it; a later door it shadows is left
+    unreachable, exactly as in a Rust kernel. The same pattern text declared
+    twice is refused at construction. Each door is matched in two forms,
     its declared pattern and its alias-stripped one; a connection whose hello
     declared an alias mount tries the stripped forms first, every other
     caller the declared forms first."""
@@ -967,29 +1029,18 @@ class Space:
         self._declared: list[tuple[UriTemplate, _Door]] = []
         self._aliased: list[tuple[UriTemplate, _Door]] = []
         for d in defs:
-            self._route(self._declared, d.template, d, check_shadowing=True)
+            self._route(self._declared, d.template, d)
         for d in defs:
             alias = d.alias_template
             if alias is not None:
-                # No shadowing check here: an alias strips the namespace
-                # segment, so two namespaces can collide in stripped form
-                # without either being wrong in its declared one.
-                self._route(self._aliased, alias, d, check_shadowing=False)
+                self._route(self._aliased, alias, d)
         self._defs = defs
 
     @staticmethod
-    def _route(routes, template: UriTemplate, d: _Door, *, check_shadowing: bool) -> None:
+    def _route(routes, template: UriTemplate, d: _Door) -> None:
         for held_template, held in routes:
-            if held is d:
-                continue
-            if held_template.source == template.source:
+            if held is not d and held_template.source == template.source:
                 raise ValueError(f"two endpoints answer {template.source}: {held.id} and {d.id}")
-            if check_shadowing and template.is_exact and held_template.match(template.source):
-                raise ValueError(
-                    f"{d.id} can never answer {template.source}: {held.id}'s "
-                    f"{held_template.source}, declared earlier, matches it first "
-                    "(first declared wins — declare the specific door before the general one)"
-                )
         routes.append((template, d))
 
     def lookup(self, target: str, alias_first: bool = False):
@@ -1057,27 +1108,26 @@ class Space:
         if action is None and request.verb == Verb.EXISTS:
             return self._exists(d, bindings, request)
         if action is None:
-            answered = ", ".join(v.wire_name for v in d.answered_verbs())
-            return ErrorTypedReply(
-                EndpointError(
-                    f"verb {request.verb.wire_name} is not supported by `{d.id}` "
-                    f"(it answers {answered})"
-                )
-            )
+            return _refuse(d, request.verb)
         return self._invoke(action, bindings, request)
 
     def _exists(self, d: _Door, bindings: dict, request: Request) -> Reply:
-        """The default Exists. A flat ``@endpoint`` (or a family with no
-        Source) is bound, so it exists; a family's Exists is "Source would
-        succeed" — a NotFound is ``false``, any other failure is itself."""
+        """The default Exists. A flat ``@endpoint`` is bound, so it exists
+        (the handler never runs). A family's is "would Source succeed": the
+        Source handler runs, a NotFound is ``false``, any other failure is
+        itself, and the answer is cacheable exactly when Source is (the host
+        hangs it from the same thread a Sink cuts). A family with neither
+        Source nor Exists refuses Exists."""
+        if d.flat:
+            return _yes_no(True, cacheable=False)
         source = d.actions.get(Verb.SOURCE)
-        if d.flat or source is None:
-            return _ok_text("true")
+        if source is None:
+            return _refuse(d, Verb.EXISTS)
         reply = self._invoke(source, bindings, request)
         if isinstance(reply, Resolved):
-            return _ok_text("true")
+            return _yes_no(True, cacheable=source.cacheable)
         if isinstance(reply, ErrorTypedReply) and isinstance(reply.error, NotFoundError):
-            return _ok_text("false")
+            return _yes_no(False, cacheable=source.cacheable)
         return reply
 
     def _invoke(self, action: Action, bindings: dict, request: Request) -> Reply:
@@ -1098,7 +1148,8 @@ class Space:
                         value = _coerce_derived(arg, value)
                 except ValueError as e:  # by-reference arg, or coercion failure
                     return ErrorTypedReply(InvalidArgumentError(arg.name, str(e)))
-                kwargs[arg.py_name] = value
+                if arg.py_deliver:
+                    kwargs[arg.py_name] = value
             elif arg.required:
                 return ErrorTypedReply(MissingArgumentError(arg.name))
             elif action.derived:

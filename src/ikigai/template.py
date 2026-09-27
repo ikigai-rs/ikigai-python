@@ -23,6 +23,10 @@ The rule, exactly as core states it:
   handler's to judge (the tic-tac-toe store refuses ``01`` for itself).
 * **Adjacent variables** (``{a}{b}``) are refused at parse time as ambiguous;
   so are an unclosed ``{`` and an empty ``{}``.
+* **The whole IRI must be consumed**, and captures are **raw** — no
+  percent-decoding, as in core.
+* **A variable named twice** (``{a}:{a}``) is accepted, as core accepts it,
+  and the LAST capture wins (core's ``Bindings`` is a map).
 
 A template with no variables is an exact IRI, which is how this face binds a
 plain ``@endpoint`` too: one matcher for both, the way the host's name map does
