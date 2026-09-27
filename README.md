@@ -276,6 +276,55 @@ invocation always works — only the catalog view is affected.
   `InvalidArgument`): an L0 peer has no back-channel to the host to
   dereference them.
 
+## Tic-tac-toe, all in Python except the middle
+
+The ikigai book builds tic-tac-toe as resources (the tutorial's
+`crates/tic-tac-toe`), and ships its HTML as **template resources** so that
+any host in any language can render the same board. This package plays both
+ends of that game around a Rust kernel:
+
+- **the state**: `examples/tictactoe_store.py` serves the stored cell,
+  `urn:iki:tutorial:ttt:stored:{x}:{y}` — the only state the game has;
+- **the rendering**: `examples/tictactoe_app.py` is a standard-library web
+  app (`http.server`) that fills the game's templates, in Python, from the
+  host's raw resources — `template:{name}`, `cell:{x}:{y}`, `winner`,
+  `turn` — and serves the page, the vendored htmx and the book's stylesheet;
+- **the middle**: `ttt-host` (the tutorial's `crates/ttt-host`) holds the
+  rules, the lines, the board and the turn, and does the resolution, the
+  composition, the caching and the invalidation.
+
+```sh
+python -m examples.tictactoe_store /tmp/ttt/store.sock &
+ttt-host --socket /tmp/ttt/host.sock --game py=/tmp/ttt/store.sock &
+python -m examples.tictactoe_app --socket /tmp/ttt/host.sock
+# open http://127.0.0.1:8072/game/py/
+```
+
+(Keep socket paths short: macOS allows 104 bytes. `ttt-host` also serves the
+same board itself on port 8070; the Deno face's app uses 8071, this one
+8072.)
+
+The app's fragments are byte-for-byte the host's own Rust `view:board` and
+`view:status`: `tests/test_tictactoe_app.py` plays one game through the app
+and a twin game through the Rust views and compares every board, status and
+reply, through a won game, refusals and a draw (it skips when `ttt-host` is
+not installed). The renderer is a regular expression, an escape table and
+three short functions; it keeps no state and caches nothing, because every
+read it makes is a cache hit in the host until a move cuts it.
+
+Two honest limits, both about the kernel in the middle:
+
+- **Always write through the host.** The app Sinks the host's `move:{x}:{y}`
+  and `reset`, never the store. The host cuts a stored cell's golden thread
+  when ITS kernel issues the write; a write straight to the Python store
+  (another client of that socket) would leave the host serving the old board
+  until something else cut it. There is no golden thread over the wire yet.
+- **Render from raw resources, never compute the game.** The app asks the
+  host for `winner` rather than working it out from the cells. A Python
+  composite that read the cells back through the host and decided the winner
+  itself would be a traccessor: an answer built from reads the host never saw
+  it make, so the host could not track its dependencies or ever cut it.
+
 ## Examples: REST faces over the client
 
 `examples/` shows three web frameworks built on this client — Litestar

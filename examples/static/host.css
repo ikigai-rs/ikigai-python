@@ -1,0 +1,39 @@
+/* ttt-host's page: the colors the book's `ttt.css` reads, defined here because this page
+ * is not an mdbook page. Light by default, dark when the reader's system asks for it. Text and
+ * links clear 4.5:1 on both backgrounds; the rule color clears 3:1 on the page. */
+
+:root {
+    --bg: #ffffff;
+    --fg: #1f1f1f;
+    --links: #1f5f99;
+    --quote-bg: #f3f4f6;
+    --table-header-bg: #8a929c;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #1d1f21;
+        --fg: #e6e6e6;
+        --links: #7cc4ff;
+        --quote-bg: #2a2d30;
+        --table-header-bg: #7d8590;
+    }
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+}
+
+main {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+a {
+    color: var(--links);
+}

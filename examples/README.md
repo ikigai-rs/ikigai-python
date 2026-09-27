@@ -102,6 +102,17 @@ ikigai --override urn:iki:tutorial:ttt:stored:=/tmp/ttt.sock \
 `tests/test_tictactoe_store.py` pins its contract against the Rust original's
 messages; `tests/test_integration.py` drives it through the installed host.
 
+## The board, rendered in Python (`tictactoe_app.py`)
+
+`tictactoe_app.py` puts the two directions together: a standard-library web
+app that renders the book's tic-tac-toe board from `ttt-host`'s resources
+over IPC, with the game's state optionally in `tictactoe_store.py` under the
+host. It needs no extras. See "Tic-tac-toe, all in Python except the middle"
+in the top-level README for the three commands and the two limits;
+`tests/test_tictactoe_app.py` checks its output byte-for-byte against the
+host's Rust views. `static/` holds the vendored htmx 2.0.4 (0BSD) and the
+stylesheets, byte-identical to the book's; the test pins their digests.
+
 ## Tests
 
 `tests/test_examples_*.py` smoke-test each app with its framework's own test

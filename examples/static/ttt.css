@@ -1,0 +1,95 @@
+/* The tic-tac-toe board — the markup is the game's own templates
+ * (`crates/tic-tac-toe/templates/*.html`), and this is the ONE stylesheet for it, whoever
+ * serves it: the book loads it as additional-css, and `ttt-host` serves this same file.
+ *
+ * As in run.css, every color is one of mdbook's theme variables, so the contrast gate
+ * (`crates/book-a11y`) has already measured every pair used here. A host outside the book
+ * defines those variables itself (ttt-host's `host.css`).
+ */
+
+/* Boards side by side on a wide page, one under the other on a narrow one. */
+.ttt-boards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin: 1.2em 0;
+}
+
+.ttt-play {
+    min-width: 14rem;
+}
+
+.ttt-game {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--table-header-bg);
+    border-radius: 4px;
+    background: var(--quote-bg);
+    color: var(--fg);
+}
+
+.ttt-status {
+    margin: 0;
+    min-height: 1.5em;
+    font-weight: 600;
+}
+
+.ttt-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.ttt-row {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.ttt-square {
+    width: 3rem;
+    height: 3rem;
+    margin: 0;
+    padding: 0;
+    border: 2px solid var(--links);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* A played square, or an empty one once the game is over: still focusable (so focus stays
+ * where it was when the board re-renders), not a move. The border drops to the table rule
+ * color so an open square is the one that looks pressable. */
+.ttt-square[aria-disabled="true"] {
+    border-color: var(--table-header-bg);
+    cursor: default;
+}
+
+.ttt-square:focus-visible,
+.ttt-reset:focus-visible {
+    outline: 3px solid var(--links);
+    outline-offset: 2px;
+}
+
+.ttt-reset {
+    font: inherit;
+    font-size: 0.9em;
+    padding: 0.25rem 0.8rem;
+    border: 1px solid var(--links);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--links);
+    cursor: pointer;
+}
+
+.ttt-unavailable {
+    margin: 0;
+    font-style: italic;
+}
