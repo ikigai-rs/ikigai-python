@@ -84,6 +84,24 @@ requests internally (the wire is strictly call/reply per connection); that is
 a deliberate simplification at example scale — a pool would be the next step,
 not a different pattern.
 
+## The other direction: a stateful family (`tictactoe_store.py`)
+
+The apps above are faces OVER the client. `tictactoe_store.py` is the
+opposite: Python serving a resource for a Rust host to mount — the ikigai
+book's tic-tac-toe atom, `urn:iki:tutorial:ttt:stored:{x}:{y}`, one templated
+family answering Source, Sink and Delete over in-memory state (see "Families
+and verbs" in the top-level README). It needs no extras:
+
+```sh
+python -m examples.tictactoe_store /tmp/ttt.sock
+ikigai --override urn:iki:tutorial:ttt:stored:=/tmp/ttt.sock \
+    -c 'sink urn:iki:tutorial:ttt:stored:1:1 X' \
+    -c 'source urn:iki:tutorial:ttt:stored:1:1'
+```
+
+`tests/test_tictactoe_store.py` pins its contract against the Rust original's
+messages; `tests/test_integration.py` drives it through the installed host.
+
 ## Tests
 
 `tests/test_examples_*.py` smoke-test each app with its framework's own test

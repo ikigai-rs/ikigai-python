@@ -71,10 +71,17 @@ def matched_host():
         pytest.skip(f"installed ikigai speaks another wire version: {mismatch}")
 
 
-def run_repl(*commands: str, mount: str | None = None, timeout: float = 60.0) -> str:
+def run_repl(
+    *commands: str,
+    mount: str | None = None,
+    override: str | None = None,
+    timeout: float = 60.0,
+) -> str:
     argv = [IKIGAI]
     if mount:
         argv += ["--mount", mount]
+    if override:
+        argv += ["--override", override]
     for command in commands:
         argv += ["-c", command]
     done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
@@ -277,3 +284,86 @@ def test_rust_client_and_python_server_pair_cleanly(socket_dir):
     finally:
         server.shutdown()
         thread.join(timeout=5)
+
+
+# -- a FAMILY through the host: the tic-tac-toe store -----------------------
+#
+# ⚠ The cut test needs a host whose kernel is ikigai-core >= 0.1.73 (the
+# release where a Sink/Delete cuts its target's thread unconditionally).
+# Verified against ikigai-cli 0.1.29; an older host serves the stale `X`
+# from its cache and the test says so by printing the whole transcript.
+
+
+@pytest.fixture
+def ttt_store(socket_dir, matched_host):
+    from examples.tictactoe_store import CellStore, stored_cell
+
+    store = CellStore()
+    path = socket_dir / "ttt.sock"
+    server = Server([stored_cell(store)], path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield path, store
+    server.shutdown()
+    thread.join(timeout=5)
+
+
+def test_rust_host_cuts_a_cached_family_read_after_a_sink_through_the_mount(ttt_store):
+    # Source → Sink → Source through a real host: the host caches the peer's
+    # cacheable read, and the Sink it forwards cuts that read's golden thread
+    # (core >= 0.1.73) — no invalidation code on this side. The store's read
+    # counter is the proof: the cached read ran NOTHING here.
+    path, store = ttt_store
+    cell = "urn:iki:tutorial:ttt:stored:1:1"
+    argv = [IKIGAI, "--override", f"urn:iki:tutorial:ttt:stored:={path}"]
+    for command in (
+        f"sink {cell} X",
+        f"source {cell}",
+        f"source {cell}",  # served from the host's cache
+        f"sink {cell} O",  # cuts it
+        f"source {cell}",  # so this one runs
+        f"delete {cell}",
+        f"source {cell}",  # and after a Delete, the typed NotFound crosses back
+    ):
+        argv += ["-c", command]
+    done = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+    combined = done.stdout + done.stderr
+    assert done.stdout.split() == ["ok", "X", "X", "ok", "O", "ok"], combined
+    assert "not found: nothing has been played at 1,1" in done.stderr, combined
+    assert "1 cached" in done.stderr, combined
+    assert store.reads == 3, combined  # read, (cached), read, read-after-delete
+    assert store.marks == {}
+
+
+def test_rust_host_lists_and_describes_a_python_family(ttt_store):
+    path, _ = ttt_store
+    out = run_repl(
+        "list",
+        "describe urn:iki:tutorial:ttt:stored:0:0",
+        mount=None,
+        override=f"urn:iki:tutorial:ttt:stored:={path}",
+    )
+    assert "urn:iki:tutorial:ttt:stored:{x}:{y}" in out  # the template, not a name
+    assert "ttt-stored" in out
+    assert "<urn:ikigai:endpoint:ttt-stored:action:sink> a ik:Action" in out
+    assert 'ik:source "binding"' in out
+
+
+def test_rust_host_refuses_a_second_spelling_of_a_square(ttt_store):
+    path, store = ttt_store
+    done = subprocess.run(
+        [
+            IKIGAI,
+            "--override",
+            f"urn:iki:tutorial:ttt:stored:={path}",
+            "-c",
+            "sink urn:iki:tutorial:ttt:stored:01:1 X",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert "invalid argument `x`: `01` is not an integer in its plain form (e.g. 0, 2, -1)" in (
+        done.stdout + done.stderr
+    )
+    assert store.marks == {}

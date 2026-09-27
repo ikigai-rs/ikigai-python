@@ -11,7 +11,8 @@ from .client import (
     connect,
     default_socket_path,
 )
-from .serve import ArgSpec, EndpointDef, Server, endpoint, serve
+from .serve import ArgSpec, EndpointDef, Family, Server, endpoint, family, serve
+from .template import TemplateError, UriTemplate
 from .wire import (
     PROTOCOL_VERSION,
     CacheStatus,
@@ -44,10 +45,12 @@ __all__ = [
     "Client",
     "ConnectionLost",
     "EndpointDef",
+    "Family",
     "Server",
     "connect",
     "default_socket_path",
     "endpoint",
+    "family",
     "serve",
     "CacheStatus",
     "Capability",
@@ -64,10 +67,12 @@ __all__ = [
     "Representation",
     "Request",
     "SpaceEntry",
+    "TemplateError",
     "TimeoutError",
     "TraceEvent",
     "UnavailableError",
     "UnresolvedError",
+    "UriTemplate",
     "Verb",
     "WireError",
 ]

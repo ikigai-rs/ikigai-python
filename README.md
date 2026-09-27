@@ -174,12 +174,79 @@ What a served endpoint gets for free, because its describe face is real:
 - Meta faces: `text/turtle` (default — skolemized `ik:` graph, no blank
   nodes), `text/plain`, `application/json`.
 
+### Families and verbs
+
+One door can answer a whole **family** of names, and more than one **verb**.
+`family()` declares a URI template; each verb gets its own handler and its
+own contract (core's per-verb `ActionSpec` form):
+
+```python
+from ikigai import family, serve, NotFoundError
+
+cell = family("urn:iki:tutorial:ttt:stored:{x}:{y}", id="ttt-stored")
+marks = {}
+
+@cell.source(cacheable=True)
+def read(x: int, y: int) -> str:
+    if (x, y) not in marks:
+        raise NotFoundError(f"nothing has been played at {x},{y}")
+    return marks[(x, y)]
+
+@cell.sink
+def play(x: int, y: int, content: str) -> str:
+    marks[(x, y)] = content.strip()
+    return "ok"
+
+@cell.delete
+def clear(x: int, y: int) -> str:
+    marks.pop((x, y), None)
+    return "ok"
+
+serve([cell], "/tmp/ttt.sock")
+```
+
+- **Templates** mirror `ikigai_core::UriTemplate` exactly (`ikigai.UriTemplate`;
+  the rule is in `src/ikigai/template.py`). Level 1 `{var}` only; a variable
+  captures up to the *leftmost* occurrence of the literal after it, a trailing
+  one takes the rest, and every capture is non-empty. The **first declared door
+  that matches wins**, as in an `EndpointSpace` — declare the specific before the
+  general (an exact door an earlier template already swallows is refused).
+  `@endpoint` takes a template too, for a Source-only family.
+- **Bindings** arrive as the handler parameters of the same name, typed by
+  their annotations, and are described as `ik:source "binding"` inputs of every
+  action. The catalog lists the **template**, so the host's `list`, topology
+  and selection see the family. A binding is part of the resource's *name*, so
+  an `int` binding accepts one spelling per integer: `01`, `+1`, `-0` are
+  `InvalidArgument` (two spellings would be two cache entries and two golden
+  threads over one piece of state).
+- **Verbs**: `.source`, `.sink`, `.delete`, `.exists`, bare or with
+  `(summary=…, args=…, output=…, requires=…)`. A Sink's body arrives as
+  `content` — the host engine routes every piped or trailing value there.
+  `source`/`exists` may be `cacheable=True`; a Sink or Delete answer never is.
+  **Exists** defaults to "Source would succeed" (`NotFoundError` → `false`).
+  An undeclared verb is refused, naming the verbs the door does answer.
+- **Invalidation is the host's**: a Rust host (ikigai-core ≥ 0.1.73) cuts the
+  target's golden thread after every Sink or Delete it forwards, so the cached
+  read above needs no code here. `tests/test_integration.py` proves it
+  through the installed host.
+- **Mount a family with `--override`**, which forwards IRIs unchanged:
+  `ikigai --override urn:iki:tutorial:ttt:stored:=/tmp/ttt.sock`. An alias
+  `--mount` works only at the first segment (`--mount urn:iki:=…`), because
+  this server can strip only what it can guess — see below.
+
+`examples/tictactoe_store.py` is the ikigai book's tic-tac-toe atom served
+this way — the Rust `stored_cell`'s contract, message for message — for a
+Rust host to mount under everything else the game computes.
+
 ### Alias mounts strip the prefix (important)
 
 `--mount urn:py:=<socket>` is an **alias** mount: the host rewrites
 `urn:py:hello` → `urn:hello` before forwarding, and re-prefixes catalog
 patterns coming back. This server therefore answers **both** the declared IRI
-and its alias-stripped form. Each connection's hello declares its mount mode
+and its alias-stripped form (`urn:py:echo/{m}` also answers as `urn:echo/{m}`).
+It strips exactly the first segment — the only prefix a peer can guess, since
+the hello says THAT the mount aliases but not at which prefix — so a deeper
+alias prefix reaches nothing here; use `--override` for that. Each connection's hello declares its mount mode
 (the hello is required since wire v7), and `entries` answers accordingly
 *per connection*: an alias mount sees the stripped patterns, a verbatim
 client (plain `--connect`, `--override`, `--prefer`) sees the declared IRIs
