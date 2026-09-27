@@ -11,6 +11,7 @@ If they differ, the Python filler is wrong, not the template.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import shutil
 import socket
 import subprocess
@@ -24,20 +25,20 @@ import pytest
 
 import ikigai
 from examples import tictactoe_app as app
-from examples.tictactoe_app import Html, fill, iri_of, said, view
+from examples.tictactoe_app import Html, Refusal, Target, decoded, fill, respond, said, target
 
 # -- the vendored files -------------------------------------------------------------------
 
 #: Pinned here as well as in the app, so changing a file means changing both on purpose. All
-#: three as ikigai-tutorial commit 9a95b0c has them (`git show 9a95b0c:<path>`), the build of
+#: three as ikigai-tutorial commit 4d9440a has them (`git show 4d9440a:<path>`), the build of
 #: ttt-host the parity tests run against — never a working tree, which may be mid-edit.
 DIGESTS = {
     # The book's src/vendor/htmx-2.0.4.min.js, which is ikigai-web's assets/htmx.min.js.
     "htmx-2.0.4.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
     # The book's css/ttt.css, the one stylesheet for the markup.
-    "ttt.css": "4955aadc02365f9eb9e5a71038a9dbb541647ee626eaad8db45ffd32fa845a53",
+    "ttt.css": "f93bde4b6dacb82b085d88c8cf33c899eb3dd435dd64acd5e1e19c63be04f09b",
     # ttt-host's static/host.css: the color variables ttt.css reads.
-    "host.css": "4427125dde3c767472ceeb387e7bebf7459130ae6b9044ac00e1611a0c30fead",
+    "host.css": "79437443cd22e56d183ebf5b4a6de625e72354d38e8a39e54894bf0dc19f27ac",
 }
 
 
@@ -66,10 +67,72 @@ def test_fill_puts_html_in_raw_and_passes_slot_integers():
     assert seen == [("square", (0, -2)), ("status", ())]
 
 
-def test_fill_leaves_what_is_not_a_slot():
-    # Rust refuses such a template outright; the fixed templates have none, and this filler,
-    # like the book's JS one, simply does not see them.
-    assert fill("{{Nope}} {{x} {x}} {{x 1 }}", lambda *_: "!") == "{{Nope}} {{x} {x}} {{x 1 }}"
+#: The template format's cases, copied from ikigai-tutorial's ``crates/tic-tac-toe/README.md``
+#: (the ``template-cases`` block, as of commit 4d9440a), which the Rust filler is tested
+#: against. ``refuse`` is a template the filler must refuse; ``slots`` is a template, a tab,
+#: and what it reads as (``name args…`` per slot, joined by `` | ``, ``-`` for none);
+#: ``escape`` is a text, a tab, and its escaped form. A line with no kind continues the case
+#: before it.
+TEMPLATE_CASES = """\
+slots   a {{square 0 -2}} b {{mark}}\tsquare 0 -2 | mark
+slots   {{x}}}\tx
+slots   }} {x} { {x}\t-
+slots   {{a-b 12 -345}}\ta-b 12 -345
+refuse  {{x 01}}
+refuse  {{x -0}}
+refuse  {{x +1}}
+refuse  {{x 1 }}
+refuse  {{x  1}}
+refuse  {{ x}}
+refuse  {{Mark}}
+refuse  {{-x}}
+refuse  {{}}
+refuse  {{x}
+refuse  {{x}} {{
+refuse  {{{x}}}
+refuse  {{x 99999999999999999999}}
+refuse  {{x
+y}}
+escape  a&b<c>"d'e\ta&amp;b&lt;c&gt;&quot;d&#39;e
+escape  it's\tit&#39;s
+escape  ✓ 1,1\t✓ 1,1
+"""
+
+
+def template_cases() -> list[tuple[str, str]]:
+    cases: list[tuple[str, str]] = []
+    for line in TEMPLATE_CASES.splitlines():
+        kind = next((k for k in ("slots", "refuse", "escape") if line.startswith(k)), None)
+        if kind is None:
+            cases[-1] = (cases[-1][0], cases[-1][1] + "\n" + line)
+        else:
+            cases.append((kind, line[len(kind) :].lstrip()))
+    return cases
+
+
+def test_there_are_template_cases():
+    assert len(template_cases()) >= 20
+
+
+@pytest.mark.parametrize(("kind", "text"), template_cases())
+def test_the_template_format_cases_hold(kind, text):
+    if kind == "refuse":
+        with pytest.raises(ikigai.EndpointError, match="^a template: "):
+            app.slots(text)
+    elif kind == "slots":
+        template, expected = text.split("\t")
+        shown = [" ".join([name, *map(str, args)]) for name, args in app.slots(template)]
+        assert (" | ".join(shown) or "-") == expected
+    else:
+        raw, escaped = text.split("\t")
+        assert fill("{{m}}", lambda _: raw) == escaped
+
+
+def test_a_refused_template_is_refused_by_fill_too():
+    with pytest.raises(ikigai.EndpointError, match=r"`\{\{Mark\}\}` is not a slot"):
+        fill("<b>{{Mark}}</b>", lambda _: "X")
+    with pytest.raises(ikigai.EndpointError, match="is never closed"):
+        fill("{{x}} {{", lambda _: "X")
 
 
 class FakeGame:
@@ -142,51 +205,139 @@ def test_a_refusal_is_said_as_the_rust_kernel_displays_it(error, shown):
     assert said(error) == shown
 
 
-# -- the path <-> IRI rule and the routes -------------------------------------------------
+# -- the edge: ttt-host's HTTP rules -----------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("path", "iri"),
+    ("raw", "path"),
     [
-        ("iki/tutorial/ttt/view/board", "urn:iki:tutorial:ttt:view:board"),
-        ("iki/tutorial/ttt/view/play/1/-1", "urn:iki:tutorial:ttt:view:play:1:-1"),
-        ("iki//ttt", None),
-        ("iki/./ttt", None),
-        ("iki/../ttt", None),
-        ("iki/ttt/", None),
-        ("http://evil/x", None),
+        ("/game/a/", "/game/a/"),
+        ("/a%2Fb", "/a/b"),  # decoded before it is split, so %2F separates
+        ("/%30%31", "/01"),
+        ("/+1", "/ 1"),  # `+` is a space in the path too, as ikigai-web decodes it
+        ("/%2B1", "/+1"),
+        ("/%+1", "/\x01"),  # Rust's from_str_radix takes a leading `+`
+        ("/%zz/%/%4", "/%zz/%/%4"),  # not an escape: kept
+        ("/%E2%82%AC", "/\u20ac"),
+        ("/%FF", "/\ufffd"),
     ],
 )
-def test_the_path_iri_rule(path, iri):
-    assert iri_of(path) == iri
+def test_a_path_is_decoded_as_ikigai_web_decodes_it(raw, path):
+    assert decoded(raw) == path
 
 
 @pytest.mark.parametrize(
-    ("verb", "path", "answer"),
+    ("path", "view"),
     [
-        ("GET", "", app.page),
-        ("GET", "iki/tutorial/ttt/view/board", app.board),
-        ("GET", "iki/tutorial/ttt/view/status", app.status),
-        ("POST", "iki/tutorial/ttt/view/board", 405),
-        ("POST", "", 405),
-        ("GET", "iki/tutorial/ttt/view/play/1/1", 405),
-        ("GET", "iki/tutorial/ttt/view/reset", 405),
-        ("POST", "iki/tutorial/ttt/view/play/01/1", 404),  # one spelling per square
-        ("POST", "iki/tutorial/ttt/view/play/1", 404),
-        ("GET", "iki/tutorial/ttt/stored/1/1", 404),  # the app is not a proxy
-        ("GET", "iki/tutorial/ttt/view/board/", 404),
-        ("GET", "favicon.ico", 404),
+        ("/", Target("page", None, "urn:ttt-host:page:root")),
+        ("//", Target("page", None, "urn:ttt-host:page:root")),
+        ("/game/a", Target("page", "a", "urn:ttt-host:page:game:a")),
+        ("/game/a/", Target("page", "a", "urn:ttt-host:page:game:a")),
+        ("/game/a_b", Target("page", "a_b", "urn:ttt-host:page:game:a_b")),  # the host says
+        ("/static/ttt.css/", Target("static", None, "urn:ttt-host:static:ttt.css", "ttt.css")),
+        ("/iki/tutorial/ttt/view/board", Target("board", None, "urn:iki:tutorial:ttt:view:board")),
+        (
+            "/game/a/iki/tutorial/ttt/view/status/",
+            Target("status", "a", "urn:game:a:iki:tutorial:ttt:view:status"),
+        ),
+        (
+            "/game/a//iki:tutorial/ttt/view/reset",  # empty segments dropped; `:` separates
+            Target("reset", "a", "urn:game:a:iki:tutorial:ttt:view:reset"),
+        ),
+        (
+            "/game/a/iki/tutorial/ttt/view/play/01/1/2",  # x to the next `:`, y the rest
+            Target("play", "a", "urn:game:a:iki:tutorial:ttt:view:play:01:1:2", ("01", "1:2")),
+        ),
+        ("/game/a/iki/tutorial/ttt/view/play/1", None),
+        ("/game/a/iki/tutorial/ttt/view/play/%3A1/1", None),  # an empty x is no play
+        ("/game/a/iki/tutorial/ttt/stored/1/1", None),  # the app is not a proxy
+        ("/game/a/iki/tutorial/ttt/cell/1/1", None),
+        ("/game/a/x/iki/tutorial/ttt/view/board", None),
+        ("/game/a:x/iki/tutorial/ttt/view/board", None),  # game a, then `x:iki:…`
+        ("/game", None),
+        ("/static/nope.js", None),
+        ("/favicon.ico", None),
     ],
 )
-def test_the_routes(verb, path, answer):
-    assert view(verb, path) == answer
+def test_the_views_a_path_names(path, view):
+    assert target(path) == view
+
+
+@pytest.mark.parametrize(
+    ("iri", "valid"),
+    [
+        ("urn:iki:tutorial:ttt:view:play:1:'", True),
+        ("urn:iki:tutorial:ttt:view:play:1:\u00a0", True),
+        ("urn:iki:tutorial:ttt:view:play:1:?", True),
+        ("urn:iki:tutorial:ttt:view:play:1:#?", True),
+        ("urn:iki:tutorial:ttt:view:play:1:?a\ue000", True),  # private use, in the query
+        ("urn:iki:tutorial:ttt:view:play:1:%41", True),
+        ("urn:iki:tutorial:ttt:view:play:1:\ue000", False),  # ... but not in the path
+        ("urn:iki:tutorial:ttt:view:play:1:##", False),
+        ("urn:iki:tutorial:ttt:view:play:1: 1", False),
+        ("urn:iki:tutorial:ttt:view:play:1:<", False),
+        ("urn:iki:tutorial:ttt:view:play:1:[", False),
+        ("urn:iki:tutorial:ttt:view:play:1:%", False),
+        ("urn:iki:tutorial:ttt:view:play:1:\ufffe", False),
+        ("urn:iki:tutorial:ttt:view:play:1:\ufffd", False),
+    ],
+)
+def test_a_name_the_host_can_parse(iri, valid):
+    assert bool(app.URN.fullmatch(iri)) is valid
+
+
+BOARD = Target("board", "a", "urn:game:a:iki:tutorial:ttt:view:board")
+PLAY = Target("play", "a", "urn:game:a:iki:tutorial:ttt:view:play:1:1", ("1", "1"))
+READS, WRITES = "GET, HEAD, OPTIONS", "POST, PUT, PATCH, OPTIONS"
+
+
+def unasked():
+    raise AssertionError("the answer does not depend on the game")
+
+
+@pytest.mark.parametrize(
+    ("verb", "view", "known", "answer"),
+    [
+        ("GET", BOARD, None, app.board),
+        ("HEAD", BOARD, None, app.board),
+        ("GET", Target("page", None, "urn:ttt-host:page:root"), None, app.page),
+        ("POST", BOARD, True, Refusal(405, "method not allowed", READS)),
+        ("POST", BOARD, False, Refusal(404, f"no endpoint resolved for {BOARD.iri}")),
+        ("DELETE", BOARD, False, Refusal(404, f"no endpoint resolved for {BOARD.iri}")),
+        ("PATCH", BOARD, True, Refusal(405, "method not allowed", READS)),
+        ("PATCH", BOARD, False, Refusal(415, "no patch strategy for this Content-Type")),
+        ("PATCH", PLAY, None, Refusal(415, "no patch strategy for this Content-Type")),
+        ("GET", PLAY, True, Refusal(405, "method not allowed", WRITES)),
+        ("HEAD", PLAY, True, Refusal(405, "method not allowed", WRITES)),
+        ("GET", PLAY, False, Refusal(404, f"no endpoint resolved for {PLAY.iri}")),
+        ("OPTIONS", PLAY, True, Refusal(204, "", WRITES)),
+        ("OPTIONS", PLAY, False, Refusal(204, "", READS)),
+        ("FOO", PLAY, True, Refusal(405, "method not allowed", WRITES)),
+    ],
+)
+def test_the_refusals_come_in_ikigai_webs_order(verb, view, known, answer):
+    assert respond(verb, view, unasked if known is None else lambda: known) == answer
 
 
 def test_the_writes_route_to_the_hosts_writes():
     game = FakeGame({})
-    view("POST", "iki/tutorial/ttt/view/play/2/-1")(game)
-    view("POST", "iki/tutorial/ttt/view/reset")(game)
+    game.resources["cell:2:-1"] = "-"
+    respond("POST", target("/iki/tutorial/ttt/view/play/2/-1"), unasked)(game)
+    respond("PUT", target("/iki/tutorial/ttt/view/reset"), unasked)(game)
     assert game.sunk == ["move:2:-1", "reset"]
+
+
+def test_a_play_reads_its_cell_first_so_the_host_refuses_a_spelling():
+    class Refusing(FakeGame):
+        def text(self, name):
+            if name == "cell:01:1":
+                raise ikigai.InvalidArgumentError("x", "`01` is not an integer in its plain form")
+            return super().text(name)
+
+    game = Refusing({})
+    with pytest.raises(ikigai.InvalidArgumentError):
+        respond("POST", target("/iki/tutorial/ttt/view/play/01/1"), unasked)(game)
+    assert game.sunk == []
 
 
 @pytest.fixture
@@ -215,16 +366,22 @@ def fetch(url: str, method: str = "GET") -> tuple[int, dict, bytes]:
         return e.code, dict(e.headers), e.read()
 
 
-def test_the_static_files_and_the_refusals_need_no_host(serve_app, socket_dir):
+def test_the_files_the_root_games_refusals_and_the_non_views_need_no_host(serve_app, socket_dir):
     base = serve_app(socket_dir / "nobody.sock")
     for name, (media, _) in app.STATIC_FILES.items():
         code, headers, body = fetch(f"{base}/static/{name}")
         assert (code, headers["Content-Type"]) == (200, media)
         assert body == (app.STATIC / name).read_bytes()
-    assert fetch(f"{base}/static/nope.js")[0] == 404
-    assert fetch(f"{base}/game/a/iki/tutorial/ttt/view/play/1/1")[0] == 405
-    assert fetch(f"{base}/game/a/iki/tutorial/ttt/nope")[0] == 404
-    assert fetch(f"{base}/game/a", method="POST")[0] == 405  # the page, as /game/a/ is
+    assert fetch(f"{base}/static/ttt.css", "DELETE")[0] == 405
+    assert fetch(f"{base}/iki/tutorial/ttt/view/play/1/1")[0] == 405
+    assert fetch(f"{base}/", method="POST")[0] == 405
+    for path in ["/static/nope.js", "/game/a/iki/tutorial/ttt/nope", "/favicon.ico"]:
+        code, headers, body = fetch(base + path)
+        assert (code, body) == (404, b"not found"), path
+    assert fetch(f"{base}/game/a/iki/tutorial/ttt/view/play/1/a%20b", "POST")[:3:2] == (
+        400,
+        b"not a resource path",
+    )
 
 
 def test_no_host_is_a_503(serve_app, socket_dir):
@@ -301,7 +458,7 @@ class Twins:
         where = "" if game == "" else f"/game/{game}"
         code, headers, body = fetch(f"{self.base}{where}/iki/tutorial/ttt/{path}", method)
         assert code == 200, body
-        assert headers["Content-Type"] == "text/html; charset=utf-8"
+        assert headers["Content-Type"] == "text/html;charset=utf-8"
         return body.decode("utf-8")
 
     def same_views(self, game: str = "py") -> None:
@@ -370,6 +527,7 @@ def test_parity_in_the_root_game(twins):
         "/",
         "/game/py/",
         "/game/rs",
+        "/game/root/",
         "/static/htmx-2.0.4.min.js",
         "/static/ttt.css",
         "/static/host.css",
@@ -378,7 +536,7 @@ def test_parity_in_the_root_game(twins):
 def test_the_page_and_its_files_are_ttt_hosts_byte_for_byte(twins, path):
     ours, theirs = fetch(twins.base + path), fetch(twins.host_http + path)
     assert (ours[0], ours[2]) == (theirs[0], theirs[2]) == (200, theirs[2])
-    assert ours[1]["Content-Type"].replace(" ", "") == theirs[1]["Content-Type"].replace(" ", "")
+    assert ours[1]["Content-Type"] == theirs[1]["Content-Type"]
     if not path.startswith("/static/"):
         assert "base-uri 'self'" in ours[1]["Content-Security-Policy"]
 
@@ -396,6 +554,175 @@ def test_the_page_is_the_games_template_under_its_base(twins):
 def test_a_game_the_host_does_not_have_is_a_404(twins):
     assert fetch(f"{twins.base}/game/nope/")[0] == 404
     assert fetch(f"{twins.base}/game/nope/iki/tutorial/ttt/view/board")[0] == 404
+
+
+VIEWS = "iki/tutorial/ttt/view"
+
+#: The edges the parity test asks the app and the host, measured on ``ttt-host`` (tutorial
+#: 4d9440a): ikigai-deno's rows (its ``tests/tictactoe_app_test.ts``, PR #13) with game ``py``
+#: for ``a`` and ``zz`` the game the host lacks, then this face's own. Game ``py`` is over
+#: when they are asked, so every play is refused and nothing moves: the app and the host can
+#: answer the SAME game, and each row's status, body, Content-Type and Allow must agree.
+EDGES = [
+    # The page: a trailing slash or not, an unknown game, a name that is not an IRI.
+    ("GET", "/game/py"),
+    ("GET", "/game/py//"),
+    ("GET", "/game/zz"),
+    ("GET", "/game/zz/"),
+    ("GET", "/game/a_b/"),
+    ("GET", "/game/p%79/"),  # decoded before routing: game py
+    ("GET", "/game/a%20b/"),
+    ("GET", "/game/a%4"),
+    ("GET", "/game/a:b/"),
+    ("HEAD", "/game/py/"),
+    ("HEAD", "/game/zz/"),
+    ("POST", "/"),
+    ("POST", "/game/py/"),
+    ("POST", "/game/zz/"),
+    ("PUT", "/game/py/"),
+    ("DELETE", "/game/py"),
+    ("PATCH", "/game/py/"),
+    ("PATCH", "/game/zz/"),
+    ("OPTIONS", "/"),
+    ("OPTIONS", "/game/py/"),
+    ("OPTIONS", "/game/zz/"),
+    ("FOO", "/game/py/"),
+    ("FOO", "/game/zz/"),
+    # A play: its coordinates in every wrong spelling, and every method.
+    ("POST", f"/game/py/{VIEWS}/play/01/0"),
+    ("POST", f"/game/py/{VIEWS}/play/-0/0"),
+    ("POST", f"/game/py/{VIEWS}/play/+1/0"),  # `+` is a space: not an IRI
+    ("POST", f"/game/py/{VIEWS}/play/%2B1/0"),
+    ("POST", f"/game/py/{VIEWS}/play/x/0"),
+    ("POST", f"/game/py/{VIEWS}/play/1.0/0"),
+    ("POST", f"/game/py/{VIEWS}/play/0/01"),
+    ("POST", f"/game/py/{VIEWS}/play/99999999999999999999/0"),
+    ("POST", f"/game/py/{VIEWS}/play/9223372036854775808/0"),
+    ("POST", f"/game/py/{VIEWS}/play/-9223372036854775808/0"),
+    ("POST", f"/game/py/{VIEWS}/play/1/2/3"),  # y is the rest: `2:3`
+    ("POST", f"/game/py/{VIEWS}/play/1/a%20b"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%3C"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%5B"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%zz"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%+1"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%3F"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%23"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%23%23"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%EE%80%80"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%3Fa%EE%80%80"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%EF%BF%BE"),
+    ("POST", f"/game/py/{VIEWS}/play/1/%FF"),
+    ("POST", f"/game/py/{VIEWS}/play/%E2%82%AC/0"),
+    ("POST", f"/game/py/{VIEWS}/play/1/'"),
+    ("POST", f"/game/py/{VIEWS}/play/3/1"),
+    ("POST", f"/game/py/{VIEWS}/play/%31/%31"),
+    ("POST", f"/game/py/{VIEWS}/play/1%2F1"),
+    ("POST", "/game/py/iki:tutorial/ttt/view/play/1/1"),
+    ("PUT", f"/game/py/{VIEWS}/play/1/1"),
+    ("POST", f"/game/py/{VIEWS}/play/1/1/"),
+    ("GET", f"/game/py/{VIEWS}/play/1/1"),
+    ("HEAD", f"/game/py/{VIEWS}/play/1/1"),
+    ("DELETE", f"/game/py/{VIEWS}/play/1/1"),
+    ("PATCH", f"/game/py/{VIEWS}/play/1/1"),
+    ("OPTIONS", f"/game/py/{VIEWS}/play/1/1"),
+    ("GET", f"/game/py/{VIEWS}/reset"),
+    ("DELETE", f"/game/py/{VIEWS}/reset"),
+    ("PATCH", f"/game/py/{VIEWS}/reset"),
+    ("POST", f"/{VIEWS}/play/01/0"),
+    # The reads.
+    ("POST", f"/game/py/{VIEWS}/board"),
+    ("PUT", f"/game/py/{VIEWS}/board"),
+    ("DELETE", f"/game/py/{VIEWS}/status"),
+    ("PATCH", f"/game/py/{VIEWS}/status"),
+    ("HEAD", f"/game/py/{VIEWS}/board"),
+    ("OPTIONS", f"/game/py/{VIEWS}/board"),
+    ("FOO", f"/game/py/{VIEWS}/board"),
+    ("GET", f"/game/py/{VIEWS}/board/"),
+    ("GET", "/game/py/iki/tutorial/ttt//view//status"),
+    ("GET", f"/{VIEWS}/status"),
+    ("GET", f"/{VIEWS}/board?x=1"),
+    # An unknown game: nothing is declared there, so no 405 and no coordinate check.
+    ("GET", f"/game/zz/{VIEWS}/board"),
+    ("GET", f"/game/zz/{VIEWS}/play/1/1"),
+    ("POST", f"/game/zz/{VIEWS}/play/1/1"),
+    ("POST", f"/game/zz/{VIEWS}/play/01/0"),
+    ("POST", f"/game/zz/{VIEWS}/reset"),
+    ("DELETE", f"/game/zz/{VIEWS}/board"),
+    ("PATCH", f"/game/zz/{VIEWS}/reset"),
+    ("OPTIONS", f"/game/zz/{VIEWS}/board"),
+    ("FOO", f"/game/zz/{VIEWS}/board"),
+    ("GET", f"/game/a_b/{VIEWS}/board"),
+    # The root game's gateway name, which the host's catalog does not list.
+    ("GET", "/game/root/"),
+    ("POST", "/game/root/"),
+    ("GET", f"/game/root/{VIEWS}/status"),
+    ("POST", f"/game/root/{VIEWS}/board"),
+    ("GET", f"/game/root/{VIEWS}/play/1/1"),
+    ("POST", f"/game/root/{VIEWS}/play/01/1"),
+    # The files the page loads.
+    ("GET", "/static//ttt.css"),
+    ("GET", "/static/ttt.css/"),
+    ("HEAD", "/static/host.css"),
+    ("POST", "/static/ttt.css"),
+    ("OPTIONS", "/static/host.css"),
+]
+
+#: Paths the host serves that are not views: the app answers ``404 not found``, whatever the
+#: method — it is not a proxy for the host's other names.
+NOT_VIEWS = [
+    ("GET", "/game/py/iki/tutorial/ttt/board"),
+    ("GET", "/game/py/iki/tutorial/ttt/cell/1/1"),
+    ("GET", "/game/py/iki/tutorial/ttt/winner"),
+    ("GET", "/game/py/iki/tutorial/ttt/template/board"),
+    ("GET", "/iki/tutorial/ttt/turn"),
+    ("GET", "/iki/tutorial/ttt/stored/1/1"),
+    ("GET", "/game/py/iki/tutorial/ttt/stored/1/1"),
+    ("GET", "/game/py/iki/tutorial/ttt/view/nothing"),
+    ("POST", "/game/py/iki/tutorial/ttt/view/play/1"),
+    ("POST", "/game/py/iki/tutorial/ttt/view/play/%3A1/1"),
+    ("GET", "/static/nothing.css"),
+    ("GET", "/favicon.ico"),
+    ("GET", "/game"),
+    ("FOO", "/nothing"),
+    ("OPTIONS", "/nothing"),
+    ("GET", "/a%20b"),
+]
+
+
+def call(base: str, method: str, path: str) -> tuple[int, bytes, str | None, str | None]:
+    """``method`` on ``path`` as it is spelled, which ``urllib`` would not send: its status,
+    body, Content-Type and Allow."""
+    host, port = base.removeprefix("http://").split(":")
+    connection = http.client.HTTPConnection(host, int(port), timeout=30)
+    try:
+        connection.putrequest(method, path, skip_accept_encoding=True)
+        connection.endheaders()
+        response = connection.getresponse()
+        body = response.read()
+        return (
+            response.status,
+            body,
+            response.getheader("Content-Type"),
+            response.getheader("Allow"),
+        )
+    finally:
+        connection.close()
+
+
+@needs_host
+def test_the_edges_are_ttt_hosts(twins):
+    for x, y in [(1, 1), (0, 0), (2, 0), (1, 0), (0, 2)]:  # X takes a diagonal: the game is over
+        twins.play(x, y)
+    answered = {}
+    for method, path in EDGES:
+        ours, theirs = call(twins.base, method, path), call(twins.host_http, method, path)
+        assert ours == theirs, f"{method} {path}"
+        answered[ours[0]] = answered.get(ours[0], 0) + 1
+    for method, path in NOT_VIEWS:
+        assert call(twins.base, method, path)[:2] == (404, b"not found"), f"{method} {path}"
+    assert twins.rust("py", "view:status") == "X has won."  # no edge moved anything
+    print(f"edges: {len(EDGES)} rows the same as ttt-host's, by status {sorted(answered.items())}")
 
 
 @needs_host

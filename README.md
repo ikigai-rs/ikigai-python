@@ -309,9 +309,16 @@ The app's fragments are byte-for-byte the host's own Rust `view:board` and
 and a twin game through the Rust views and compares every board, status and
 reply, through a won game, refusals and a draw — and the page and its three
 static files against `ttt-host`'s own HTTP face (it skips when `ttt-host` is
-not installed). The renderer is a regular expression, an escape table and
-three short functions; it keeps no state and caches nothing, because every
-read it makes is a cache hit in the host until a move cuts it.
+not installed). Every other request to a view is answered as `ttt-host`
+answers it, status and body: a trailing slash, an unknown game, a wrong
+method, a coordinate spelled `01` or `+1`. The test asks both of them the
+same table of edge requests (ikigai-deno's rows, with this face's added) and
+requires the same status, body, Content-Type and `Allow`. A path that is not
+a view gets `404 not found`, because the app is not a proxy for the host's
+other names. The renderer is the template format's tokenizer (it refuses a
+malformed slot, as the Rust filler does), an escape table and three short
+functions. It keeps no state and caches nothing, because every read it makes
+is a cache hit in the host until a move cuts it.
 
 Two honest limits, both about the kernel in the middle:
 

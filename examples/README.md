@@ -111,7 +111,7 @@ host. It needs no extras. See "Tic-tac-toe, all in Python except the middle"
 in the top-level README for the three commands and the two limits;
 `tests/test_tictactoe_app.py` checks its output byte-for-byte against the
 host's Rust views. `static/` holds the vendored htmx 2.0.4 (0BSD) and the
-stylesheets, as ikigai-tutorial commit `9a95b0c` (the `ttt-host` build the
+stylesheets, as ikigai-tutorial commit `4d9440a` (the `ttt-host` build the
 parity tests ran against) has them; the test pins their digests. Re-vendor
 with `git show <commit>:<path>` from the commit a new host is built from,
 never from a working tree.

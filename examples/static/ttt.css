@@ -2,7 +2,7 @@
  * (`crates/tic-tac-toe/templates/*.html`), and this is the ONE stylesheet for it, whoever
  * serves it: the book loads it as additional-css, and `ttt-host` serves this same file.
  *
- * As in run.css, every colour is one of mdbook's theme variables, so the contrast gate
+ * As in run.css, every color is one of mdbook's theme variables, so the contrast gate
  * (`crates/book-a11y`) has already measured every pair used here. A host outside the book
  * defines those variables itself (ttt-host's `host.css`).
  */
@@ -66,7 +66,7 @@
 
 /* A played square, or an empty one once the game is over: still focusable (so focus stays
  * where it was when the board re-renders), not a move. The border drops to the table rule
- * colour so an open square is the one that looks pressable. */
+ * color so an open square is the one that looks pressable. */
 .ttt-square[aria-disabled="true"] {
     border-color: var(--table-header-bg);
     cursor: default;
