@@ -210,7 +210,8 @@ serve([cell], "/tmp/ttt.sock")
   captures up to the *leftmost* occurrence of the literal after it, a trailing
   one takes the rest, and every capture is non-empty. The **first declared door
   that matches wins**, as in an `EndpointSpace` — declare the specific before the
-  general (an exact door an earlier template already swallows is refused).
+  general (a door an earlier template swallows is unreachable, as in Rust; the
+  same pattern declared twice is refused).
   `@endpoint` takes a template too, for a Source-only family.
 - **Bindings** arrive as the handler parameters of the same name, typed by
   their annotations, and are described as `ik:source "binding"` inputs of every
@@ -221,9 +222,11 @@ serve([cell], "/tmp/ttt.sock")
   threads over one piece of state).
 - **Verbs**: `.source`, `.sink`, `.delete`, `.exists`, bare or with
   `(summary=…, args=…, output=…, requires=…)`. A Sink's body arrives as
-  `content` — the host engine routes every piped or trailing value there.
+  `content` — the host engine routes every piped or trailing value there, so
+  every Sink declares a required `content` even if its handler does not ask.
   `source`/`exists` may be `cacheable=True`; a Sink or Delete answer never is.
-  **Exists** defaults to "Source would succeed" (`NotFoundError` → `false`).
+  **Exists** defaults to "Source would succeed" (`NotFoundError` → `false`,
+  cacheable exactly when Source is); a family with no Source refuses it.
   An undeclared verb is refused, naming the verbs the door does answer.
 - **Invalidation is the host's**: a Rust host (ikigai-core ≥ 0.1.73) cuts the
   target's golden thread after every Sink or Delete it forwards, so the cached

@@ -151,9 +151,13 @@ def test_exists_defaults_to_source_would_succeed(served):
         k.sink("urn:py:note:d", "here")
         exists = k.exists("urn:py:note:d")
         assert exists.text == "true"
-        assert exists.expiry.kind == "always"
+        # cacheable exactly when Source is (notes' Source is)
+        assert exists.expiry.kind == "never"
+        assert exists.cache_status == CacheStatus.MISS
         # a flat endpoint keeps its old answer: it is bound, so it exists
-        assert k.exists("urn:py:echo/x").text == "true"
+        flat = k.exists("urn:py:echo/x")
+        assert flat.text == "true"
+        assert flat.expiry.kind == "always"
 
 
 def test_an_unsupported_verb_names_the_verbs_that_are(served):
@@ -361,7 +365,7 @@ def test_the_first_declared_template_wins():
     assert answer(space, "urn:py:o:1:2") == "single"
 
 
-def test_an_exact_door_shadowed_by_an_earlier_template_is_refused():
+def test_an_exact_door_after_a_matching_template_is_shadowed_as_in_rust():
     @endpoint("urn:py:s:{name}")
     def general(name: str) -> str:
         return name
@@ -370,9 +374,56 @@ def test_an_exact_door_shadowed_by_an_earlier_template_is_refused():
     def special() -> str:
         return "special"
 
-    with pytest.raises(ValueError, match="special can never answer urn:py:s:special"):
-        Space([general, special])
-    Space([special, general])  # the specific door first is fine
+    def answer(space):
+        reply = space.dispatch(Issue(Request(Verb.SOURCE, "urn:py:s:special", {})))
+        return reply.representation.text
+
+    # Not refused (core's EndpointSpace does not refuse it either): unreachable.
+    assert answer(Space([general, special])) == "special"  # `general` answered, name=special
+    assert answer(Space([special, general])) == "special"
+
+    @endpoint("urn:py:s:{name}")
+    def loud(name: str) -> str:
+        return f"general:{name}"
+
+    assert answer(Space([loud, special])) == "general:special"
+    assert answer(Space([special, loud])) == "special"
+
+
+def test_an_alias_form_never_swallows_a_declared_name():
+    # A's STRIPPED form `urn:{x}` would match B's declared `urn:b:c`; declared
+    # forms are tried first (alias forms first only on an alias-mode
+    # connection), so a verbatim caller reaches B.
+    @endpoint("urn:a:{x}")
+    def a(x: str) -> str:
+        return f"a:{x}"
+
+    @endpoint("urn:b:c")
+    def b() -> str:
+        return "b"
+
+    space = Space([a, b])
+    reply = space.dispatch(Issue(Request(Verb.SOURCE, "urn:b:c", {})))
+    assert reply.representation.text == "b"
+    # In STRIPPED form the two namespaces genuinely collide — `urn:{x}` and
+    # `urn:c` are one space once `urn:a:`/`urn:b:` are gone — and declaration
+    # order decides. The known limit of first-segment stripping: mount a
+    # family with --override.
+    alias = space.dispatch(Issue(Request(Verb.SOURCE, "urn:c", {})), strip_alias=True)
+    assert alias.representation.text == "a:c"
+
+
+def test_the_same_pattern_twice_in_one_door_list_is_refused_even_exact():
+    @endpoint("urn:py:dup")
+    def one() -> str:
+        return "1"
+
+    @endpoint("urn:py:dup")
+    def two() -> str:
+        return "2"
+
+    with pytest.raises(ValueError, match="two endpoints answer urn:py:dup: one and two"):
+        Space([one, two])
 
 
 def test_two_identical_templates_are_refused():
@@ -380,3 +431,93 @@ def test_two_identical_templates_are_refused():
     b, _ = notes_family()
     with pytest.raises(ValueError, match=r"two endpoints answer urn:py:note:\{key\}"):
         Space([a, b])
+
+
+# -- parity with the Deno face ----------------------------------------------
+
+
+def test_a_sink_always_declares_content():
+    f = family("urn:py:touch:{k}", id="touch")
+    touched = []
+
+    @f.sink
+    def touch(k: str) -> str:  # does not read the body
+        touched.append(k)
+        return "ok"
+
+    [sink] = f.description_json()["actions"]
+    content = sink["inputs"][-1]
+    assert content == {
+        "name": "content",
+        "summary": "the body to write",
+        "required": True,
+        "source": "argument",
+    }
+    space = Space([f])
+    missing = space.dispatch(Issue(Request(Verb.SINK, "urn:py:touch:a", {})))
+    assert isinstance(missing.error, ikigai.MissingArgumentError)
+    ok = space.dispatch(
+        Issue(Request(Verb.SINK, "urn:py:touch:a", {"content": ikigai.Inline(b"x")}))
+    )
+    assert ok.representation.text == "ok"  # validated, not passed
+    assert touched == ["a"]
+
+
+def test_a_repeated_variable_is_one_binding_and_the_last_capture_wins():
+    @endpoint("urn:py:twice:{a}:{a}")
+    def twice(a: str) -> str:
+        return a
+
+    assert [i.name for i in twice.ikigai_endpoint.args] == ["a"]
+    reply = Space([twice]).dispatch(Issue(Request(Verb.SOURCE, "urn:py:twice:1:2", {})))
+    assert reply.representation.text == "2"
+
+
+def test_an_explicit_binding_arg_is_refused():
+    with pytest.raises(TypeError, match="bindings come from the template's variables"):
+
+        @endpoint("urn:py:eb:{x}", args=[{"name": "y", "source": "binding"}])
+        def eb(x: str, y: str) -> str:
+            return x
+
+
+def test_a_family_without_source_refuses_exists():
+    f = family("urn:py:wo:{k}", id="wo")
+
+    @f.delete
+    def forget(k: str):
+        return None
+
+    reply = Space([f]).dispatch(Issue(Request(Verb.EXISTS, "urn:py:wo:a", {})))
+    assert str(reply.error).endswith(
+        "verb Exists is not supported by `wo` (it answers Delete, Meta)"
+    )
+
+
+def test_exists_is_uncacheable_when_source_is():
+    f = family("urn:py:live:{k}", id="live")
+
+    @f.source
+    def read(k: str) -> str:
+        return k
+
+    reply = Space([f]).dispatch(Issue(Request(Verb.EXISTS, "urn:py:live:a", {})))
+    assert reply.representation.text == "true"
+    assert reply.representation.expiry.kind == "always"
+    assert reply.cache_status == CacheStatus.UNCACHEABLE
+
+
+def test_meta_answers_a_probe_expansion_before_bindings_are_judged():
+    # The host describes a template row by Meta on `{var}` -> `probe`, which
+    # an int binding would refuse as a value.
+    reply = Space([int_family()]).dispatch(
+        Issue(
+            Request(Verb.META, "urn:py:at:probe:probe", {"as": ikigai.Inline(b"application/json")})
+        )
+    )
+    assert b'"id":"at"' in reply.representation.data
+
+
+def test_a_family_id_defaults_to_the_last_plain_segment():
+    assert family("urn:py:stored:{x}:{y}").id == "stored"
+    assert family("urn:py:note").id == "note"
