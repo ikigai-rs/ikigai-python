@@ -1,6 +1,6 @@
-/* ttt-host's page: the colours the book's `ttt.css` reads, defined here because this page
+/* ttt-host's page: the colors the book's `ttt.css` reads, defined here because this page
  * is not an mdbook page. Light by default, dark when the reader's system asks for it. Text and
- * links clear 4.5:1 on both backgrounds; the rule colour clears 3:1 on the page. */
+ * links clear 4.5:1 on both backgrounds; the rule color clears 3:1 on the page. */
 
 :root {
     --bg: #ffffff;
