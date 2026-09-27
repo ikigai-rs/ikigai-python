@@ -11,8 +11,8 @@ If they differ, the Python filler is wrong, not the template.
 from __future__ import annotations
 
 import hashlib
-import http.client
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -28,14 +28,16 @@ from examples.tictactoe_app import Html, fill, iri_of, said, view
 
 # -- the vendored files -------------------------------------------------------------------
 
-#: Pinned here as well as in the app, so changing a file means changing both on purpose.
+#: Pinned here as well as in the app, so changing a file means changing both on purpose. All
+#: three as ikigai-tutorial commit 9a95b0c has them (`git show 9a95b0c:<path>`), the build of
+#: ttt-host the parity tests run against — never a working tree, which may be mid-edit.
 DIGESTS = {
     # The book's src/vendor/htmx-2.0.4.min.js, which is ikigai-web's assets/htmx.min.js.
     "htmx-2.0.4.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
     # The book's css/ttt.css, the one stylesheet for the markup.
-    "ttt.css": "f93bde4b6dacb82b085d88c8cf33c899eb3dd435dd64acd5e1e19c63be04f09b",
+    "ttt.css": "4955aadc02365f9eb9e5a71038a9dbb541647ee626eaad8db45ffd32fa845a53",
     # ttt-host's static/host.css: the color variables ttt.css reads.
-    "host.css": "79437443cd22e56d183ebf5b4a6de625e72354d38e8a39e54894bf0dc19f27ac",
+    "host.css": "4427125dde3c767472ceeb387e7bebf7459130ae6b9044ac00e1611a0c30fead",
 }
 
 
@@ -222,11 +224,7 @@ def test_the_static_files_and_the_refusals_need_no_host(serve_app, socket_dir):
     assert fetch(f"{base}/static/nope.js")[0] == 404
     assert fetch(f"{base}/game/a/iki/tutorial/ttt/view/play/1/1")[0] == 405
     assert fetch(f"{base}/game/a/iki/tutorial/ttt/nope")[0] == 404
-    connection = http.client.HTTPConnection(base.removeprefix("http://"), timeout=30)
-    connection.request("GET", "/game/a")
-    response = connection.getresponse()
-    assert (response.status, response.getheader("Location")) == (301, "/game/a/")
-    connection.close()
+    assert fetch(f"{base}/game/a", method="POST")[0] == 405  # the page, as /game/a/ is
 
 
 def test_no_host_is_a_503(serve_app, socket_dir):
@@ -243,8 +241,16 @@ TTT_HOST = shutil.which("ttt-host") or next(
 needs_host = pytest.mark.skipif(TTT_HOST is None, reason="no `ttt-host` binary")
 
 
-def start_host(socket: Path, *games: str) -> subprocess.Popen:
-    argv = [TTT_HOST, "--http", "127.0.0.1:0", "--socket", str(socket)]
+def free_port() -> int:
+    """A port nothing is listening on, for the host's HTTP face (ttt-host cannot say which
+    port it bound when given 0)."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def start_host(socket: Path, *games: str, http: str = "127.0.0.1:0") -> subprocess.Popen:
+    argv = [TTT_HOST, "--http", http, "--socket", str(socket)]
     for game in games:
         argv += ["--game", game]
     process = subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -268,10 +274,12 @@ def start_host(socket: Path, *games: str) -> subprocess.Popen:
 @pytest.fixture
 def host(socket_dir):
     """``ttt-host`` with two in-memory games: ``py`` (played through the app) and ``rs``
-    (played through the host's Rust views), plus the root game."""
+    (played through the host's Rust views), plus the root game. Yields its socket and the
+    URL of its own HTTP face."""
     socket = socket_dir / "h.sock"
-    process = start_host(socket, "py", "rs")
-    yield socket
+    http = f"127.0.0.1:{free_port()}"
+    process = start_host(socket, "py", "rs", http=http)
+    yield socket, f"http://{http}"
     process.terminate()
     process.wait(timeout=10)
 
@@ -279,9 +287,10 @@ def host(socket_dir):
 class Twins:
     """Game ``py`` played through the app, game ``rs`` through the Rust ``view:play``."""
 
-    def __init__(self, socket: Path, base: str):
+    def __init__(self, socket: Path, base: str, host_http: str):
         self.kernel = ikigai.connect(socket)
         self.base = base
+        self.host_http = host_http
         self.checked = 0
 
     def rust(self, game: str, name: str, verb: str = "source") -> str:
@@ -319,7 +328,8 @@ class Twins:
 
 @pytest.fixture
 def twins(host, serve_app):
-    twins = Twins(host, serve_app(host))
+    socket, host_http = host
+    twins = Twins(socket, serve_app(socket), host_http)
     yield twins
     twins.kernel.close()
 
@@ -354,15 +364,30 @@ def test_parity_in_the_root_game(twins):
 
 
 @needs_host
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/game/py/",
+        "/game/rs",
+        "/static/htmx-2.0.4.min.js",
+        "/static/ttt.css",
+        "/static/host.css",
+    ],
+)
+def test_the_page_and_its_files_are_ttt_hosts_byte_for_byte(twins, path):
+    ours, theirs = fetch(twins.base + path), fetch(twins.host_http + path)
+    assert (ours[0], ours[2]) == (theirs[0], theirs[2]) == (200, theirs[2])
+    assert ours[1]["Content-Type"].replace(" ", "") == theirs[1]["Content-Type"].replace(" ", "")
+    if not path.startswith("/static/"):
+        assert "base-uri 'self'" in ours[1]["Content-Security-Policy"]
+
+
+@needs_host
 def test_the_page_is_the_games_template_under_its_base(twins):
-    code, headers, body = fetch(f"{twins.base}/game/py/")
-    assert code == 200
-    assert "base-uri 'self'" in headers["Content-Security-Policy"]
-    page = body.decode("utf-8")
+    page = fetch(f"{twins.base}/game/py/")[2].decode("utf-8")
     assert '<base href="/game/py/">' in page
     assert fill(twins.rust("py", "template:game"), lambda _: "py") in page
-    for name in app.STATIC_FILES:
-        assert f'"/static/{name}"' in page
     root = fetch(f"{twins.base}/")[2].decode("utf-8")
     assert '<base href="/">' in root and 'aria-label="Game root"' in root
 
