@@ -307,7 +307,8 @@ same board itself on port 8070; the Deno face's app uses 8071, this one
 The app's fragments are byte-for-byte the host's own Rust `view:board` and
 `view:status`: `tests/test_tictactoe_app.py` plays one game through the app
 and a twin game through the Rust views and compares every board, status and
-reply, through a won game, refusals and a draw (it skips when `ttt-host` is
+reply, through a won game, refusals and a draw — and the page and its three
+static files against `ttt-host`'s own HTTP face (it skips when `ttt-host` is
 not installed). The renderer is a regular expression, an escape table and
 three short functions; it keeps no state and caches nothing, because every
 read it makes is a cache hit in the host until a move cuts it.

@@ -78,19 +78,21 @@ from ikigai import (
 #: The game's names at the host, as the root game has them.
 GAME = "urn:iki:tutorial:ttt:"
 
-#: The vendored htmx and stylesheets, next to this file. The digests are pinned by a test:
-#: htmx is byte-identical to the book's ``src/vendor/htmx-2.0.4.min.js`` (0BSD,
-#: https://github.com/bigskysoftware/htmx), ``ttt.css`` to the book's ``css/ttt.css`` (the
-#: ONE stylesheet for this markup), ``host.css`` to ``ttt-host``'s ``static/host.css`` (the
-#: color variables ``ttt.css`` reads, which the book's pages get from mdbook).
+#: The vendored htmx and stylesheets, next to this file, as ikigai-tutorial commit ``9a95b0c``
+#: has them — the commit the ``ttt-host`` this app is checked against was built from, which
+#: serves the same three files. The digests are pinned by a test: htmx is the book's
+#: ``src/vendor/htmx-2.0.4.min.js`` (0BSD, https://github.com/bigskysoftware/htmx),
+#: ``ttt.css`` the book's ``css/ttt.css`` (the ONE stylesheet for this markup), ``host.css``
+#: ``ttt-host``'s ``static/host.css`` (the color variables ``ttt.css`` reads, which the
+#: book's pages get from mdbook). Re-vendor them from the commit a new host is built from.
 STATIC = Path(__file__).parent / "static"
 STATIC_FILES = {
     "htmx-2.0.4.min.js": (
         "text/javascript",
         "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
     ),
-    "ttt.css": ("text/css", "f93bde4b6dacb82b085d88c8cf33c899eb3dd435dd64acd5e1e19c63be04f09b"),
-    "host.css": ("text/css", "79437443cd22e56d183ebf5b4a6de625e72354d38e8a39e54894bf0dc19f27ac"),
+    "ttt.css": ("text/css", "4955aadc02365f9eb9e5a71038a9dbb541647ee626eaad8db45ffd32fa845a53"),
+    "host.css": ("text/css", "4427125dde3c767472ceeb387e7bebf7459130ae6b9044ac00e1611a0c30fead"),
 }
 
 #: ``ttt-host``'s page policy: ``base-uri 'self'``, because the page's ``<base>`` is what
@@ -202,6 +204,12 @@ class Game:
     def sink(self, name: str) -> str:
         return self.kernel.sink(self.prefix + name).text
 
+    def games(self) -> list[str]:
+        """Every game the host has but the root, from its catalog's gateway names."""
+        pattern = re.compile(r"urn:game:([A-Za-z0-9-]+):iki:tutorial:ttt:")
+        found = (pattern.match(entry.pattern) for entry in self.kernel.entries() or [])
+        return sorted({m[1] for m in found if m})
+
 
 # -- the path <-> IRI rule, and the routes ------------------------------------------------
 
@@ -240,7 +248,8 @@ def view(verb: str, relative: str) -> Callable[[Game], str] | HTTPStatus:
 
 def page(game: Game) -> str:
     """A game's page: the document around the game's ``game`` template, its ``<base>`` at
-    the game's path so the markup's relative paths arrive under it."""
+    the game's path so the markup's relative paths arrive under it — ``ttt-host``'s page,
+    byte for byte, down to the list of the host's games (read from its catalog)."""
     game_id = game.game_id
     label = game_id or "root"
     shell = fill(game.text("template:game"), lambda _: label)
@@ -257,8 +266,10 @@ def page(game: Game) -> str:
         '<script src="/static/htmx-2.0.4.min.js"></script>\n</head>\n<body>\n<main>\n'
         f"<h1>Tic-tac-toe: {title}</h1>\n"
         f'<div class="ttt-boards"><div class="ttt-play">\n{shell}\n</div></div>\n'
-        "<p>Rendered in Python from the game's resources; the game is kept by a Rust "
-        "kernel.</p>\n</main>\n</body>\n</html>\n"
+        '<nav aria-label="Games"><h2>Games on this host</h2><ul>'
+        '<li><a href="/">the root game</a></li>'
+        + "".join(f'<li><a href="/game/{g}/">game {g}</a></li>' for g in game.games())
+        + "</ul></nav>\n</main>\n</body>\n</html>\n"
     )
 
 
@@ -278,8 +289,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if verb == "GET" and path.startswith("/static/"):
             return self.static(path.removeprefix("/static/"))
-        if re.fullmatch(r"/game/[A-Za-z0-9-]+", path):  # the page's <base> needs the slash
-            return self.answer(HTTPStatus.MOVED_PERMANENTLY, "", headers={"Location": path + "/"})
+        if re.fullmatch(r"/game/[A-Za-z0-9-]+", path):  # the page, as ttt-host serves it too
+            path += "/"
         route = ROUTE.fullmatch(path)
         answer = HTTPStatus.NOT_FOUND if route is None else view(verb, route["path"])
         if isinstance(answer, HTTPStatus):
