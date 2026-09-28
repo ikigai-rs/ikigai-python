@@ -1,10 +1,13 @@
 """Integration against the installed Rust host, both directions.
 
 Skips cleanly when the ``ikigai`` binary is absent (CI has no Rust host;
-these run locally against ``~/.cargo/bin/ikigai``). When the binary speaks a
-DIFFERENT wire version than this package, the functional tests skip and the
-pairing tests assert the mismatch is diagnosed cleanly instead — both
-versions named by the hello, never garbled postcard.
+these run locally against ``~/.cargo/bin/ikigai``). Since wire v8 this
+package speaks to a host of v7 OR v8 (``MIN_PROTOCOL_VERSION``..=
+``PROTOCOL_VERSION``), so a v7 host (ikigai-cli 0.1.29) runs every test here in
+both directions — that is the backward-compatibility proof. Only a host OUT of
+that range skips the functional tests; the pairing tests then assert the
+mismatch is diagnosed cleanly instead — both versions named by the hello,
+never garbled postcard.
 
 ⚠ These require ``ikigai-cli`` **>= 0.1.18**, which is the release that moved
 the host's resources into ``urn:iki:``. There is no version handshake for
@@ -36,8 +39,9 @@ pytestmark = pytest.mark.skipif(IKIGAI is None, reason="no `ikigai` binary on PA
 
 @functools.lru_cache(maxsize=1)
 def wire_mismatch() -> str | None:
-    """``None`` when the installed host speaks this package's wire version;
-    otherwise the clean mismatch message the hello produced. Probed once, by
+    """``None`` when the installed host is within this package's reach (v7 or
+    v8 — an older host is redialed at its own version); otherwise the clean
+    mismatch message the hello produced. Probed once, by
     connecting to a throwaway ``ikigai serve``."""
     with tempfile.TemporaryDirectory(prefix="ik-probe-") as d:
         path = Path(d) / "kernel.sock"
@@ -260,6 +264,14 @@ def test_python_client_and_rust_server_pair_cleanly():
         assert "speaks wire v" in mismatch
 
 
+def test_python_client_negotiates_the_rust_hosts_version(rust_server):
+    # A v7 host answers 7 to our 8 and hangs up; the client redials at 7 and
+    # the connection says so. A v8 host proceeds at 8. Either way it WORKS.
+    with ikigai.connect(rust_server) as k:
+        assert ikigai.MIN_PROTOCOL_VERSION <= k.server_version <= ikigai.PROTOCOL_VERSION
+        assert k.source("urn:iki:fn:toUpper", **{"in": "v"}).text == "V"
+
+
 def test_rust_client_and_python_server_pair_cleanly(socket_dir):
     # The other direction: the Rust host mounts a Python peer. Matched: the
     # resolution succeeds. Mismatched: the Rust side reports the versions the
@@ -281,6 +293,35 @@ def test_rust_client_and_python_server_pair_cleanly(socket_dir):
             assert "Hello, Ada!" in combined
         else:
             assert "wire v" in combined, f"expected a clean version diagnosis, got:\n{combined}"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+@endpoint("urn:py:claim", summary="claim a square", args=["square"])
+def claim(square: str) -> str:
+    raise ikigai.ConflictError(f"{square} is taken")
+
+
+def test_a_python_conflict_reaches_the_rust_user(socket_dir, matched_host):
+    # Wire v8's one addition, across the language boundary. A v7 host cannot
+    # receive variant 8, so the Python server downgrades it on that
+    # connection to Endpoint("conflict: …") — what a v7 host has always seen
+    # for a Conflict; a v8 host receives it typed and displays the same text.
+    path = socket_dir / "claim.sock"
+    server = Server([claim], path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        done = subprocess.run(
+            [IKIGAI, "--mount", f"urn:py:={path}", "-c", "source urn:py:claim square=b2"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        combined = done.stdout + done.stderr
+        assert "conflict: b2 is taken" in combined, combined
+        assert "unknown wire error variant" not in combined, combined
     finally:
         server.shutdown()
         thread.join(timeout=5)

@@ -14,9 +14,11 @@ from .client import (
 from .serve import ArgSpec, EndpointDef, Family, Server, endpoint, family, serve
 from .template import TemplateError, UriTemplate
 from .wire import (
+    MIN_PROTOCOL_VERSION,
     PROTOCOL_VERSION,
     CacheStatus,
     Capability,
+    ConflictError,
     Content,
     DeniedError,
     EndpointError,
@@ -40,6 +42,7 @@ from .wire import (
 
 __all__ = [
     "DEFAULT_TIMEOUT",
+    "MIN_PROTOCOL_VERSION",
     "PROTOCOL_VERSION",
     "ArgSpec",
     "Client",
@@ -54,6 +57,7 @@ __all__ = [
     "serve",
     "CacheStatus",
     "Capability",
+    "ConflictError",
     "Content",
     "DeniedError",
     "EndpointError",

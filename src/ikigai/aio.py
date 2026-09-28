@@ -73,10 +73,12 @@ class AsyncClient:
         #: When set, requests go as ``Call::IssueAs`` under this capability
         #: (which the server clamps to its authenticated principal).
         self.capability = capability
-        #: The version the server declared in its hello. A ``connect()``-made
-        #: client always holds ``PROTOCOL_VERSION`` (a mismatch raises there
-        #: instead); ``None`` only marks a hand-constructed client whose
-        #: server version is genuinely unknown.
+        #: The version this connection speaks, as the server answered the
+        #: hello: ``PROTOCOL_VERSION`` against a current server, or an older
+        #: one down to ``MIN_PROTOCOL_VERSION`` (a v7 host — which never sends
+        #: a v8-only variant such as ``Conflict``). A version out of reach
+        #: raises in ``connect()`` instead; ``None`` only marks a
+        #: hand-constructed client whose server version is genuinely unknown.
         self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
@@ -207,9 +209,36 @@ async def connect(
     names both versions, a hang-up on the hello is a pre-v6 server, and
     SILENCE is a hang (the server may be overloaded, not ancient)."""
     path = Path(path) if path is not None else default_socket_path()
+    # Offer this side's version; an older server within reach is redialed
+    # once at its own version (see the sync ``connect``).
+    offered = wire.PROTOCOL_VERSION
+    while True:
+        reader, writer, answered = await _hello(path, timeout, wire.Hello(offered, mode))
+        outcome = wire.connect_version(offered, answered)
+        if outcome == "proceed":
+            return AsyncClient(
+                reader,
+                writer,
+                capability=capability,
+                timeout=timeout,
+                server_version=answered,
+            )
+        writer.close()
+        if outcome == "refuse":
+            raise ProtocolError(
+                f"the kernel server speaks wire v{answered}, this client speaks "
+                f"v{wire.PROTOCOL_VERSION} (and down to v{wire.MIN_PROTOCOL_VERSION}) "
+                "— update the older side"
+            )
+        offered = outcome
+
+
+async def _hello(path: Path, timeout: float | None, hello: wire.Hello):
+    """Dial ``path`` and exchange hellos, offering ``hello``: the stream pair
+    and the version the server answered with."""
     reader, writer = await _dial(path)
     try:
-        writer.write(wire.frame(wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode))))
+        writer.write(wire.frame(wire.encode_hello(hello)))
         await writer.drain()
         answer = wire.decode_hello(await _read_frame(reader, timeout))
     except TimeoutError as e:
@@ -223,26 +252,14 @@ async def connect(
         writer.close()
         raise ProtocolError(
             f"the kernel server at {path} hung up on the version hello — it predates "
-            f"wire v6 and cannot speak v{wire.PROTOCOL_VERSION}; update the server"
+            f"wire v6 and cannot speak v{hello.version}; update the server"
         ) from e
     if answer is None:
         writer.close()
         raise ProtocolError(
             "the kernel server answered the version hello with something else entirely"
         )
-    if answer.version != wire.PROTOCOL_VERSION:
-        writer.close()
-        raise ProtocolError(
-            f"the kernel server speaks wire v{answer.version}, this client speaks "
-            f"v{wire.PROTOCOL_VERSION} — update the older side"
-        )
-    return AsyncClient(
-        reader,
-        writer,
-        capability=capability,
-        timeout=timeout,
-        server_version=answer.version,
-    )
+    return reader, writer, answer.version
 
 
 def lifespan(

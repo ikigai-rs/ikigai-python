@@ -82,8 +82,8 @@ class CatalogResource:
 
 
 async def endpoint_error(req, resp, exc: EndpointError, params):
-    # The typed taxonomy picks the status (wire v7): Denied→403, NotFound→404,
-    # bad input→400, transient→503, anything else→502.
+    # The typed taxonomy picks the status (wire v8): Denied→403, NotFound→404,
+    # Conflict→409, bad input→400, transient→503, anything else→502.
     raise falcon.HTTPError(falcon.util.code_to_http_status(error_status(exc)), description=str(exc))
 
 

@@ -1,6 +1,6 @@
 """The ikigai IPC wire protocol: types, postcard codec, and framing.
 
-Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 6. The codec is
+Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 8. The codec is
 non-self-describing, so every type here restates a Rust layout
 field-for-field; the Rust declaration is the normative source
 (``ikigai-wire/src/lib.rs`` and the ``ikigai-core`` types it serializes).
@@ -23,6 +23,15 @@ Endpoint / Denied / NotFound / Timeout / Unavailable), decoded here as a
 typed exception hierarchy under :class:`EndpointError` — a remote denial
 stays a permanent denial, a remote timeout stays TRANSIENT, and an HTTP face
 can answer 403/404/400 instead of a blanket 502.
+
+v8 appends ONE variant, ``Conflict`` (8): well-formed, authorized, the thing
+exists, and its current state refuses the request — permanent, and an HTTP
+409. It is BACKWARD COMPATIBLE, not a flag day: a v8 side accepts a v7 hello
+(:data:`MIN_PROTOCOL_VERSION`), a connection remembers the version its peer
+spoke, and a reply to a v7 peer downgrades ``Conflict(msg)`` to
+``Endpoint("conflict: {msg}")`` — byte-identical to what a v7 peer received
+before v8 existed (:func:`downgrade_error`). A v8 client that dials a v7
+server redials once, offering 7 (:func:`connect_version`).
 """
 
 from __future__ import annotations
@@ -40,7 +49,18 @@ from .postcard import DecodeError, Reader, encode_varint
 # v6 adds the hello exchange (version + mount mode at connection open).
 # v7 adds Reply::ErrorTyped (the taxonomy crosses) and removes the v6
 # tolerances (hello required; no legacy fallback either direction).
-PROTOCOL_VERSION = 7
+# v8 appends WireError::Conflict (variant 8) and is backward compatible with v7:
+# see MIN_PROTOCOL_VERSION.
+PROTOCOL_VERSION = 8
+
+# The oldest peer this side still speaks to. A hello of MIN..=PROTOCOL_VERSION
+# is accepted and the connection proceeds at the PEER's version (answered with
+# that version, so a v7 peer sees exactly the hello it expects); below it is
+# refused as before, naming both versions.
+MIN_PROTOCOL_VERSION = 7
+
+# The first wire version that carries WireError::Conflict as its own variant.
+CONFLICT_SINCE = 8
 
 # The magic prefix of a hello payload; a first frame without it is a legacy
 # (<= v5) client and is refused since v7.
@@ -150,6 +170,18 @@ class UnavailableError(EndpointError):
     refused / unreachable. TRANSIENT, like :class:`TimeoutError`."""
 
     transient = True
+
+
+class ConflictError(EndpointError):
+    """``WireError::Conflict`` (wire v8, variant 8): the request is
+    well-formed and authorized and the thing exists, but its CURRENT STATE
+    refuses it — a move onto an occupied square, a create over an existing
+    row. PERMANENT (re-issuing the same request meets the same state, so a
+    retry overlay must not retry it); an HTTP face says 409. Contrast a
+    412, which answers a precondition the CALLER stated (``If-Match``).
+
+    A v7 peer cannot receive this variant: a reply to one carries
+    ``EndpointError("conflict: {message}")`` instead."""
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +483,8 @@ class ErrorTypedReply:
     """``Reply::ErrorTyped`` (variant 5, wire v7): a failure with its
     taxonomy intact. ``error`` is the typed exception the client raises —
     the same ``ikigai_core::Error`` variant the server saw, rebuilt (the
-    Rust ``WireError`` enum, variants 0-7 in declaration order)."""
+    Rust ``WireError`` enum, variants 0-8 in declaration order; 8,
+    ``Conflict``, since v8)."""
 
     error: EndpointError
 
@@ -579,6 +612,9 @@ def _put_wire_error(out: bytearray, error: EndpointError) -> None:
     elif isinstance(error, UnavailableError):
         out += encode_varint(7)
         _put_string(out, error.message)
+    elif isinstance(error, ConflictError):
+        out += encode_varint(8)
+        _put_string(out, error.message)
     elif isinstance(error, EndpointError):
         out += encode_varint(3)  # WireError::Endpoint
         _put_string(out, error.message)
@@ -632,7 +668,25 @@ def encode_call(call: Call) -> bytes:
     return bytes(out)
 
 
-def encode_reply(reply: Reply) -> bytes:
+def downgrade_error(error: EndpointError, peer_version: int) -> EndpointError:
+    """``error`` as a peer speaking ``peer_version`` can receive it. A v7
+    peer has no ``Conflict`` variant, so it gets ``Endpoint("conflict:
+    {msg}")`` — the Rust core's ``Display`` of the error, which is exactly
+    what crossed untyped before v8. Every other variant is unchanged."""
+    if isinstance(error, ConflictError) and peer_version < CONFLICT_SINCE:
+        return EndpointError(f"conflict: {error.message}")
+    return error
+
+
+def encode_reply(reply: Reply, *, peer_version: int = PROTOCOL_VERSION) -> bytes:
+    """Encode ``reply`` for a peer that spoke ``peer_version`` in its hello:
+    a variant that peer's version cannot decode is downgraded first
+    (:func:`downgrade_error`), so a v8 side never sends variant 8 to a v7
+    peer. Defaults to this side's own version."""
+    if isinstance(reply, ErrorTypedReply):
+        downgraded = downgrade_error(reply.error, peer_version)
+        if downgraded is not reply.error:
+            reply = ErrorTypedReply(downgraded)
     out = bytearray()
     if isinstance(reply, Resolved):
         out += encode_varint(0)
@@ -676,8 +730,9 @@ def encode_reply(reply: Reply) -> bytes:
 def _version_mismatch(what: str, discriminant: int) -> ProtocolError:
     return ProtocolError(
         f"unknown {what} variant {discriminant}: this side speaks ikigai wire "
-        f"protocol v{PROTOCOL_VERSION}, and the required hello exchange rules "
-        "out a cross-version peer, so this is a corrupt frame"
+        f"protocol v{PROTOCOL_VERSION} (and down to v{MIN_PROTOCOL_VERSION}), and the "
+        "required hello exchange rules out a peer outside that range, so this is a "
+        "corrupt frame"
     )
 
 
@@ -770,6 +825,8 @@ def _get_wire_error(r: Reader) -> EndpointError:
         return TimeoutError(r.string())
     if variant == 7:
         return UnavailableError(r.string())
+    if variant == 8:
+        return ConflictError(r.string())
     # A NEWER peer's taxonomy addition (the enum is append-only, and additions
     # are wire-version events, so the hello should have refused this peer —
     # belt and braces). The payload layout is unknowable, so consume the rest
@@ -912,6 +969,37 @@ class Hello:
 
     version: int
     mode: HelloMode = HelloMode.VERBATIM
+
+
+def accepted_version(offered: int) -> int | None:
+    """The version a connection proceeds at when a peer's hello offers
+    ``offered``, or ``None`` if this side refuses it. ``MIN_PROTOCOL_VERSION``
+    through ``PROTOCOL_VERSION`` is accepted AT THE PEER'S VERSION — the
+    server answers the hello with it, so a v7 peer sees exactly the v7 hello
+    it requires. Anything else is refused: a server answers with its own
+    version and closes, and the dialing side renders the mismatch (a NEWER
+    dialer that also negotiates redials at the version it was answered
+    with — see :func:`connect_version`)."""
+    if MIN_PROTOCOL_VERSION <= offered <= PROTOCOL_VERSION:
+        return offered
+    return None
+
+
+def connect_version(offered: int, answered: int) -> str | int:
+    """What a dialing side does with the version a server ``answered`` to
+    its hello offering ``offered``:
+
+    - ``"proceed"`` — the server accepted the offer (it answered with it);
+    - an ``int`` — the server is OLDER but within reach: it answered with its
+      own version and (being older) closed the connection, so redial once
+      offering that version. This is how a v8 client talks to a v7 server
+      (0.1.29 answers ``7`` and hangs up on an ``8``);
+    - ``"refuse"`` — out of reach either way; name both versions."""
+    if answered == offered:
+        return "proceed"
+    if answered < offered and accepted_version(answered) == answered:
+        return answered
+    return "refuse"
 
 
 def encode_hello(hello: Hello) -> bytes:

@@ -87,6 +87,7 @@ def test_endpoint_error_prefix_is_stripped(stub_server):
         (ikigai.NotFoundError("no such row"), False),
         (ikigai.TimeoutError("5s elapsed"), True),
         (ikigai.UnavailableError("connection refused"), True),
+        (ikigai.ConflictError("square taken"), False),
         (ikigai.MissingArgumentError("in"), False),
         (ikigai.InvalidArgumentError("n", "not a number"), False),
         (ikigai.UnresolvedError("urn:x"), False),

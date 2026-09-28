@@ -21,7 +21,8 @@ Every app serves the same surface:
   *discovers* what it can reach instead of hard-coding it
 - a typed wire error picks its HTTP status (the wire v7 payoff, shared as
   `examples.error_status`): `DeniedError` → **403**, `NotFoundError` →
-  **404**, `MissingArgumentError`/`InvalidArgumentError` → **400**,
+  **404**, `ConflictError` (wire v8: the thing's current state refuses the
+  request) → **409**, `MissingArgumentError`/`InvalidArgumentError` → **400**,
   transient (`TimeoutError`/`UnavailableError`) → **503**, anything else
   (`UnresolvedError`, a handler fault) → **502** — each carrying the
   endpoint's own message; a `ConnectionLost` → **503** ("is the peer

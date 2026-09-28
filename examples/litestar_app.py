@@ -82,9 +82,10 @@ async def catalog(state: State) -> list[dict]:
 
 
 def endpoint_error(request: Request, exc: EndpointError) -> Response[str]:
-    """The peer's failure, with its taxonomy intact (wire v7): the typed
-    exception picks the status — Denied→403, NotFound→404, bad input→400,
-    transient→503, anything else→502 — carrying the endpoint's message."""
+    """The peer's failure, with its taxonomy intact (wire v8): the typed
+    exception picks the status — Denied→403, NotFound→404, Conflict→409, bad
+    input→400, transient→503, anything else→502 — carrying the endpoint's
+    message."""
     return Response(str(exc), status_code=error_status(exc), media_type="text/plain")
 
 

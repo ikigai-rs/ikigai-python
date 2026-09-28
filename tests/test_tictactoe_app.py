@@ -199,6 +199,7 @@ def test_a_reply_says_what_the_write_said_or_its_refusal():
         (ikigai.NotFoundError("gone"), "not found: gone"),
         (ikigai.TimeoutError("slow"), "timeout: slow"),
         (ikigai.UnavailableError("down"), "unavailable: down"),
+        (ikigai.ConflictError("taken"), "conflict: taken"),
     ],
 )
 def test_a_refusal_is_said_as_the_rust_kernel_displays_it(error, shown):
