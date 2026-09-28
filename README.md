@@ -9,11 +9,14 @@ resources that a Rust host mounts.
 A binding = client + servable peer space; the module mechanism IS
 mount-over-wire.
 
-Wire protocol version: **7** (`ikigai.PROTOCOL_VERSION`): the connection
+Wire protocol version: **8** (`ikigai.PROTOCOL_VERSION`), backward
+compatible down to **7** (`ikigai.MIN_PROTOCOL_VERSION`): the connection
 opens with a version hello each way — REQUIRED since v7 (the pre-v6
 tolerances are gone) — and failures cross the wire **typed** (see the
-wire-protocol notes below). A v6 peer still fails cleanly: the hello itself
-names both versions.
+wire-protocol notes below). v8 adds one error variant, `Conflict`; a v7
+host (ikigai-cli 0.1.29 and earlier) still talks to this package in both
+directions. A v6 peer still fails cleanly: the hello itself names both
+versions.
 
 ## Install
 
@@ -85,7 +88,10 @@ Notes:
   `ikigai.EndpointError` — `UnresolvedError`, `MissingArgumentError`,
   `InvalidArgumentError` (with `.name`/`.detail`), `DeniedError`,
   `NotFoundError`, `ikigai.TimeoutError` (also a `builtins.TimeoutError`),
-  `UnavailableError`. `.message` is the endpoint's own message; `.transient`
+  `UnavailableError`, and `ConflictError` (wire v8: the thing exists and its
+  current state refuses the request — permanent, an HTTP 409; a v7 server
+  sends the same failure as a plain `EndpointError("conflict: …")`).
+  `.message` is the endpoint's own message; `.transient`
   is `True` only for Timeout/Unavailable (re-issuing may succeed — what
   retry/failover logic gates on). A plain `except ikigai.EndpointError`
   still catches everything. A dead socket raises `ikigai.ConnectionLost`; a
@@ -268,9 +274,11 @@ invocation always works — only the catalog view is affected.
   never a hang, and the host rebuilds the same variant natively.
 - A handler may **raise the taxonomy deliberately** — `raise
   ikigai.NotFoundError("no such row")`, `DeniedError`, `TimeoutError`,
-  `UnavailableError` — and the variant crosses intact: the far side's HTTP
-  face answers 404/403/503 instead of a blanket 502, and transient failures
-  stay transient for retry/failover logic.
+  `UnavailableError`, `ConflictError` — and the variant crosses intact: the
+  far side's HTTP face answers 404/403/503/409 instead of a blanket 502, and
+  transient failures stay transient for retry/failover logic. A v7 peer
+  cannot receive `Conflict`, so the server sends it that one as
+  `Endpoint("conflict: …")` — byte-identical to what v7 saw before.
 - Arguments arrive utf-8-decoded (bytes if not valid utf-8). By-reference
   arguments (`ArgRef::Reference`/`Content`) are refused loudly (as
   `InvalidArgument`): an L0 peer has no back-channel to the host to
@@ -339,7 +347,8 @@ Two honest limits, both about the kernel in the middle:
 (typed handlers), Falcon (bare ASGI), FastHTML (hypermedia/htmx) — each a
 thin face over `kernel.source(...)`, with a browsable catalog and the wire's
 typed errors mapped onto HTTP statuses: `DeniedError`→403,
-`NotFoundError`→404, `MissingArgumentError`/`InvalidArgumentError`→400,
+`NotFoundError`→404, `ConflictError`→409,
+`MissingArgumentError`/`InvalidArgumentError`→400,
 transient (`TimeoutError`/`UnavailableError`)→503, anything else→502, and
 `ConnectionLost`→503. They run pure-Python against
 `python -m examples.endpoints`, or through a Rust kernel to pick up its
@@ -373,16 +382,29 @@ record the layout. Highlights that a public ABI document should state:
   the pre-v6 diagnosis (no legacy reconnect) — while a server that is merely
   *silent* is reported as hung or overloaded, never misdiagnosed as ancient
   — and a first frame without the magic is refused by the server. This
-  package speaks v7 (`ikigai.PROTOCOL_VERSION`) and still raises
+  package speaks v8 (`ikigai.PROTOCOL_VERSION`) and still raises
   `ProtocolError` naming its version on any undecodable message.
+- **Backward compatibility (since v8).** A v8 side accepts a hello of v7 or
+  v8 (`MIN_PROTOCOL_VERSION`..=`PROTOCOL_VERSION`); anything else is refused
+  as before, naming both versions. The server answers an accepted hello
+  **with the peer's own version** (a v7 client requires a v7 answer) and the
+  connection remembers it: a reply to a v7 peer downgrades `Conflict(msg)`
+  to `Endpoint("conflict: {msg}")`, the Rust core's rendering of it and
+  byte-identical to what v7 received before. A v8 client that dials a v7
+  server gets `7` back and a hang-up (that is how a v7 server refuses an
+  `8`), so it redials once offering 7; the offer only steps down, never
+  below the floor. `Client.server_version` says which version a connection
+  speaks.
 - **Typed errors (since v7).** A failure crosses as `Reply::ErrorTyped`
-  (postcard discriminant 5) carrying the `WireError` enum — variants 0–7 in
+  (postcard discriminant 5) carrying the `WireError` enum — variants 0–8 in
   declaration order: `Unresolved(iri)`, `MissingArgument(name)`,
   `InvalidArgument{name, detail}`, `Endpoint(message)`, `Denied(message)`,
-  `NotFound(message)`, `Timeout(message)`, `Unavailable(message)` — an
-  append-only, wire-local mirror of `ikigai_core::Error` (a taxonomy
-  addition is a wire-version event). Timeout/Unavailable are transient;
-  the rest permanent. An unknown future variant degrades to the base
+  `NotFound(message)`, `Timeout(message)`, `Unavailable(message)`, and
+  since v8 `Conflict(message)` — an append-only, wire-local mirror of
+  `ikigai_core::Error` (a taxonomy addition is a wire-version event).
+  Reference vectors: `Denied("x")` is `05 04 01 78`, `Conflict("x")` is
+  `05 08 01 78`. Timeout/Unavailable are transient; the rest (Conflict
+  included) permanent. An unknown future variant degrades to the base
   `EndpointError`, loudly named. The flat `Reply::Error` string (variant 3)
   remains decodable but is no longer sent.
 - Enum discriminants are the **declaration index** as a varint —

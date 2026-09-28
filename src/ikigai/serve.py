@@ -65,9 +65,11 @@ constructor default now only governs direct ``Space.entries()`` calls.
 required argument → ``MissingArgument``, an unusable value →
 ``InvalidArgument``, a handler exception → ``Endpoint``. A handler may also
 RAISE the taxonomy deliberately (``NotFoundError``, ``DeniedError``,
-``TimeoutError``, ``UnavailableError`` from :mod:`ikigai.wire`) and the
-variant crosses intact — the far side's HTTP face can answer 404/403/…
-instead of a blanket 502.
+``TimeoutError``, ``UnavailableError``, ``ConflictError`` from
+:mod:`ikigai.wire`) and the variant crosses intact — the far side's HTTP face
+can answer 404/403/409/… instead of a blanket 502. ``ConflictError`` is wire
+v8: a v7 peer (the server accepts one) receives it as
+``Endpoint("conflict: …")``, exactly what it saw before v8.
 
 **Security posture**: the socket is ``0600`` in a ``0700`` directory and
 peers are refused unless their kernel-verified UID matches the server's —
@@ -1283,12 +1285,15 @@ class Server:
 
     def _handle(self, conn: socket.socket) -> None:
         with conn, conn.makefile("rwb") as f:
-            # The FIRST frame must be the hello (required since wire v7). It
-            # is answered with ours — equal versions proceed (and its mode
-            # picks this connection's entries form), unequal versions get the
-            # answer (so the client names both in its error) and a close. A
-            # frame WITHOUT the magic is a <= v5 client's first Call and is
-            # REFUSED — the v6 serve-it-anyway tolerance is over.
+            # The FIRST frame must be the hello (required since wire v7). A
+            # version this side accepts (MIN_PROTOCOL_VERSION..=PROTOCOL_VERSION)
+            # is answered WITH THE PEER'S OWN VERSION and served at it — a v7
+            # client requires a v7 answer — and its mode picks this
+            # connection's entries form. Anything else gets our version (so
+            # the client names both in its error, or a newer one redials at
+            # ours) and a close. A frame WITHOUT the magic is a <= v5 client's
+            # first Call and is REFUSED — the v6 serve-it-anyway tolerance is
+            # over.
             try:
                 first = wire.read_frame(f)
             except (EOFError, OSError):
@@ -1302,11 +1307,14 @@ class Server:
                     file=sys.stderr,
                 )
                 return
+            peer_version = wire.accepted_version(hello.version)
             try:
-                wire.write_frame(f, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION)))
+                wire.write_frame(
+                    f, wire.encode_hello(wire.Hello(peer_version or wire.PROTOCOL_VERSION))
+                )
             except OSError:
                 return
-            if hello.version != wire.PROTOCOL_VERSION:
+            if peer_version is None:
                 return  # the client renders the mismatch
             strip_alias = hello.mode == wire.HelloMode.ALIAS
             while True:
@@ -1314,23 +1322,42 @@ class Server:
                     frame = wire.read_frame(f)
                 except (EOFError, OSError):
                     return  # peer hung up
-                if not self._serve_one_frame(f, frame, strip_alias):
+                if not self._serve_one_frame(f, frame, strip_alias, peer_version):
                     return
 
-    def _serve_one_frame(self, f, frame: bytes, strip_alias: bool | None) -> bool:
-        """Decode and answer one Call frame; ``False`` ends the connection."""
+    def _serve_one_frame(
+        self,
+        f,
+        frame: bytes,
+        strip_alias: bool | None,
+        peer_version: int = wire.PROTOCOL_VERSION,
+    ) -> bool:
+        """Decode and answer one Call frame; ``False`` ends the connection.
+        Every reply is encoded for ``peer_version`` — the version the peer's
+        hello spoke — so a v7 peer never receives a v8-only variant (a
+        ``ConflictError`` reaches it as ``Endpoint("conflict: …")``)."""
         try:
             call = wire.decode_call(frame)
         except wire.ProtocolError as e:
             # An undecodable frame. Answer once, loudly, then drop the
             # connection — framing after a bad frame is unreliable.
             try:
-                wire.write_frame(f, wire.encode_reply(ErrorTypedReply(EndpointError(str(e)))))
+                wire.write_frame(
+                    f,
+                    wire.encode_reply(
+                        ErrorTypedReply(EndpointError(str(e))), peer_version=peer_version
+                    ),
+                )
             except OSError:
                 pass
             return False
         try:
-            wire.write_frame(f, wire.encode_reply(self.space.dispatch(call, strip_alias)))
+            wire.write_frame(
+                f,
+                wire.encode_reply(
+                    self.space.dispatch(call, strip_alias), peer_version=peer_version
+                ),
+            )
         except OSError:
             return False
         return True

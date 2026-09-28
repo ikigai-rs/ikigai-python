@@ -11,8 +11,9 @@ The front door for scripts and notebooks::
 Errors surface as TYPED exceptions since wire v7: the server's failure
 crosses with its taxonomy intact and is raised as the matching subclass of
 :class:`ikigai.EndpointError` (``DeniedError``, ``NotFoundError``,
-``TimeoutError``, ``UnavailableError``, …), with ``.message`` carrying the
-endpoint's own message and ``.transient`` True only for Timeout/Unavailable.
+``TimeoutError``, ``UnavailableError``, ``ConflictError`` (wire v8), …), with
+``.message`` carrying the endpoint's own message and ``.transient`` True only
+for Timeout/Unavailable.
 """
 
 from __future__ import annotations
@@ -125,10 +126,12 @@ class Client:
         #: When set, requests go as ``Call::IssueAs`` under this capability
         #: (which the server clamps to its authenticated principal).
         self.capability = capability
-        #: The version the server declared in its hello. A ``connect()``-made
-        #: client always holds ``PROTOCOL_VERSION`` (a mismatch raises there
-        #: instead); ``None`` only marks a hand-constructed client whose
-        #: server version is genuinely unknown.
+        #: The version this connection speaks, as the server answered the
+        #: hello: ``PROTOCOL_VERSION`` against a current server, or an older
+        #: one down to ``MIN_PROTOCOL_VERSION`` (a v7 host — which never sends
+        #: a v8-only variant such as ``Conflict``). A version out of reach
+        #: raises in ``connect()`` instead; ``None`` only marks a
+        #: hand-constructed client whose server version is genuinely unknown.
         self.server_version = server_version
 
     # -- transport ---------------------------------------------------------
@@ -267,6 +270,29 @@ def connect(
     addressing hint — a plain client is verbatim; only an alias mount says
     otherwise."""
     path = Path(path) if path is not None else default_socket_path()
+    # Offer this side's version; a server within reach but OLDER (a v7 host
+    # answers 7 to an 8 and hangs up) is redialed once at its own version —
+    # the offer only ever steps down, and never below MIN_PROTOCOL_VERSION.
+    offered = wire.PROTOCOL_VERSION
+    while True:
+        sock, file, answered = _hello(path, timeout, wire.Hello(offered, mode))
+        outcome = wire.connect_version(offered, answered)
+        if outcome == "proceed":
+            return Client(sock, capability=capability, file=file, server_version=answered)
+        file.close()
+        sock.close()
+        if outcome == "refuse":
+            raise wire.ProtocolError(
+                f"the kernel server speaks wire v{answered}, this client speaks "
+                f"v{wire.PROTOCOL_VERSION} (and down to v{wire.MIN_PROTOCOL_VERSION}) "
+                "— update the older side"
+            )
+        offered = outcome
+
+
+def _hello(path: Path, timeout: float | None, hello: wire.Hello):
+    """Dial ``path`` and exchange hellos, offering ``hello``: the socket, its
+    file, and the version the server answered with."""
     sock = _dial(path, timeout)
     # The version hello (required since wire v7): first frame each way. A
     # mismatch from a hello-speaking server errors naming both versions. A
@@ -277,7 +303,7 @@ def connect(
     # never misdiagnosed as ancient.
     file = sock.makefile("rwb")
     try:
-        wire.write_frame(file, wire.encode_hello(wire.Hello(wire.PROTOCOL_VERSION, mode)))
+        wire.write_frame(file, wire.encode_hello(hello))
         answer = wire.decode_hello(wire.read_frame(file))
     except TimeoutError as e:
         file.close()
@@ -290,7 +316,7 @@ def connect(
         sock.close()
         raise wire.ProtocolError(
             f"the kernel server at {path} hung up on the version hello — it predates "
-            f"wire v6 and cannot speak v{wire.PROTOCOL_VERSION}; update the server"
+            f"wire v6 and cannot speak v{hello.version}; update the server"
         ) from e
     if answer is None:
         file.close()
@@ -298,14 +324,7 @@ def connect(
         raise wire.ProtocolError(
             "the kernel server answered the version hello with something else entirely"
         )
-    if answer.version != wire.PROTOCOL_VERSION:
-        file.close()
-        sock.close()
-        raise wire.ProtocolError(
-            f"the kernel server speaks wire v{answer.version}, this client speaks "
-            f"v{wire.PROTOCOL_VERSION} — update the older side"
-        )
-    return Client(sock, capability=capability, file=file, server_version=answer.version)
+    return sock, file, answer.version
 
 
 def _dial(path: Path, timeout: float | None) -> socket.socket:

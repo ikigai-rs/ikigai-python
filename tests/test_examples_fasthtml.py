@@ -61,6 +61,7 @@ def test_peer_gone_maps_to_503(dying_peer):
     [
         (ikigai.DeniedError("needs urn:cap:demo"), 403),
         (ikigai.NotFoundError("no such row"), 404),
+        (ikigai.ConflictError("square taken"), 409),
         (ikigai.MissingArgumentError("who"), 400),
         (ikigai.InvalidArgumentError("who", "not a name"), 400),
         (ikigai.TimeoutError("5s elapsed"), 503),

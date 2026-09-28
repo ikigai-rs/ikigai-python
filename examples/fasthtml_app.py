@@ -64,8 +64,8 @@ async def kernel_connection(app):
 
 
 def endpoint_error(request, exc: EndpointError):
-    # The typed taxonomy picks the status (wire v7): Denied→403, NotFound→404,
-    # bad input→400, transient→503, anything else→502.
+    # The typed taxonomy picks the status (wire v8): Denied→403, NotFound→404,
+    # Conflict→409, bad input→400, transient→503, anything else→502.
     return PlainTextResponse(str(exc), status_code=error_status(exc))
 
 

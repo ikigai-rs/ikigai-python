@@ -74,6 +74,7 @@ from typing import NamedTuple
 
 import ikigai
 from ikigai import (
+    ConflictError,
     ConnectionLost,
     DeniedError,
     EndpointError,
@@ -236,6 +237,7 @@ DISPLAYED = [
     (NotFoundError, "not found: "),
     (TimeoutError, "timeout: "),
     (UnavailableError, "unavailable: "),
+    (ConflictError, "conflict: "),
 ]
 
 
@@ -459,6 +461,7 @@ def play(game: Game, x: str, y: str) -> str:
 STATUS_OF = [
     (DeniedError, HTTPStatus.FORBIDDEN),
     ((NotFoundError, UnresolvedError), HTTPStatus.NOT_FOUND),
+    (ConflictError, HTTPStatus.CONFLICT),
     ((MissingArgumentError, InvalidArgumentError), HTTPStatus.BAD_REQUEST),
     ((TimeoutError, UnavailableError), HTTPStatus.SERVICE_UNAVAILABLE),
 ]

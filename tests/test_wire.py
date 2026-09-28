@@ -7,6 +7,7 @@ from ikigai.wire import (
     Cached,
     CacheStatus,
     Capability,
+    ConflictError,
     Content,
     DeniedError,
     EndpointError,
@@ -110,6 +111,51 @@ def test_error_typed_wire_discriminant_is_five():
     assert wire.encode_reply(ErrorTypedReply(DeniedError("x"))) == b"\x05\x04\x01x"
 
 
+def test_conflict_is_wire_error_variant_8_reference_vector():
+    # The v8 reference vector, pinned byte-exact in all three suites (Rust,
+    # Python, Deno) beside the Denied one: ErrorTyped(Conflict("x")) is
+    # 05 08 01 78 — Conflict APPENDED after Unavailable (7), never reordered.
+    encoded = wire.encode_reply(ErrorTypedReply(ConflictError("x")))
+    assert encoded == bytes.fromhex("05080178")
+    got = wire.decode_reply(encoded).error
+    assert type(got) is ConflictError
+    assert got.message == "x"
+    assert got.transient is False  # permanent: a retry meets the same state
+
+
+# --- v8 backward compatibility: negotiation and the per-peer downgrade ---
+
+
+def test_a_conflict_to_a_v7_peer_is_downgraded_to_the_v7_bytes():
+    # A v7 peer has no variant 8. It receives Endpoint("conflict: x") — the
+    # Rust core's Display of Conflict, byte-identical to what crossed before
+    # v8 existed: ErrorTyped(3), then the string.
+    downgraded = wire.encode_reply(ErrorTypedReply(ConflictError("x")), peer_version=7)
+    assert downgraded == b"\x05\x03\x0bconflict: x"
+    assert downgraded == wire.encode_reply(ErrorTypedReply(EndpointError("conflict: x")))
+    # …while a v8 peer receives it typed.
+    assert wire.encode_reply(ErrorTypedReply(ConflictError("x")), peer_version=8) == bytes.fromhex(
+        "05080178"
+    )
+
+
+def test_accepted_versions_are_the_floor_through_ours():
+    assert (wire.MIN_PROTOCOL_VERSION, wire.PROTOCOL_VERSION) == (7, 8)
+    assert wire.accepted_version(8) == 8
+    assert wire.accepted_version(7) == 7  # served AT the peer's version
+    assert wire.accepted_version(6) is None  # below the floor: refused as before
+    assert wire.accepted_version(9) is None  # a newer peer redials at ours
+
+
+def test_a_dialer_redials_only_down_and_only_within_reach():
+    assert wire.connect_version(8, 8) == "proceed"
+    assert wire.connect_version(8, 7) == 7  # a v7 server: redial offering 7
+    assert wire.connect_version(7, 7) == "proceed"
+    assert wire.connect_version(8, 6) == "refuse"  # below the floor
+    assert wire.connect_version(8, 9) == "refuse"  # a newer server answers ours, not its own
+    assert wire.connect_version(7, 6) == "refuse"
+
+
 # --- round trips over every variant ---
 
 
@@ -176,6 +222,7 @@ REPLIES = [
     ErrorTypedReply(NotFoundError("no such row")),
     ErrorTypedReply(TimeoutError("5s elapsed")),
     ErrorTypedReply(UnavailableError("connection refused")),
+    ErrorTypedReply(ConflictError("square taken")),
     ResolvedTraced(
         Representation(b"HI", "text/plain"),
         CacheStatus.MISS,
@@ -228,12 +275,12 @@ def test_args_encode_in_btreemap_key_order():
 
 
 def test_unknown_call_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"v7"):
+    with pytest.raises(ProtocolError, match=r"v8"):
         wire.decode_call(b"\x09")
 
 
 def test_unknown_reply_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"protocol v7"):
+    with pytest.raises(ProtocolError, match=r"protocol v8"):
         wire.decode_reply(b"\x2a")
 
 
@@ -251,6 +298,7 @@ def test_typed_errors_round_trip_with_taxonomy_intact():
         (NotFoundError("no such row"), False),
         (TimeoutError("5s elapsed"), True),
         (UnavailableError("connection refused"), True),
+        (ConflictError("square taken"), False),
     ]
     for original, transient in cases:
         got = wire.decode_reply(wire.encode_reply(ErrorTypedReply(original))).error
@@ -341,3 +389,12 @@ def test_representation_media_type_is_canonical():
     assert rep.media_type == "text/plain;charset=utf-8"
     both = Representation(b"", "text/plain", params={"charset": "utf-8", "boundary": "x"})
     assert both.media_type == "text/plain;boundary=x;charset=utf-8"
+
+
+@pytest.mark.parametrize("reply", REPLIES, ids=lambda r: type(r).__name__)
+def test_only_conflict_changes_for_a_v7_peer(reply):
+    # Every other reply a v7 peer receives is exactly what v8 sends: the
+    # downgrade touches variant 8 and nothing else.
+    if isinstance(reply, ErrorTypedReply) and isinstance(reply.error, ConflictError):
+        return
+    assert wire.encode_reply(reply, peer_version=7) == wire.encode_reply(reply)
