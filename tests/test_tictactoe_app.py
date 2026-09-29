@@ -53,41 +53,34 @@ def test_the_vendored_files_are_the_books_byte_for_byte():
 
 # -- the filler: the template language ----------------------------------------------------
 
-#: The template language's cases, copied from ikigai-tutorial's
-#: ``crates/tic-tac-toe/README.md`` (the ``template-cases`` block, as of commit 89677bc), which
-#: the tutorial runs through ikigai-fn's own compose. ``fill`` is a template, a tab, and what it
-#: fills to; ``refuse`` is a template whose filling fails. They are filled with the arguments
-#: below over the resources below, and nothing else is bound (``urn:t:secret`` is not).
-TEMPLATE_CASES = """\
-fill    plain {x} } { $ $x{a} $\tplain {x} } { $ $x{a} $
-fill    $h{urn:t:mark}\t&lt;b&gt;&quot;&amp;&#39;$a{urn:t:secret}
-fill    $r{urn:t:mark}\t<b>"&'$a{urn:t:secret}
-fill    $h{urn:t:html}|$r{urn:t:html}\t&lt;i&gt;ok&lt;/i&gt;|<i>ok</i>
-fill    $$h{urn:t:mark} $$$$ $$\t$h{urn:t:mark} $$ $
-fill    $h{ urn:t:html }\t&lt;i&gt;ok&lt;/i&gt;
-fill    $h{{x}},$h{{y}}\t1,-2
-fill    $h{{message}}\tit&#39;s &lt;b&gt;
-fill    $r{{message}}\tit's <b>
-fill    $h{urn:t:cell:{x}:{y}}\t1.-2
-fill    $r{urn:t:inner}\t[$h{{x}}]
-fill    $a{urn:t:inner}\t[1]
-fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=-&then=urn:t:inner&else=urn:t:html}\t[1]
-fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=X&then=urn:t:inner&else=urn:t:html}\t<i>ok</i>
-fill    $a{urn:iki:fn:conditional?if=urn:t:cell:{x}:{y}&equals=1.-2&then=urn:t:inner&else=urn:t:html}\t[1]
-fill    $h{urn:t:mark\t$h{urn:t:mark
-refuse  $h{urn:t:secret}
-refuse  $h{{nope}}
-refuse  $a{{x}}
-refuse  $h{urn:t:{nope}}
-"""  # noqa: E501 (the README's lines, as they are)
+#: The template language's cases: ikigai-tutorial's ``crates/tic-tac-toe/README.md``, the
+#: ``template-cases`` block (as of commit d995d90) VERBATIM, real tabs and all, which the tutorial
+#: runs through ikigai-fn's own compose. The Rust, Python and Deno copies are compared byte for
+#: byte, so never edit this file: copy the README's block over it. ``fill`` is a template, a tab,
+#: and what it fills to; ``refuse`` is a template whose filling fails, and after a tab, how:
+#: ``malformed`` (the template itself is refused, compose's own error, before a level's markers
+#: resolve) or ``failed`` (a marker's request or argument failed, and the fill fails with THAT
+#: error). ``\u{…}`` is the code point it names. The cases are filled with the arguments below
+#: over the resources below, and nothing else is bound (``urn:t:secret`` is not).
+TEMPLATE_CASES = Path(__file__).parent / "ttt_template_cases.txt"
 
 CASE_ARGUMENTS = {"x": "1", "y": "-2", "message": "it's <b>"}
 CASE_RESOURCES = {
     "urn:t:mark": "<b>\"&'$a{urn:t:secret}",
     "urn:t:html": "<i>ok</i>",
     "urn:t:dash": " -\n",
+    "urn:t:on": " On\n",
+    "urn:t:empty": "",
     "urn:t:inner": "[$h{{x}}]",
+    "urn:t:note": "($h{{message}})",
 }
+
+#: Two views, bound as the game binds its own: a template at a name, filled with the view's
+#: arguments and what its name captures (which wins) — and never the caller's arguments.
+CASE_VIEWS = [
+    (re.compile(r"urn:t:view:inner:(?P<x>.+)"), "urn:t:inner"),
+    (re.compile(r"urn:t:view:note"), "urn:t:note"),
+]
 
 
 def case_source(iri: str, given: dict[str, str]) -> str:
@@ -96,31 +89,55 @@ def case_source(iri: str, given: dict[str, str]) -> str:
         return CASE_RESOURCES[iri]
     if match := re.fullmatch(r"urn:t:cell:([^:]+):(.+)", iri):
         return f"{match[1]}.{match[2]}"
+    for pattern, template in CASE_VIEWS:
+        if captured := pattern.fullmatch(iri):
+            return fill(CASE_RESOURCES[template], given | captured.groupdict(), case_source)
     raise ikigai.UnresolvedError(iri)
+
+
+def unescaped(case: str) -> str:
+    """A case as the README writes it, with each ``\\u{…}`` the code point it names — so a case
+    can hold a character that does not show. No other ``\\`` is special."""
+    return re.sub(r"\\u\{([0-9A-Fa-f]+)\}", lambda m: chr(int(m[1], 16)), case)
 
 
 def template_cases() -> list[tuple[str, str, str | None]]:
     """The block read as the tutorial's ``tests/templates.rs`` reads it."""
     cases = []
-    for line in TEMPLATE_CASES.splitlines():
+    for line in TEMPLATE_CASES.read_text(encoding="utf-8").splitlines():
         kind = next(k for k in ("fill", "refuse") if line.startswith(k))
-        rest = line[len(kind) :].lstrip()
-        template, _, filled = rest.partition("\t") if kind == "fill" else (rest, "", None)
-        cases.append((kind, template, filled))
+        template, tab, after = line[len(kind) :].lstrip().partition("\t")
+        assert tab or kind == "refuse", f"a `fill` case has a tab: {line!r}"
+        cases.append((kind, unescaped(template), unescaped(after) if tab else None))
     return cases
 
 
 def test_there_are_template_cases():
-    assert len(template_cases()) >= 20
+    assert len(template_cases()) >= 38
 
 
-@pytest.mark.parametrize(("kind", "template", "filled"), template_cases())
-def test_the_template_language_cases_in_the_readme_hold(kind, template, filled):
+def test_the_cases_are_the_readmes_block_byte_for_byte():
+    # d995d90's block, so a hand edit here is loud; a newer block is copied, then pinned again.
+    digest = hashlib.sha256(TEMPLATE_CASES.read_bytes()).hexdigest()
+    assert digest == "85291175fe6c2131948886bb39daf0a274e4d9bc0c9ac7fbcec42ec4c79c98be"
+
+
+def malformed(error: ikigai.EndpointError) -> bool:
+    """The template itself was refused: compose's own error (``Error::Endpoint("compose: …")``),
+    not a marker's failed request or argument."""
+    return type(error) is ikigai.EndpointError and error.message.startswith("compose:")
+
+
+@pytest.mark.parametrize(("kind", "template", "expected"), template_cases())
+def test_the_template_language_cases_in_the_readme_hold(kind, template, expected):
     if kind == "fill":
-        assert fill(template, CASE_ARGUMENTS, case_source) == filled
-    else:
-        with pytest.raises(ikigai.EndpointError):
-            fill(template, CASE_ARGUMENTS, case_source)
+        assert fill(template, CASE_ARGUMENTS, case_source) == expected
+        return
+    with pytest.raises(ikigai.EndpointError) as refused:
+        fill(template, CASE_ARGUMENTS, case_source)
+    assert expected in (None, "malformed", "failed"), f"a refusal's class: {expected!r}"
+    if expected is not None:
+        assert malformed(refused.value) == (expected == "malformed"), refused.value
 
 
 @pytest.mark.parametrize(
@@ -164,6 +181,23 @@ def test_a_template_the_filler_cannot_fill_is_refused(template, refusal):
 
     with pytest.raises(ikigai.EndpointError, match=re.escape(refusal)):
         fill(template, {"x": "1"}, looping)
+
+
+def test_a_level_parses_every_marker_before_sourcing_any_and_fails_in_document_order():
+    asked = []
+
+    def world(iri: str, given: dict[str, str]) -> str:
+        asked.append(iri)
+        return "$h{}" if iri == "urn:t:broken" else case_source(iri, given)
+
+    with pytest.raises(ikigai.EndpointError, match="an empty alternative"):
+        fill("$h{urn:t:html}$h{urn:t:secret}$r{}", {}, world)
+    assert asked == []  # the malformed third marker was found before the first resolved
+    # Every marker answered, then spliced in order: the `$a` one level down fails first, as a
+    # malformed template, though the second marker's request had already failed.
+    with pytest.raises(ikigai.EndpointError, match="an empty alternative"):
+        fill("$a{urn:t:broken}$h{urn:t:secret}", {}, world)
+    assert asked == ["urn:t:broken", "urn:t:secret"]
 
 
 @pytest.mark.parametrize(

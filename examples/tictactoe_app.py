@@ -128,7 +128,7 @@ DEFAULT_HTTP = "127.0.0.1:8072"
 # -- the filler: the template language ----------------------------------------------------
 #
 # ikigai-fn's compose, the subset these templates use, as the tutorial's README states it
-# ("The template language"; its `template-cases` block is copied into the tests). What is
+# ("The template language"; its `template-cases` block is tests/ttt_template_cases.txt). What is
 # here is the language: the scan, the three splices, the arguments and `conditional`. Which
 # template a view shows is not here: that is in the templates.
 
@@ -221,62 +221,129 @@ def argument(args: dict[str, str], name: str) -> str:
     return args[name]
 
 
-def substitute(template: str, args: dict[str, str], encode: bool) -> str:
-    """``template`` with each `{name}` replaced by that argument: percent-encoded as RFC 6570
-    expands a simple variable (in an IRI), or verbatim (in an argument value)."""
-    out, rest = [], template
+def placeholders(text: str) -> str | None:
+    """Why ``text`` (an IRI, or an unquoted argument value) is malformed: a `{` that does not
+    open a `{name}` argument. ``None`` if it is not."""
+    rest = text
     while (start := rest.find("{")) >= 0:
         end = rest.find("}", start)
         if end < 0:
-            raise refused("a `{` is never closed")
+            return "a `{` is never closed"
         if not ARG.fullmatch(name := rest[start + 1 : end]):
-            raise refused(f"`{{{name}}}` is not an argument name")
-        value = argument(args, name)
+            return f"`{{{name}}}` is not an argument name"
+        rest = rest[end + 1 :]
+    return None
+
+
+def substitute(template: str, args: dict[str, str], encode: bool) -> str:
+    """``template`` with each `{name}` replaced by that argument: percent-encoded as RFC 6570
+    expands a simple variable (in an IRI), or verbatim (in an argument value). Its
+    placeholders were checked when its marker was parsed."""
+    out, rest = [], template
+    while (start := rest.find("{")) >= 0:
+        end = rest.find("}", start)
+        value = argument(args, rest[start + 1 : end])
         out += [rest[:start], urllib.parse.quote(value, safe="") if encode else value]
         rest = rest[end + 1 :]
     return "".join(out) + rest
 
 
-def value_of(word: str, args: dict[str, str]) -> str:
-    """A request's argument value: a `"quoted"` one literal, with `\\"` and `\\\\` unescaped;
-    an unquoted one with its arguments substituted verbatim, and still one value."""
+def unquote(word: str) -> str | None:
+    """A `"quoted"` argument value's text, with `\\"` and `\\\\` unescaped; ``None`` if the
+    value is not quoted (then its arguments are substituted verbatim, and it is one value)."""
     if len(word) >= 2 and word[0] == word[-1] == '"':
         return re.sub(r"\\(.)", r"\1", word[1:-1], flags=re.S)
-    return substitute(word, args, encode=False)
+    return None
+
+
+class Marker(NamedTuple):
+    """A parsed marker: how it splices (``a``, ``r`` or ``h``), its body as written, and what
+    it names — a template ``argument``, or a request for ``iri`` with ``query``, each pair
+    ``(key, text, literal)``."""
+
+    mode: str
+    body: str
+    argument: str | None
+    iri: str = ""
+    query: tuple[tuple[str, str, bool], ...] = ()
+
+
+def parse(mode: str, body: str) -> Marker:
+    """One marker's body, or the template's refusal. A marker that cannot be parsed is the
+    template's fault, so it is found before anything resolves."""
+
+    def malformed(detail: str) -> EndpointError:
+        return refused(f"marker `{body}`: {detail}")
+
+    if not body:
+        raise malformed("an empty alternative")
+    if len(split(body, "||")) > 1:
+        raise malformed("this filler has no `||` fallbacks")
+    name = body[1:-1] if body[:1] == "{" and body[-1:] == "}" else ""
+    if ARG.fullmatch(name):
+        if mode == "a":
+            raise malformed(
+                f"`{{{name}}}` is an argument, a value and never a template — splice it with "
+                "`$h` or `$r`, not `$a`"
+            )
+        return Marker(mode, body, name)
+    iri, _, query = body.partition("?")
+    iri = iri.strip(WHITESPACE)
+    if detail := placeholders(iri):
+        raise malformed(detail)
+    pairs = []
+    for pair in filter(None, (pair.strip(WHITESPACE) for pair in split(query, "&"))):
+        key, eq, word = pair.partition("=")
+        if not eq:
+            raise refused(f"marker argument `{pair}` is not key=value")
+        word = word.strip(WHITESPACE)
+        if (text := unquote(word)) is None and (detail := placeholders(word)):
+            raise malformed(detail)
+        pairs.append((key.strip(WHITESPACE), word if text is None else text, text is not None))
+    return Marker(mode, body, None, iri, tuple(pairs))
 
 
 def fill(template: str, args: dict[str, str], source: Source, depth: int = 0) -> str:
     """``template`` with every marker spliced: ``args`` are the template arguments, and
-    ``source`` answers every request but ``conditional``, which is answered here. A marker
-    that fails fails the whole fill."""
+    ``source`` answers every request but ``conditional``, which is answered here.
+
+    ikigai-fn's order, level by level: EVERY marker is parsed before any resolves (so a
+    malformed marker is refused as malformed, whatever an earlier marker's request would have
+    done); then every marker's request is answered, in document order; then each is spliced in
+    document order, a ``$a`` filling what it named one level down. A marker that fails fails the
+    whole fill, and the first failure in document order is the one raised."""
     if depth >= DEPTH:
         raise refused(f"recursion limit ({DEPTH}) exceeded — cyclic transclusion?")
-    pieces = scan(template)
-    return "".join(p if isinstance(p, str) else splice(*p, args, source, depth) for p in pieces)
+    parsed = [p if isinstance(p, str) else parse(*p) for p in scan(template)]
+    answers = [p if isinstance(p, str) else answer(p, args, source) for p in parsed]
+    return "".join(
+        p if isinstance(p, str) else splice(p, a, args, source, depth)
+        for p, a in zip(parsed, answers, strict=True)
+    )
 
 
-def splice(mode: str, body: str, args: dict[str, str], source: Source, depth: int) -> str:
+def answer(marker: Marker, args: dict[str, str], source: Source) -> str | EndpointError:
+    """What ``marker`` names — an argument's value or a request's answer — or why it could not
+    be had, kept (not raised) until the marker's turn to splice."""
+    try:
+        if marker.argument is not None:
+            return argument(args, marker.argument)
+        request = substitute(marker.iri, args, encode=True)
+        given = {k: t if lit else substitute(t, args, encode=False) for k, t, lit in marker.query}
+        return conditional(given, source) if request == CONDITIONAL else source(request, given)
+    except EndpointError as failed:
+        return failed
+
+
+def splice(
+    marker: Marker, value: str | EndpointError, args: dict[str, str], source: Source, depth: int
+) -> str:
     """One marker: `$h` escapes what it names, `$r` splices it as it is, `$a` fills it."""
-    if len(split(body, "||")) > 1:
-        raise refused(f"marker `{body}`: this filler has no `||` fallbacks")
-    name = body[1:-1] if body[:1] == "{" and body[-1:] == "}" else ""
-    if ARG.fullmatch(name):
-        if mode == "a":
-            raise refused(f"marker `{body}`: an argument is a value and never a template")
-        value = argument(args, name)
-    else:
-        iri, _, query = body.partition("?")
-        given = {}
-        for pair in filter(None, (pair.strip(WHITESPACE) for pair in split(query, "&"))):
-            key, eq, word = pair.partition("=")
-            if not eq:
-                raise refused(f"marker argument `{pair}` is not key=value")
-            given[key.strip(WHITESPACE)] = value_of(word.strip(WHITESPACE), args)
-        request = substitute(iri.strip(WHITESPACE), args, encode=True)
-        value = conditional(given, source) if request == CONDITIONAL else source(request, given)
-        if mode == "a":
-            return fill(value, args, source, depth + 1)
-    return value.translate(ESCAPE) if mode == "h" else value
+    if isinstance(value, EndpointError):
+        raise value
+    if marker.mode == "a":
+        return fill(value, args, source, depth + 1)
+    return value.translate(ESCAPE) if marker.mode == "h" else value
 
 
 #: ``conditional``'s reading of ``if`` when there is no ``equals``.
@@ -293,7 +360,11 @@ def conditional(given: dict[str, str], source: Source) -> str:
     if "equals" in given:
         taken = verdict == given["equals"]
     elif (taken := BOOLEAN.get(verdict.lower())) is None:
-        raise refused(f"conditional: `{test}` returned {verdict!r}, not a boolean")
+        # ikigai-fn's own words, and its class: a failed request, not compose's refusal.
+        shown = '"' + verdict.lower().replace("\\", "\\\\").replace('"', '\\"') + '"'
+        raise EndpointError(
+            f"conditional: `{test}` returned {shown}, not a boolean (true/false/1/0/yes/no)"
+        )
     chosen = then if taken else given.get("else")
     return "" if chosen is None else source(chosen, {})
 

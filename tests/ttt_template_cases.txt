@@ -1,0 +1,38 @@
+fill    plain {x} } { $ $x{a} $	plain {x} } { $ $x{a} $
+fill    $h{urn:t:mark}	&lt;b&gt;&quot;&amp;&#39;$a{urn:t:secret}
+fill    $r{urn:t:mark}	<b>"&'$a{urn:t:secret}
+fill    $h{urn:t:html}|$r{urn:t:html}	&lt;i&gt;ok&lt;/i&gt;|<i>ok</i>
+fill    $$h{urn:t:mark} $$$$ $$	$h{urn:t:mark} $$ $
+fill    $h{ urn:t:html }	&lt;i&gt;ok&lt;/i&gt;
+fill    $h{\u{3000}urn:t:html\u{85}}	&lt;i&gt;ok&lt;/i&gt;
+fill    $h{{x}},$h{{y}}	1,-2
+fill    $h{{message}}	it&#39;s &lt;b&gt;
+fill    $r{{message}}	it's <b>
+fill    $h{urn:t:cell:{x}:{y}}	1.-2
+fill    $r{urn:t:inner}	[$h{{x}}]
+fill    $a{urn:t:inner}	[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=-&then=urn:t:inner&else=urn:t:html}	[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=X&then=urn:t:inner&else=urn:t:html}	<i>ok</i>
+fill    $a{urn:iki:fn:conditional?if=urn:t:cell:{x}:{y}&equals=1.-2&then=urn:t:inner&else=urn:t:html}	[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:on&then=urn:t:inner&else=urn:t:html}	[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:empty&then=urn:t:inner&else=urn:t:html}	<i>ok</i>
+fill    <$a{urn:iki:fn:conditional?if=urn:t:empty&then=urn:t:inner}>	<>
+fill    $r{urn:t:view:inner:7}	[7]
+fill    $r{urn:t:view:inner:7?x=9}	[7]
+fill    $r{urn:t:view:note?message={message}}	(it&#39;s &lt;b&gt;)
+fill    $h{urn:t:mark	$h{urn:t:mark
+fill    $h{urn:t:mark $h{urn:t:html}	$h{urn:t:mark &lt;i&gt;ok&lt;/i&gt;
+refuse  $h{urn:t:secret}	failed
+refuse  $h{{nope}}	failed
+refuse  $a{{x}}	malformed
+refuse  $h{urn:t:{nope}}	failed
+refuse  $h{urn:t:{9}}	malformed
+refuse  $h{}	malformed
+refuse  $r{  }	malformed
+refuse  $h{urn:t:secret}$h{urn:t:{9}}	malformed
+refuse  $h{urn:t:secret}$h{}	malformed
+refuse  $h{\u{FEFF}urn:t:html}
+refuse  $h{\u{1F}urn:t:html}
+refuse  $a{urn:iki:fn:conditional?if=urn:t:dash&then=urn:t:inner&else=urn:t:html}	failed
+refuse  $a{urn:iki:fn:conditional?if=urn:t:dash&equals=X&else=urn:t:html}	failed
+refuse  $r{urn:t:view:note}	failed
