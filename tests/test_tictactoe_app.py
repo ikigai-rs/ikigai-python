@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import http.client
+import re
 import shutil
 import socket
 import subprocess
@@ -20,18 +21,20 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 import ikigai
 from examples import tictactoe_app as app
-from examples.tictactoe_app import Html, Refusal, Target, decoded, fill, respond, said, target
+from examples.tictactoe_app import Refusal, Target, fill, respond, said, segments, target
 
 # -- the vendored files -------------------------------------------------------------------
 
 #: Pinned here as well as in the app, so changing a file means changing both on purpose. All
-#: three as ikigai-tutorial commit 4d9440a has them (`git show 4d9440a:<path>`), the build of
-#: ttt-host the parity tests run against — never a working tree, which may be mid-edit.
+#: three as ikigai-tutorial commit 89677bc has them (`git show 89677bc:<path>`; unchanged since
+#: 4d9440a), the build of ttt-host the parity tests run against — never a working tree, which
+#: may be mid-edit.
 DIGESTS = {
     # The book's src/vendor/htmx-2.0.4.min.js, which is ikigai-web's assets/htmx.min.js.
     "htmx-2.0.4.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
@@ -48,65 +51,62 @@ def test_the_vendored_files_are_the_books_byte_for_byte():
         assert hashlib.sha256((app.STATIC / name).read_bytes()).hexdigest() == digest, name
 
 
-# -- the renderer -------------------------------------------------------------------------
+# -- the filler: the template language ----------------------------------------------------
 
-
-def test_fill_escapes_text_as_rust_and_the_book_do():
-    # html.escape would write &#x27; — the Rust `escape` and the book's JS write &#39;.
-    assert fill("<b>{{m}}</b>", lambda _: "a&b<c>\"d'e") == "<b>a&amp;b&lt;c&gt;&quot;d&#39;e</b>"
-
-
-def test_fill_puts_html_in_raw_and_passes_slot_integers():
-    seen = []
-
-    def value(name, *args):
-        seen.append((name, args))
-        return Html("<i>ok</i>")
-
-    assert fill("{{square 0 -2}}|{{status}}", value) == "<i>ok</i>|<i>ok</i>"
-    assert seen == [("square", (0, -2)), ("status", ())]
-
-
-#: The template format's cases, copied from ikigai-tutorial's ``crates/tic-tac-toe/README.md``
-#: (the ``template-cases`` block, as of commit 4d9440a), which the Rust filler is tested
-#: against. ``refuse`` is a template the filler must refuse; ``slots`` is a template, a tab,
-#: and what it reads as (``name args…`` per slot, joined by `` | ``, ``-`` for none);
-#: ``escape`` is a text, a tab, and its escaped form. A line with no kind continues the case
-#: before it.
+#: The template language's cases, copied from ikigai-tutorial's
+#: ``crates/tic-tac-toe/README.md`` (the ``template-cases`` block, as of commit 89677bc), which
+#: the tutorial runs through ikigai-fn's own compose. ``fill`` is a template, a tab, and what it
+#: fills to; ``refuse`` is a template whose filling fails. They are filled with the arguments
+#: below over the resources below, and nothing else is bound (``urn:t:secret`` is not).
 TEMPLATE_CASES = """\
-slots   a {{square 0 -2}} b {{mark}}\tsquare 0 -2 | mark
-slots   {{x}}}\tx
-slots   }} {x} { {x}\t-
-slots   {{a-b 12 -345}}\ta-b 12 -345
-refuse  {{x 01}}
-refuse  {{x -0}}
-refuse  {{x +1}}
-refuse  {{x 1 }}
-refuse  {{x  1}}
-refuse  {{ x}}
-refuse  {{Mark}}
-refuse  {{-x}}
-refuse  {{}}
-refuse  {{x}
-refuse  {{x}} {{
-refuse  {{{x}}}
-refuse  {{x 99999999999999999999}}
-refuse  {{x
-y}}
-escape  a&b<c>"d'e\ta&amp;b&lt;c&gt;&quot;d&#39;e
-escape  it's\tit&#39;s
-escape  ✓ 1,1\t✓ 1,1
-"""
+fill    plain {x} } { $ $x{a} $\tplain {x} } { $ $x{a} $
+fill    $h{urn:t:mark}\t&lt;b&gt;&quot;&amp;&#39;$a{urn:t:secret}
+fill    $r{urn:t:mark}\t<b>"&'$a{urn:t:secret}
+fill    $h{urn:t:html}|$r{urn:t:html}\t&lt;i&gt;ok&lt;/i&gt;|<i>ok</i>
+fill    $$h{urn:t:mark} $$$$ $$\t$h{urn:t:mark} $$ $
+fill    $h{ urn:t:html }\t&lt;i&gt;ok&lt;/i&gt;
+fill    $h{{x}},$h{{y}}\t1,-2
+fill    $h{{message}}\tit&#39;s &lt;b&gt;
+fill    $r{{message}}\tit's <b>
+fill    $h{urn:t:cell:{x}:{y}}\t1.-2
+fill    $r{urn:t:inner}\t[$h{{x}}]
+fill    $a{urn:t:inner}\t[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=-&then=urn:t:inner&else=urn:t:html}\t[1]
+fill    $a{urn:iki:fn:conditional?if=urn:t:dash&equals=X&then=urn:t:inner&else=urn:t:html}\t<i>ok</i>
+fill    $a{urn:iki:fn:conditional?if=urn:t:cell:{x}:{y}&equals=1.-2&then=urn:t:inner&else=urn:t:html}\t[1]
+fill    $h{urn:t:mark\t$h{urn:t:mark
+refuse  $h{urn:t:secret}
+refuse  $h{{nope}}
+refuse  $a{{x}}
+refuse  $h{urn:t:{nope}}
+"""  # noqa: E501 (the README's lines, as they are)
+
+CASE_ARGUMENTS = {"x": "1", "y": "-2", "message": "it's <b>"}
+CASE_RESOURCES = {
+    "urn:t:mark": "<b>\"&'$a{urn:t:secret}",
+    "urn:t:html": "<i>ok</i>",
+    "urn:t:dash": " -\n",
+    "urn:t:inner": "[$h{{x}}]",
+}
 
 
-def template_cases() -> list[tuple[str, str]]:
-    cases: list[tuple[str, str]] = []
+def case_source(iri: str, given: dict[str, str]) -> str:
+    """The cases' world: ``urn:t:cell:{x}:{y}`` is its two coordinates joined by ``.``."""
+    if iri in CASE_RESOURCES:
+        return CASE_RESOURCES[iri]
+    if match := re.fullmatch(r"urn:t:cell:([^:]+):(.+)", iri):
+        return f"{match[1]}.{match[2]}"
+    raise ikigai.UnresolvedError(iri)
+
+
+def template_cases() -> list[tuple[str, str, str | None]]:
+    """The block read as the tutorial's ``tests/templates.rs`` reads it."""
+    cases = []
     for line in TEMPLATE_CASES.splitlines():
-        kind = next((k for k in ("slots", "refuse", "escape") if line.startswith(k)), None)
-        if kind is None:
-            cases[-1] = (cases[-1][0], cases[-1][1] + "\n" + line)
-        else:
-            cases.append((kind, line[len(kind) :].lstrip()))
+        kind = next(k for k in ("fill", "refuse") if line.startswith(k))
+        rest = line[len(kind) :].lstrip()
+        template, _, filled = rest.partition("\t") if kind == "fill" else (rest, "", None)
+        cases.append((kind, template, filled))
     return cases
 
 
@@ -114,55 +114,126 @@ def test_there_are_template_cases():
     assert len(template_cases()) >= 20
 
 
-@pytest.mark.parametrize(("kind", "text"), template_cases())
-def test_the_template_format_cases_hold(kind, text):
-    if kind == "refuse":
-        with pytest.raises(ikigai.EndpointError, match="^a template: "):
-            app.slots(text)
-    elif kind == "slots":
-        template, expected = text.split("\t")
-        shown = [" ".join([name, *map(str, args)]) for name, args in app.slots(template)]
-        assert (" | ".join(shown) or "-") == expected
+@pytest.mark.parametrize(("kind", "template", "filled"), template_cases())
+def test_the_template_language_cases_in_the_readme_hold(kind, template, filled):
+    if kind == "fill":
+        assert fill(template, CASE_ARGUMENTS, case_source) == filled
     else:
-        raw, escaped = text.split("\t")
-        assert fill("{{m}}", lambda _: raw) == escaped
+        with pytest.raises(ikigai.EndpointError):
+            fill(template, CASE_ARGUMENTS, case_source)
 
 
-def test_a_refused_template_is_refused_by_fill_too():
-    with pytest.raises(ikigai.EndpointError, match=r"`\{\{Mark\}\}` is not a slot"):
-        fill("<b>{{Mark}}</b>", lambda _: "X")
-    with pytest.raises(ikigai.EndpointError, match="is never closed"):
-        fill("{{x}} {{", lambda _: "X")
+@pytest.mark.parametrize(
+    ("template", "filled"),
+    [
+        # An argument in the IRI is percent-encoded, the RFC 6570 simple way; in an unquoted
+        # value it is verbatim, and in a quoted one it is literal text.
+        ("$r{urn:t:echo:{v}}", "urn:t:echo:a%20b%2Fc%3A%C3%A9~._-"),
+        (
+            '$r{urn:t:echo?in={v}&q="{v}" &e="a\\"b\\\\c"}',
+            'urn:t:echo in=a b/c:é~._- q={v} e=a"b\\c',
+        ),
+        ('$r{urn:t:echo?in="}"}', "urn:t:echo in=}"),  # a quoted `}` does not close
+        ("$r{urn:t:echo?in={v}&&}", "urn:t:echo in=a b/c:é~._-"),  # an empty pair is nothing
+        ("$h{ $h{{v}}", "$h{ a b/c:é~._-"),  # an unclosed marker is text, `$` and all
+        ("$x{{v}} $", "$x{{v}} $"),
+    ],
+)
+def test_arguments_reach_a_request_as_the_language_says(template, filled):
+    def echo(iri: str, given: dict[str, str]) -> str:
+        return " ".join([iri, *(f"{k}={v}" for k, v in given.items())])
+
+    assert fill(template, {"v": "a b/c:é~._-"}, echo) == filled
 
 
-class FakeGame:
-    """A game's resources as a dict — the choice rules without a host."""
+@pytest.mark.parametrize(
+    ("template", "refusal"),
+    [
+        ("$h{urn:t:html || urn:t:mark}", "no `||` fallbacks"),
+        ("$h{urn:t:html?in}", "not key=value"),
+        ("$h{urn:t:{1x}}", "not an argument name"),
+        ('$h{urn:t:"{"}', "never closed"),  # a quote hides a `{` from the scan, not the IRI
+        ("$a{{x}}", "never a template"),
+        ("$a{urn:t:loop}", "recursion limit"),
+        ("$h{urn:iki:fn:conditional?if=urn:t:html&then=urn:t:html}", "not a boolean"),
+    ],
+)
+def test_a_template_the_filler_cannot_fill_is_refused(template, refusal):
+    def looping(iri: str, given: dict[str, str]) -> str:
+        return "$a{urn:t:loop}" if iri == "urn:t:loop" else case_source(iri, given)
 
-    def __init__(self, cells: dict, winner: str = "-", turn: str = "X"):
-        self.resources = {
-            "template:board": "[{{square 0 0}}{{square 1 0}}]",
-            "template:square-open": "open({{x}},{{y}})",
-            "template:square-taken": "taken({{x}},{{y}},{{mark}})",
-            "template:square-closed": "closed({{x}},{{y}})",
-            "template:status-turn": "{{mark}} to play.",
-            "template:status-won": "{{mark}} has won.",
-            "template:status-draw": "A draw.",
-            "template:reply": "{{message}}. {{status}}",
-            "winner": winner,
-            "turn": turn,
-        }
-        for (x, y), mark in cells.items():
-            self.resources[f"cell:{x}:{y}"] = mark
-        self.sunk = []
+    with pytest.raises(ikigai.EndpointError, match=re.escape(refusal)):
+        fill(template, {"x": "1"}, looping)
 
-    def text(self, name):
-        return self.resources[name]
 
-    def sink(self, name):
+@pytest.mark.parametrize(
+    ("test", "taken"),
+    [("urn:t:yes", "then"), ("urn:t:no", "else"), ("urn:t:blank", "else")],
+)
+def test_conditional_reads_a_boolean_without_equals(test, taken):
+    world = {"urn:t:yes": " Yes\n", "urn:t:no": "off", "urn:t:blank": "", "urn:t:then": "then"}
+    world["urn:t:else"] = "else"
+    template = f"$r{{urn:iki:fn:conditional?if={test}&then=urn:t:then&else=urn:t:else}}"
+    assert fill(template, {}, lambda iri, _: world[iri]) == taken
+    no_else = f"$r{{urn:iki:fn:conditional?if={test}&then=urn:t:then}}"
+    assert fill(no_else, {}, lambda iri, _: world[iri]) == ("then" if taken == "then" else "")
+
+
+#: The game's templates with the markup taken out: the same markers, the same choices.
+TEMPLATES = {
+    "board": "[$r{urn:iki:tutorial:ttt:view:square:0:0}$r{urn:iki:tutorial:ttt:view:square:1:0}]",
+    "square": "$a{urn:iki:fn:conditional?if=urn:iki:tutorial:ttt:cell:{x}:{y}&equals=-"
+    "&then=urn:iki:tutorial:ttt:template:square-empty"
+    "&else=urn:iki:tutorial:ttt:template:square-taken}",
+    "square-empty": "$a{urn:iki:fn:conditional?if=urn:iki:tutorial:ttt:winner&equals=-"
+    "&then=urn:iki:tutorial:ttt:template:square-open"
+    "&else=urn:iki:tutorial:ttt:template:square-closed}",
+    "square-open": "open($h{{x}},$h{{y}})",
+    "square-closed": "closed($h{{x}},$h{{y}})",
+    "square-taken": "taken($h{{x}},$h{{y}},$h{urn:iki:tutorial:ttt:cell:{x}:{y}})",
+    "status": "$a{urn:iki:fn:conditional?if=urn:iki:tutorial:ttt:winner&equals=-"
+    "&then=urn:iki:tutorial:ttt:template:status-turn"
+    "&else=urn:iki:tutorial:ttt:template:status-over}",
+    "status-over": "$a{urn:iki:fn:conditional?if=urn:iki:tutorial:ttt:winner&equals=draw"
+    "&then=urn:iki:tutorial:ttt:template:status-draw"
+    "&else=urn:iki:tutorial:ttt:template:status-won}",
+    "status-turn": "$h{urn:iki:tutorial:ttt:turn} to play.",
+    "status-won": "$h{urn:iki:tutorial:ttt:winner} has won.",
+    "status-draw": "A draw.",
+    "reply": "$h{{message}}. $r{urn:iki:tutorial:ttt:view:status}",
+    "game": "Game $h{{game}}",
+}
+
+
+class FakeHost:
+    """A host holding one game's names as a dict, answering them at any game's prefix, and
+    recording every name it was asked."""
+
+    def __init__(self, cells: dict, winner: str, turn: str):
+        self.resources = {f"template:{name}": text for name, text in TEMPLATES.items()}
+        self.resources |= {"winner": winner, "turn": turn}
+        self.resources |= {f"cell:{x}:{y}": mark for (x, y), mark in cells.items()}
+        self.asked: list[str] = []
+        self.sunk: list[str] = []
+
+    def source(self, iri: str, **given):
+        self.asked.append(iri)
+        name = iri.partition("iki:tutorial:ttt:")[2]
+        if given or name not in self.resources:
+            raise ikigai.UnresolvedError(iri)
+        return SimpleNamespace(text=self.resources[name])
+
+    def sink(self, iri: str):
+        name = iri.partition("iki:tutorial:ttt:")[2]
         self.sunk.append(name)
         if name == "move:0:0":
             raise ikigai.InvalidArgumentError("x, y", "0,0 is taken — X played there")
-        return "X plays 1,0"
+        return SimpleNamespace(text="X plays 1,0")
+
+
+def FakeGame(cells: dict, winner: str = "-", turn: str = "X", game: str | None = None):
+    """A :class:`Game` over a :class:`FakeHost`: the templates' choices without a host."""
+    return app.Game(FakeHost(cells, winner, turn), game)
 
 
 def test_the_board_chooses_each_square():
@@ -172,11 +243,33 @@ def test_the_board_chooses_each_square():
 
 
 @pytest.mark.parametrize(
-    ("winner", "turn", "shown"),
-    [("-", "O", "O to play."), ("X", "-", "X has won."), ("draw", "-", "A draw.")],
+    ("winner", "turn", "shown", "unasked"),
+    [
+        ("-", "O", "O to play.", "status-over"),
+        ("X", "-", "X has won.", "status-turn"),
+        ("draw", "-", "A draw.", "status-won"),
+    ],
 )
-def test_the_status_chooses_its_template(winner, turn, shown):
-    assert app.status(FakeGame({}, winner=winner, turn=turn)) == shown
+def test_the_status_chooses_its_template_and_sources_only_that_one(winner, turn, shown, unasked):
+    game = FakeGame({}, winner=winner, turn=turn)
+    assert app.status(game) == shown
+    assert not [iri for iri in game.kernel.asked if iri.endswith(f":template:{unasked}")]
+
+
+def test_a_game_is_asked_at_its_prefix_and_the_views_are_composed_here():
+    game = FakeGame({(0, 0): "O", (1, 0): "-"}, game="a")
+    assert app.board(game) == "[taken(0,0,O)open(1,0)]"
+    assert all(iri.startswith("urn:game:a:iki:tutorial:ttt:") for iri in game.kernel.asked)
+    assert not [iri for iri in game.kernel.asked if ":view:" in iri]
+    assert game.view("view:game:a") == "Game a"
+
+
+def test_a_hostile_mark_is_escaped_and_never_expanded():
+    mark = "<b>\"&'$a{urn:iki:tutorial:ttt:template:board}"
+    game = FakeGame({(0, 0): mark, (1, 0): "-"})
+    shown = "&lt;b&gt;&quot;&amp;&#39;$a{urn:iki:tutorial:ttt:template:board}"
+    assert app.board(game) == f"[taken(0,0,{shown})open(1,0)]"
+    assert game.kernel.asked.count("urn:iki:tutorial:ttt:template:board") == 1
 
 
 def test_a_reply_says_what_the_write_said_or_its_refusal():
@@ -185,7 +278,13 @@ def test_a_reply_says_what_the_write_said_or_its_refusal():
     assert app.reply(game, "move:0:0") == (
         "invalid argument `x, y`: 0,0 is taken — X played there. O to play."
     )
-    assert game.sunk == ["move:1:0", "move:0:0"]
+    assert game.kernel.sunk == ["move:1:0", "move:0:0"]
+    assert game.view("view:reply", message="it's <b>") == "it&#39;s &lt;b&gt;. O to play."
+
+
+def test_a_view_without_its_argument_fails():
+    with pytest.raises(ikigai.MissingArgumentError):
+        FakeGame({}).view("view:reply")
 
 
 @pytest.mark.parametrize(
@@ -210,21 +309,43 @@ def test_a_refusal_is_said_as_the_rust_kernel_displays_it(error, shown):
 
 
 @pytest.mark.parametrize(
-    ("raw", "path"),
+    ("raw", "names"),
     [
-        ("/game/a/", "/game/a/"),
-        ("/a%2Fb", "/a/b"),  # decoded before it is split, so %2F separates
-        ("/%30%31", "/01"),
-        ("/+1", "/ 1"),  # `+` is a space in the path too, as ikigai-web decodes it
-        ("/%2B1", "/+1"),
-        ("/%+1", "/\x01"),  # Rust's from_str_radix takes a leading `+`
-        ("/%zz/%/%4", "/%zz/%/%4"),  # not an escape: kept
-        ("/%E2%82%AC", "/\u20ac"),
-        ("/%FF", "/\ufffd"),
+        ("/game/a/", ["game", "a"]),
+        ("//a///b/", ["a", "b"]),  # empty segments dropped
+        ("/a%2Fb/c", ["a/b", "c"]),  # split first, so %2F is data in its segment
+        ("/a%2fb%25", ["a/b%"]),
+        ("/%30%31", ["01"]),
+        ("/+1", ["+1"]),  # `+` in a path is a `+`
+        ("/%2B1", ["+1"]),
+        ("/./..", [".", ".."]),  # nothing normalizes them
+        ("/%E2%82%AC", ["\u20ac"]),
+        ("/a?x=%2B+1&&y&=%41", ["a"]),  # the query is form-encoded: decoded, then unread
     ],
 )
-def test_a_path_is_decoded_as_ikigai_web_decodes_it(raw, path):
-    assert decoded(raw) == path
+def test_a_path_is_split_then_decoded_as_ikigai_web_does_it(raw, names):
+    assert segments(raw) == names
+
+
+@pytest.mark.parametrize(
+    ("raw", "refusal"),
+    [
+        ("/%", "malformed percent-escape"),
+        ("/a%4", "malformed percent-escape"),
+        ("/%zz", "malformed percent-escape"),
+        ("/%+1", "malformed percent-escape"),  # a sign is not a hex digit
+        ("/a?x=%4", "malformed percent-escape"),  # in the query alike
+        ("/a?%zz", "malformed percent-escape"),
+        ("/%FF", "not UTF-8 once decoded"),
+        ("/%ED%A0%80", "not UTF-8 once decoded"),  # a surrogate
+        ("/a?x=%FF", "not UTF-8 once decoded"),
+    ],
+)
+def test_a_malformed_target_is_refused_before_anything_is_routed(raw, refusal):
+    with pytest.raises(ValueError, match=f"^{refusal}$"):
+        segments(raw)
+    with pytest.raises(ValueError, match=f"^{refusal}$"):
+        target(raw)
 
 
 @pytest.mark.parametrize(
@@ -321,24 +442,17 @@ def test_the_refusals_come_in_ikigai_webs_order(verb, view, known, answer):
 
 
 def test_the_writes_route_to_the_hosts_writes():
-    game = FakeGame({})
-    game.resources["cell:2:-1"] = "-"
+    game = FakeGame({(2, -1): "-"})
     respond("POST", target("/iki/tutorial/ttt/view/play/2/-1"), unasked)(game)
     respond("PUT", target("/iki/tutorial/ttt/view/reset"), unasked)(game)
-    assert game.sunk == ["move:2:-1", "reset"]
+    assert game.kernel.sunk == ["move:2:-1", "reset"]
 
 
 def test_a_play_reads_its_cell_first_so_the_host_refuses_a_spelling():
-    class Refusing(FakeGame):
-        def text(self, name):
-            if name == "cell:01:1":
-                raise ikigai.InvalidArgumentError("x", "`01` is not an integer in its plain form")
-            return super().text(name)
-
-    game = Refusing({})
-    with pytest.raises(ikigai.InvalidArgumentError):
+    game = FakeGame({})  # no `cell:01:1`: the host refuses the name
+    with pytest.raises(ikigai.UnresolvedError):
         respond("POST", target("/iki/tutorial/ttt/view/play/01/1"), unasked)(game)
-    assert game.sunk == []
+    assert game.kernel.sunk == []
 
 
 @pytest.fixture
@@ -450,6 +564,7 @@ class Twins:
         self.base = base
         self.host_http = host_http
         self.checked = 0
+        self.replies = 0
 
     def rust(self, game: str, name: str, verb: str = "source") -> str:
         prefix = "urn:iki:tutorial:ttt:" if game == "" else f"urn:game:{game}:iki:tutorial:ttt:"
@@ -473,6 +588,7 @@ class Twins:
         ours = self.python("py", f"view/play/{x}/{y}", "POST")
         theirs = self.rust("rs", f"view:play:{x}:{y}", "sink")
         assert ours == theirs
+        self.replies += 1
         self.same_views("py")
         assert self.rust("py", "view:board") == self.rust("rs", "view:board")
         return ours
@@ -480,6 +596,7 @@ class Twins:
     def reset(self) -> str:
         ours = self.python("py", "view/reset", "POST")
         assert ours == self.rust("rs", "view:reset", "sink")
+        self.replies += 1
         self.same_views("py")
         return ours
 
@@ -511,6 +628,7 @@ def test_parity_through_a_won_game_a_refusal_and_a_draw(twins):
     assert twins.python("py", "view/status") == "A draw."
     assert twins.play(0, 0) == "invalid argument `x, y`: the game is over — a draw. A draw."
     assert twins.checked == 2 * (1 + 8 + 1 + 10)
+    print(f"parity: {twins.checked} views and {twins.replies} replies the same as ttt-host's")
 
 
 @needs_host
@@ -546,7 +664,7 @@ def test_the_page_and_its_files_are_ttt_hosts_byte_for_byte(twins, path):
 def test_the_page_is_the_games_template_under_its_base(twins):
     page = fetch(f"{twins.base}/game/py/")[2].decode("utf-8")
     assert '<base href="/game/py/">' in page
-    assert fill(twins.rust("py", "template:game"), lambda _: "py") in page
+    assert twins.rust("py", "view:game:py") in page  # the host's own page shell
     root = fetch(f"{twins.base}/")[2].decode("utf-8")
     assert '<base href="/">' in root and 'aria-label="Game root"' in root
 
@@ -560,10 +678,11 @@ def test_a_game_the_host_does_not_have_is_a_404(twins):
 VIEWS = "iki/tutorial/ttt/view"
 
 #: The edges the parity test asks the app and the host, measured on ``ttt-host`` (tutorial
-#: 4d9440a): ikigai-deno's rows (its ``tests/tictactoe_app_test.ts``, PR #13) with game ``py``
-#: for ``a`` and ``zz`` the game the host lacks, then this face's own. Game ``py`` is over
-#: when they are asked, so every play is refused and nothing moves: the app and the host can
-#: answer the SAME game, and each row's status, body, Content-Type and Allow must agree.
+#: 89677bc, on ikigai-web 0.1.30's hardened decoding): ikigai-deno's rows (its
+#: ``tests/tictactoe_app_test.ts``, ikigai-deno PR #13) with game ``py`` for ``a`` and ``zz``
+#: the game the host lacks, then this face's own. Game ``py`` is over when they are asked, so
+#: every play is refused and nothing moves: the app and the host can answer the SAME game, and
+#: each row's status, body, Content-Type and Allow must agree.
 EDGES = [
     # The page: a trailing slash or not, an unknown game, a name that is not an IRI.
     ("GET", "/game/py"),
@@ -592,7 +711,7 @@ EDGES = [
     # A play: its coordinates in every wrong spelling, and every method.
     ("POST", f"/game/py/{VIEWS}/play/01/0"),
     ("POST", f"/game/py/{VIEWS}/play/-0/0"),
-    ("POST", f"/game/py/{VIEWS}/play/+1/0"),  # `+` is a space: not an IRI
+    ("POST", f"/game/py/{VIEWS}/play/+1/0"),  # `+` is a `+`: the coordinate rule refuses it
     ("POST", f"/game/py/{VIEWS}/play/%2B1/0"),
     ("POST", f"/game/py/{VIEWS}/play/x/0"),
     ("POST", f"/game/py/{VIEWS}/play/1.0/0"),
@@ -618,7 +737,11 @@ EDGES = [
     ("POST", f"/game/py/{VIEWS}/play/1/'"),
     ("POST", f"/game/py/{VIEWS}/play/3/1"),
     ("POST", f"/game/py/{VIEWS}/play/%31/%31"),
-    ("POST", f"/game/py/{VIEWS}/play/1%2F1"),
+    ("POST", f"/game/py/{VIEWS}/play/1%2F1/0"),  # %2F is data: the coordinate `1/1`
+    ("POST", f"/game/py/{VIEWS}/play/1/1?x=%4"),  # the query is decoded, and refused
+    ("POST", f"/game/py/{VIEWS}/play/1/1?x=%FF"),
+    ("POST", f"/game/py/{VIEWS}/play/1/1?x=%2B+1"),
+    ("GET", "/game/py/iki%3Atutorial/ttt/view/status"),  # a `:` in a segment separates
     ("POST", "/game/py/iki:tutorial/ttt/view/play/1/1"),
     ("PUT", f"/game/py/{VIEWS}/play/1/1"),
     ("POST", f"/game/py/{VIEWS}/play/1/1/"),
@@ -664,6 +787,8 @@ EDGES = [
     # The files the page loads.
     ("GET", "/static//ttt.css"),
     ("GET", "/static/ttt.css/"),
+    ("GET", "/static/ttt.css?v=%zz"),  # refused before a file is found
+    ("GET", "/nothing/%"),  # ... or a route
     ("HEAD", "/static/host.css"),
     ("POST", "/static/ttt.css"),
     ("OPTIONS", "/static/host.css"),
@@ -682,6 +807,9 @@ NOT_VIEWS = [
     ("GET", "/game/py/iki/tutorial/ttt/view/nothing"),
     ("POST", "/game/py/iki/tutorial/ttt/view/play/1"),
     ("POST", "/game/py/iki/tutorial/ttt/view/play/%3A1/1"),
+    ("POST", "/game/py/iki/tutorial/ttt/view/play/1%2F1"),  # %2F is data: no `y`
+    ("GET", "/game/py/iki/tutorial/ttt/view/../board"),  # `..` is a segment like any other
+    ("GET", "/game%2Fpy/iki/tutorial/ttt/view/board"),  # `urn:game/py:…`, no game
     ("GET", "/static/nothing.css"),
     ("GET", "/favicon.ico"),
     ("GET", "/game"),
@@ -724,6 +852,38 @@ def test_the_edges_are_ttt_hosts(twins):
         assert call(twins.base, method, path)[:2] == (404, b"not found"), f"{method} {path}"
     assert twins.rust("py", "view:status") == "X has won."  # no edge moved anything
     print(f"edges: {len(EDGES)} rows the same as ttt-host's, by status {sorted(answered.items())}")
+
+
+@needs_host
+def test_a_hostile_mark_is_escaped_as_the_host_escapes_it(socket_dir, serve_app):
+    """A mark the host did not write, from a Python store under it: every face of the board
+    escapes it, and the `$a{…}` in it, which names a bound template, is never expanded."""
+    from examples.tictactoe_store import CellStore, stored_cell
+    from ikigai.serve import Server
+
+    store = CellStore()
+    mark = "<b>\"&'$a{urn:iki:tutorial:ttt:template:board}"
+    store.marks = {(0, 0): mark, (2, 2): "O"}  # before the host has read a cell
+    store_socket = socket_dir / "s.sock"
+    server = Server([stored_cell(store)], store_socket)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    http = f"127.0.0.1:{free_port()}"
+    process = start_host(socket_dir / "h.sock", f"py={store_socket}", http=http)
+    try:
+        base, views = serve_app(socket_dir / "h.sock"), "/game/py/iki/tutorial/ttt/view"
+        with ikigai.connect(socket_dir / "h.sock") as kernel:
+            for name in ("board", "status"):
+                ours = fetch(f"{base}{views}/{name}")[2].decode()
+                assert ours == kernel.source(f"urn:game:py:iki:tutorial:ttt:view:{name}").text
+                assert ours == fetch(f"http://{http}{views}/{name}")[2].decode()
+            shown = "&lt;b&gt;&quot;&amp;&#39;$a{urn:iki:tutorial:ttt:template:board}"
+            board = fetch(f"{base}{views}/board")[2].decode()
+            assert f'aria-label="{shown} at 0,0">{shown}</button>' in board
+            assert board.count("ttt-grid") == 1  # the template in the mark was not expanded
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+        server.shutdown()
 
 
 @needs_host

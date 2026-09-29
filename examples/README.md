@@ -111,9 +111,10 @@ over IPC, with the game's state optionally in `tictactoe_store.py` under the
 host. It needs no extras. See "Tic-tac-toe, all in Python except the middle"
 in the top-level README for the three commands and the two limits;
 `tests/test_tictactoe_app.py` checks its output byte-for-byte against the
-host's Rust views. `static/` holds the vendored htmx 2.0.4 (0BSD) and the
-stylesheets, as ikigai-tutorial commit `4d9440a` (the `ttt-host` build the
-parity tests ran against) has them; the test pins their digests. Re-vendor
+host's own views, which are ikigai-fn templates the app fills itself.
+`static/` holds the vendored htmx 2.0.4 (0BSD) and the stylesheets, as
+ikigai-tutorial commit `89677bc` (the `ttt-host` build the parity tests ran
+against; unchanged since `4d9440a`) has them; the test pins their digests. Re-vendor
 with `git show <commit>:<path>` from the commit a new host is built from,
 never from a working tree.
 

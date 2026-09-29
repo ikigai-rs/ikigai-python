@@ -296,7 +296,11 @@ ends of that game around a Rust kernel:
 - **the rendering**: `examples/tictactoe_app.py` is a standard-library web
   app (`http.server`) that fills the game's templates, in Python, from the
   host's raw resources — `template:{name}`, `cell:{x}:{y}`, `winner`,
-  `turn` — and serves the page, the vendored htmx and the book's stylesheet;
+  `turn` — and serves the page, the vendored htmx and the book's stylesheet.
+  The templates are written in ikigai-fn's template language (`$h{…}`,
+  `$r{…}` and `$a{…}` markers, `{x}` arguments, `urn:iki:fn:conditional`);
+  the app implements the subset the tutorial's README states, and the
+  templates, not the app, choose which square or status to show;
 - **the middle**: `ttt-host` (the tutorial's `crates/ttt-host`) holds the
   rules, the lines, the board and the turn, and does the resolution, the
   composition, the caching and the invalidation.
@@ -312,20 +316,20 @@ python -m examples.tictactoe_app --socket /tmp/ttt/host.sock
 same board itself on port 8070; the Deno face's app uses 8071, this one
 8072.)
 
-The app's fragments are byte-for-byte the host's own Rust `view:board` and
+The app's fragments are byte-for-byte the host's own `view:board` and
 `view:status`: `tests/test_tictactoe_app.py` plays one game through the app
 and a twin game through the Rust views and compares every board, status and
 reply, through a won game, refusals and a draw — and the page and its three
 static files against `ttt-host`'s own HTTP face (it skips when `ttt-host` is
 not installed). Every other request to a view is answered as `ttt-host`
 answers it, status and body: a trailing slash, an unknown game, a wrong
-method, a coordinate spelled `01` or `+1`. The test asks both of them the
+method, a coordinate spelled `01` or `+1`, a malformed percent-escape. The test asks both of them the
 same table of edge requests (ikigai-deno's rows, with this face's added) and
 requires the same status, body, Content-Type and `Allow`. A path that is not
 a view gets `404 not found`, because the app is not a proxy for the host's
-other names. The renderer is the template format's tokenizer (it refuses a
-malformed slot, as the Rust filler does), an escape table and three short
-functions. It keeps no state and caches nothing, because every read it makes
+other names. The filler is the template language's scanner, its three
+splices and `conditional`, and it runs the README's template cases (the ones
+the tutorial runs through ikigai-fn's own compose). It keeps no state and caches nothing, because every read it makes
 is a cache hit in the host until a move cuts it.
 
 Two honest limits, both about the kernel in the middle:
