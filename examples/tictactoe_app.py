@@ -12,31 +12,36 @@ cell. This app is a CLIENT of it over the IPC socket, and a web server for a bro
 ``--http`` to port 8072, beside ``ttt-host``'s 8070 and the Deno app's 8071, so all three can
 serve one host at once.)
 
-The markup is the game's own: ``template:game``, ``template:board``, the square and status
-templates and ``reply``, sourced from the host and filled HERE, in Python, from the host's
-raw resources — ``cell:{x}:{y}``, ``winner``, ``turn``. The output is byte-for-byte what
-the host's Rust ``view:board`` / ``view:status`` answer for the same game
-(``tests/test_tictactoe_app.py`` checks that against a running host), so the same htmx and
-the same stylesheet drive it. The renderer is :func:`fill` plus the three views under it —
-the template format's tokenizer (a malformed slot is refused, as the Rust filler refuses
-it), an escape table and three functions of a :class:`Game` — and it keeps no state: the
-host's kernel caches every template, cell and rule it reads, and a move cuts exactly what it
-changed, so each render is a handful of cache hits and nothing here knows it.
+The markup is the game's own: its views are ikigai-fn templates (``template:{name}`` at the
+host), and this app fills them HERE, in Python — it implements the template language the
+tutorial's ``crates/tic-tac-toe/README.md`` states ("The template language": the ``$h``,
+``$r`` and ``$a`` markers, ``{x}`` arguments and ``urn:iki:fn:conditional``) and composes each
+view itself from that README's table (``view:square:{x}:{y}`` is ``template:square`` with
+those arguments), asking the host only for templates and raw resources — ``cell:{x}:{y}``,
+``winner``, ``turn``. Which template a view shows is not code here: the templates choose,
+through ``conditional``. The output is byte-for-byte what the host's own ``view:board``,
+``view:status``, ``view:reply`` and page answer for the same game (``tests/test_tictactoe_app.py``
+checks that against a running host), so the same htmx and the same stylesheet drive it. The
+filler is :func:`fill` and :func:`conditional`, and it keeps no state: the host's kernel caches
+every template, cell and rule it reads, and a move cuts exactly what it changed, so each
+render is a handful of cache hits and nothing here knows it.
 
 Routes (``/`` is the root game, ``/game/{id}/`` game ``id``, ``/game/root/`` the root game
 again; the page's ``<base>`` is that prefix, so the markup's relative paths arrive under it):
 
-* ``GET /`` and ``GET /game/{id}/`` — the page: ``template:game`` in a document that loads
+* ``GET /`` and ``GET /game/{id}/`` — the page: ``view:game:{id}`` in a document that loads
   ``/static/htmx-2.0.4.min.js``, ``/static/host.css`` and ``/static/ttt.css``.
-* ``GET …/iki/tutorial/ttt/view/board`` and ``…/view/status`` — rendered here.
+* ``GET …/iki/tutorial/ttt/view/board`` and ``…/view/status`` — composed here.
 * ``POST …/iki/tutorial/ttt/view/play/{x}/{y}`` and ``…/view/reset`` — a ``Sink`` of the
-  host's ``move:{x}:{y}`` / ``reset``, answered with the ``reply`` template. A refused move
+  host's ``move:{x}:{y}`` / ``reset``, answered with ``view:reply``. A refused move
   is answered, not failed, in the error's own words — the text the Rust view shows.
 
 Every other request to a view is answered as ``ttt-host`` answers it, status and body: the
 host's HTTP face is ikigai-web's generic edge, and :func:`target` and :func:`respond` are its
-rules — the path percent-decoded (``+`` included, as a space) and split with the empty
-segments dropped, then joined by ``:`` after ``urn:``; a name that is not an IRI a ``400``;
+rules, as cli 0.1.30 hardened them — the target split on ``/`` first and each segment
+percent-decoded on its own (``%2F`` is data, ``+`` is ``+``; a malformed escape or bytes that
+are not UTF-8 a ``400``, in the path and the query alike), the empty segments dropped, then
+joined by ``:`` after ``urn:``; a name that is not an IRI a ``400``;
 a method a view does not take a ``405``, ``PUT`` a play as ``POST`` is; an unknown game a
 ``404`` that names the name; a coordinate spelled any way but its one plain way a ``400`` in
 the kernel's words. A path that names no view is ``404 not found``: the app is not a proxy
@@ -66,6 +71,7 @@ import contextlib
 import re
 import sys
 import tempfile
+import urllib.parse
 from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,8 +98,9 @@ GAME = "urn:iki:tutorial:ttt:"
 #: Where a game other than the root has its names, at the host's edge: ``urn:game:{id}:…``.
 EDGE_GAMES = "urn:game:"
 
-#: The vendored htmx and stylesheets, next to this file, as ikigai-tutorial commit ``4d9440a``
-#: has them — the commit the ``ttt-host`` this app is checked against was built from, which
+#: The vendored htmx and stylesheets, next to this file, as ikigai-tutorial commit ``89677bc``
+#: has them (unchanged since ``4d9440a``) — the commit the ``ttt-host`` this app is checked
+#: against was built from, which
 #: serves the same three files. The digests are pinned by a test: htmx is the book's
 #: ``src/vendor/htmx-2.0.4.min.js`` (0BSD, https://github.com/bigskysoftware/htmx),
 #: ``ttt.css`` the book's ``css/ttt.css`` (the ONE stylesheet for this markup), ``host.css``
@@ -118,112 +125,210 @@ HTML = "text/html;charset=utf-8"  # as ttt-host spells it: no space
 #: Beside ``ttt-host``'s 8070 and the Deno app's 8071.
 DEFAULT_HTTP = "127.0.0.1:8072"
 
-# -- the renderer -------------------------------------------------------------------------
+# -- the filler: the template language ----------------------------------------------------
+#
+# ikigai-fn's compose, the subset these templates use, as the tutorial's README states it
+# ("The template language"; its `template-cases` block is copied into the tests). What is
+# here is the language: the scan, the three splices, the arguments and `conditional`. Which
+# template a view shows is not here: that is in the templates.
 
-
-class Html(str):
-    """A value that goes into a slot as it is: another template's output."""
-
-
-#: A slot's name: a lower-case letter, then lower-case letters and `-`.
-NAME = re.compile(r"[a-z][a-z-]*")
-
-#: An integer in its one plain spelling, as the host's coordinates and slot arguments are.
-PLAIN = re.compile(r"0|-?[1-9][0-9]*")
-
-#: The escape the Rust ``escape`` and the book's JS apply (``html.escape`` differs: ``&#x27;``).
+#: The escape ``$h`` applies (``html.escape`` differs: it writes ``&#x27;``).
 ESCAPE = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})
 
+#: What Rust's ``str::trim`` trims: Unicode ``White_Space``, which is what ``str.isspace``
+#: accepts less U+001C to U+001F (so ``str.strip()`` with no argument would strip too much).
+WHITESPACE = "".join(
+    c for c in map(chr, range(0x3001)) if c.isspace() and not "\x1c" <= c <= "\x1f"
+)
 
-def plain(word: str) -> bool:
-    """Whether ``word`` is an integer in its one spelling, within a signed 64-bit range."""
-    return bool(PLAIN.fullmatch(word)) and -(2**63) <= int(word) < 2**63
+#: A template argument's name: a letter or `_`, then letters, digits, `_` and `-`.
+ARG = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*")
+
+#: The one function the templates call. ``ttt-host``'s gateway forwards only the game's names,
+#: so the filler answers it.
+CONDITIONAL = "urn:iki:fn:conditional"
+
+#: How deep ``$a`` may nest before it is a cycle (ikigai-fn's backstop).
+DEPTH = 32
+
+#: A marker's request: its IRI and its arguments, answered as text.
+Source = Callable[[str, dict[str, str]], str]
 
 
-def pieces(template: str) -> list[str | tuple[str, tuple[int, ...]]]:
-    """``template`` as text and slots, read as the Rust ``fill`` reads it (the template format
-    in the tutorial's ``crates/tic-tac-toe/README.md``): every ``{{`` opens a slot that ends at
-    the first ``}}`` after it, and an inside that is not ``name`` then plain integers, one
-    space before each, is REFUSED — never passed through, since a slot nobody fills would
-    reach the page as ``{{…}}``."""
+def refused(detail: str) -> EndpointError:
+    return EndpointError(f"compose: {detail}")
 
-    def refused(detail: str) -> EndpointError:
-        return EndpointError(f"a template: {detail}")
 
-    out: list[str | tuple[str, tuple[int, ...]]] = []
-    rest = template
-    while (start := rest.find("{{")) >= 0:
-        out.append(rest[:start])
-        after = rest[start + 2 :]
-        end = after.find("}}")
+def unquoted(text: str, i: int, sep: str | None = None) -> int:
+    """The index in ``text``, from ``i``, of the first `}` that closes nothing opened after
+    ``i`` (or of ``sep``, if given) outside a `"…"` span, where `\\"` and `\\\\` are escapes;
+    ``-1`` if there is none."""
+    depth, quoted = 0, False
+    while i < len(text):
+        c = text[i]
+        if quoted and c == "\\":
+            i += 1
+        elif c == '"':
+            quoted = not quoted
+        elif quoted:
+            pass
+        elif sep is not None:
+            if text.startswith(sep, i):
+                return i
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            if depth == 0:
+                return i
+            depth -= 1
+        i += 1
+    return -1
+
+
+def split(text: str, sep: str) -> list[str]:
+    """``text`` split on every ``sep`` outside a `"…"` span."""
+    parts = []
+    while (at := unquoted(text, 0, sep)) >= 0:
+        parts.append(text[:at])
+        text = text[at + len(sep) :]
+    return [*parts, text]
+
+
+def scan(template: str) -> list[str | tuple[str, str]]:
+    """``template`` as literal text and markers, each its letter and its trimmed body. `$$` is
+    a literal `$`; a marker that never closes is literal text, `$` included."""
+    out: list[str | tuple[str, str]] = []
+    text, i = [], 0
+    while i < len(template):
+        if template.startswith("$$", i):
+            text.append("$")
+            i += 2
+            continue
+        if template[i] == "$" and template[i + 1 : i + 2] in ("a", "r", "h"):
+            end = unquoted(template, i + 3) if template[i + 2 : i + 3] == "{" else -1
+            if end >= 0:
+                out += ["".join(text), (template[i + 1], template[i + 3 : end].strip(WHITESPACE))]
+                text, i = [], end + 1
+                continue
+        text.append(template[i])
+        i += 1
+    return [*out, "".join(text)]
+
+
+def argument(args: dict[str, str], name: str) -> str:
+    if name not in args:
+        raise MissingArgumentError(name)
+    return args[name]
+
+
+def substitute(template: str, args: dict[str, str], encode: bool) -> str:
+    """``template`` with each `{name}` replaced by that argument: percent-encoded as RFC 6570
+    expands a simple variable (in an IRI), or verbatim (in an argument value)."""
+    out, rest = [], template
+    while (start := rest.find("{")) >= 0:
+        end = rest.find("}", start)
         if end < 0:
-            raise refused("a `{{` is never closed")
-        inside = after[:end]
-        name, *words = inside.split(" ")
-        if not NAME.fullmatch(name):
-            raise refused(f"`{{{{{inside}}}}}` is not a slot")
-        for word in words:
-            if not plain(word):
-                raise refused(f"`{{{{{inside}}}}}` has an argument `{word}`")
-        out.append((name, tuple(map(int, words))))
-        rest = after[end + 2 :]
-    out.append(rest)
-    return out
+            raise refused("a `{` is never closed")
+        if not ARG.fullmatch(name := rest[start + 1 : end]):
+            raise refused(f"`{{{name}}}` is not an argument name")
+        value = argument(args, name)
+        out += [rest[:start], urllib.parse.quote(value, safe="") if encode else value]
+        rest = rest[end + 1 :]
+    return "".join(out) + rest
 
 
-def slots(template: str) -> list[tuple[str, tuple[int, ...]]]:
-    """The slots of ``template``, in order: each its name and its integers."""
-    return [piece for piece in pieces(template) if isinstance(piece, tuple)]
+def value_of(word: str, args: dict[str, str]) -> str:
+    """A request's argument value: a `"quoted"` one literal, with `\\"` and `\\\\` unescaped;
+    an unquoted one with its arguments substituted verbatim, and still one value."""
+    if len(word) >= 2 and word[0] == word[-1] == '"':
+        return re.sub(r"\\(.)", r"\1", word[1:-1], flags=re.S)
+    return substitute(word, args, encode=False)
 
 
-def fill(template: str, value: Callable[..., str]) -> str:
-    """``template`` with every slot replaced by ``value(name, *integers)``: text is escaped
-    as it goes in, :class:`Html` is not."""
+def fill(template: str, args: dict[str, str], source: Source, depth: int = 0) -> str:
+    """``template`` with every marker spliced: ``args`` are the template arguments, and
+    ``source`` answers every request but ``conditional``, which is answered here. A marker
+    that fails fails the whole fill."""
+    if depth >= DEPTH:
+        raise refused(f"recursion limit ({DEPTH}) exceeded — cyclic transclusion?")
+    pieces = scan(template)
+    return "".join(p if isinstance(p, str) else splice(*p, args, source, depth) for p in pieces)
 
-    def one(piece: str | tuple[str, tuple[int, ...]]) -> str:
-        if isinstance(piece, str):
-            return piece
-        filled = value(piece[0], *piece[1])
-        return filled if isinstance(filled, Html) else filled.translate(ESCAPE)
 
-    return "".join(map(one, pieces(template)))
+def splice(mode: str, body: str, args: dict[str, str], source: Source, depth: int) -> str:
+    """One marker: `$h` escapes what it names, `$r` splices it as it is, `$a` fills it."""
+    if len(split(body, "||")) > 1:
+        raise refused(f"marker `{body}`: this filler has no `||` fallbacks")
+    name = body[1:-1] if body[:1] == "{" and body[-1:] == "}" else ""
+    if ARG.fullmatch(name):
+        if mode == "a":
+            raise refused(f"marker `{body}`: an argument is a value and never a template")
+        value = argument(args, name)
+    else:
+        iri, _, query = body.partition("?")
+        given = {}
+        for pair in filter(None, (pair.strip(WHITESPACE) for pair in split(query, "&"))):
+            key, eq, word = pair.partition("=")
+            if not eq:
+                raise refused(f"marker argument `{pair}` is not key=value")
+            given[key.strip(WHITESPACE)] = value_of(word.strip(WHITESPACE), args)
+        request = substitute(iri.strip(WHITESPACE), args, encode=True)
+        value = conditional(given, source) if request == CONDITIONAL else source(request, given)
+        if mode == "a":
+            return fill(value, args, source, depth + 1)
+    return value.translate(ESCAPE) if mode == "h" else value
+
+
+#: ``conditional``'s reading of ``if`` when there is no ``equals``.
+BOOLEAN = {"true": True, "1": True, "yes": True, "on": True}
+BOOLEAN |= {"false": False, "0": False, "no": False, "off": False, "": False}
+
+
+def conditional(given: dict[str, str], source: Source) -> str:
+    """``urn:iki:fn:conditional``: source ``if``; if its trimmed text is ``equals`` (or, with
+    no ``equals``, a true boolean), source and answer ``then``, else ``else`` (or nothing).
+    Only the chosen side is sourced."""
+    test, then = argument(given, "if"), argument(given, "then")
+    verdict = source(test, {}).strip(WHITESPACE)
+    if "equals" in given:
+        taken = verdict == given["equals"]
+    elif (taken := BOOLEAN.get(verdict.lower())) is None:
+        raise refused(f"conditional: `{test}` returned {verdict!r}, not a boolean")
+    chosen = then if taken else given.get("else")
+    return "" if chosen is None else source(chosen, {})
+
+
+# -- the views: composed here, by the README's table ----------------------------------------
+
+#: Each view the app composes itself (its name after ``urn:iki:tutorial:ttt:``) and the
+#: template it fills, with what the name captures as arguments.
+VIEWS = [
+    (re.compile(r"view:board"), "template:board"),
+    (re.compile(r"view:status"), "template:status"),
+    (re.compile(r"view:reply"), "template:reply"),
+    (re.compile(r"view:square:(?P<x>[^:]+):(?P<y>.+)"), "template:square"),
+    (re.compile(r"view:game:(?P<game>.+)"), "template:game"),
+]
 
 
 def board(game: Game) -> str:
-    """``view:board``: the board template, each ``{{square x y}}`` the square the cell calls
-    for — taken if played, else open while the game is on, else closed."""
-    over = game.text("winner") != "-"
-
-    def square(_: str, x: int, y: int) -> Html:
-        mark = game.text(f"cell:{x}:{y}")
-        kind = "square-taken" if mark != "-" else "square-closed" if over else "square-open"
-        slots = {"x": str(x), "y": str(y), "mark": mark}
-        return Html(fill(game.text(f"template:{kind}"), lambda name: slots[name]))
-
-    return fill(game.text("template:board"), square)
+    """``view:board``."""
+    return game.view("view:board")
 
 
 def status(game: Game) -> str:
     """``view:status``: ``X to play.``, ``O has won.`` or ``A draw.``."""
-    won = game.text("winner")
-    if won == "-":
-        kind, mark = "status-turn", game.text("turn")
-    elif won == "draw":
-        kind, mark = "status-draw", ""
-    else:
-        kind, mark = "status-won", won
-    return fill(game.text(f"template:{kind}"), lambda _: mark)
+    return game.view("view:status")
 
 
 def reply(game: Game, write: str) -> str:
-    """A play's or a reset's answer: Sink ``write`` at the host, then the ``reply`` template —
-    what the write said, or its refusal in the kernel's words, and the status."""
+    """A play's or a reset's answer: Sink ``write`` at the host, then ``view:reply`` with
+    ``message`` what the write said, or its refusal in the kernel's words."""
     try:
         message = game.sink(write)
     except EndpointError as refused:
         message = said(refused)
-    slots = {"message": message, "status": Html(status(game))}
-    return fill(game.text("template:reply"), lambda name: slots[name])
+    return game.view("view:reply", message=message)
 
 
 # -- the game at the host -----------------------------------------------------------------
@@ -265,6 +370,22 @@ class Game:
     def sink(self, name: str) -> str:
         return self.kernel.sink(self.prefix + name).text
 
+    def source(self, iri: str, given: dict[str, str]) -> str:
+        """A template's request, in this game: a view is composed HERE, its template filled
+        with what its name captures, else ``given``; any other name is asked of the host. A
+        template spells every name as the root game has it, so a name of the game is asked
+        at the game's prefix."""
+        name = iri.removeprefix(GAME)
+        for pattern, template in VIEWS if iri.startswith(GAME) else []:
+            if captured := pattern.fullmatch(name):
+                return fill(self.text(template), given | captured.groupdict(), self.source)
+        where = self.prefix + name if iri.startswith(GAME) else iri
+        return self.kernel.source(where, **given).text
+
+    def view(self, name: str, **given: str) -> str:
+        """The view ``name`` (after ``urn:iki:tutorial:ttt:``) composed here, with ``given``."""
+        return self.source(GAME + name, given)
+
     def exists(self) -> bool:
         """Whether the host has this game — asked of the game itself, since the catalog does
         not list every name a game answers at (the root game's ``urn:game:root:…``)."""
@@ -291,24 +412,33 @@ class Game:
 # the wrong way. A path that is not a view is not this app's business: it is not a proxy for
 # the host's other names, so it answers `404 not found`, whatever the method.
 
-#: The two characters after a `%`, as Rust's ``u8::from_str_radix(_, 16)`` takes them — a
-#: leading `+` included.
-HEX_PAIR = re.compile(rb"[0-9A-Fa-f]{2}|\+[0-9A-Fa-f]")
+#: A `%` that is not followed by exactly two hex digits.
+MALFORMED = re.compile(rb"%(?![0-9A-Fa-f]{2})")
 
 
-def decoded(raw: str) -> str:
-    """A request path as ikigai-web decodes it: ``%XX`` to its byte, ``+`` to a space (in the
-    path too), then UTF-8 with the undecodable replaced. ``raw`` is the request line's path,
-    which ``http.server`` read as Latin-1."""
-    data, out, i = raw.encode("latin-1"), bytearray(), 0
-    while i < len(data):
-        if data[i] == ord("%") and HEX_PAIR.fullmatch(data[i + 1 : i + 3]):
-            out.append(int(data[i + 1 : i + 3], 16))
-            i += 3
-        else:
-            out.append(ord(" ") if data[i] == ord("+") else data[i])
-            i += 1
-    return out.decode("utf-8", "replace")
+def unescaped(raw: bytes, form: bool = False) -> str:
+    """``raw`` percent-decoded as ikigai-web (cli 0.1.30) decodes it: as bytes, then UTF-8. A
+    `%` not followed by two hex digits is refused, never guessed at, and so are bytes that
+    are not UTF-8; ``+`` is a space only in ``form`` encoding, which only a query is. A
+    refusal is a :class:`ValueError` in the host's words."""
+    if MALFORMED.search(raw):
+        raise ValueError("malformed percent-escape")
+    try:
+        return urllib.parse.unquote_to_bytes(raw.replace(b"+", b" ") if form else raw).decode()
+    except UnicodeDecodeError:
+        raise ValueError("not UTF-8 once decoded") from None
+
+
+def segments(raw: str) -> list[str]:
+    """A request target's path as ikigai-web reads it: split on `/` FIRST, each segment
+    decoded on its own (so `%2F` is data in its segment, never a separator), and the empty
+    ones dropped. The query is decoded too, for its refusals only: no view reads it. ``raw``
+    is the request line's target, which ``http.server`` read as Latin-1."""
+    path, _, query = raw.encode("latin-1").partition(b"?")
+    for pair in filter(None, query.split(b"&")):
+        for part in pair.partition(b"=")[::2]:  # the key and the value
+            unescaped(part, form=True)
+    return [s for s in [unescaped(segment) for segment in path.split(b"/")] if s]
 
 
 def _ranges(*spans: tuple[int, int]) -> str:
@@ -327,8 +457,9 @@ IPRIVATE = _ranges((0xE000, 0xF8FF), (0xF0000, 0xFFFFD), (0x100000, 0x10FFFD))
 IPCHAR = rf"(?:[A-Za-z0-9._~!$&'()*+,;=:@{UCSCHAR}-]|%[0-9A-Fa-f]{{2}})"
 
 #: A ``urn:`` name the host's kernel can parse (RFC 3987, which ``oxiri`` checks for it): a
-#: path of ``ipchar``, then an optional query and fragment. A path here never holds a `/`.
-URN = re.compile(rf"urn:{IPCHAR}*(?:\?(?:{IPCHAR}|[/?{IPRIVATE}])*)?(?:#(?:{IPCHAR}|[/?])*)?")
+#: path of ``ipchar`` and `/` (which only a segment's `%2F` puts there), then an optional
+#: query and fragment.
+URN = re.compile(rf"urn:(?:{IPCHAR}|/)*(?:\?(?:{IPCHAR}|[/?{IPRIVATE}])*)?(?:#(?:{IPCHAR}|[/?])*)?")
 
 #: ``view:play:{x}:{y}`` as the kernel's template captures it: ``x`` up to the next `:`,
 #: ``y`` the rest, neither empty.
@@ -355,16 +486,16 @@ class Target(NamedTuple):
 
 
 def target(path: str) -> Target | None:
-    """The view ``path`` names, or ``None`` for a path that is not one of this app's views."""
-    segments = [s for s in decoded(path).split("/") if s]
-    match segments:
+    """The view ``path`` names, or ``None`` for a path that is not one of this app's views;
+    a :class:`ValueError` for a target the host refuses before it routes anything."""
+    match names := segments(path):
         case []:
             return Target("page", None, "urn:ttt-host:page:root")
         case ["game", game]:
             return Target("page", game, f"urn:ttt-host:page:game:{game}")
         case ["static", name] if name in STATIC_FILES:
             return Target("static", None, f"urn:ttt-host:static:{name}", name)
-    iri = "urn:" + ":".join(segments)
+    iri = "urn:" + ":".join(names)
     game, _, rest = iri.removeprefix(EDGE_GAMES).partition(":")
     if iri.startswith(EDGE_GAMES) and f"urn:{rest}".startswith(GAME):
         local = f"urn:{rest}".removeprefix(GAME)
@@ -384,7 +515,7 @@ def page(game: Game) -> str:
     byte for byte, down to the list of the host's games (read from its catalog)."""
     game_id = game.game_id
     label = game_id or "root"
-    shell = fill(game.text("template:game"), lambda _: label)
+    shell = game.view(f"view:game:{label}")
     title = (f"game {label}" if game_id else "the root game").translate(ESCAPE)
     base = f"/game/{game_id}/" if game_id else "/"
     return (
@@ -481,7 +612,10 @@ class Handler(BaseHTTPRequestHandler):
         raise AttributeError(name)
 
     def handle_request(self) -> None:
-        verb, view = self.command, target(self.path.split("?")[0])
+        try:
+            verb, view = self.command, target(self.path)
+        except ValueError as malformed:
+            return self.answer(HTTPStatus.BAD_REQUEST, str(malformed))
         if view is None:
             return self.answer(HTTPStatus.NOT_FOUND, "not found")
         if not URN.fullmatch(view.iri):
