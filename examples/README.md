@@ -111,7 +111,10 @@ over IPC, with the game's state optionally in `tictactoe_store.py` under the
 host. It needs no extras. See "Tic-tac-toe, all in Python except the middle"
 in the top-level README for the three commands and the two limits;
 `tests/test_tictactoe_app.py` checks its output byte-for-byte against the
-host's own views, which are ikigai-fn templates the app fills itself.
+host's own views, which are ikigai-fn templates the app fills itself, and
+runs the template language's cases from `tests/ttt_template_cases.txt` — the
+tutorial README's `template-cases` block, verbatim, compared byte for byte with
+the Rust and Deno copies (copy a new block over it; never edit it by hand).
 `static/` holds the vendored htmx 2.0.4 (0BSD) and the stylesheets, as
 ikigai-tutorial commit `89677bc` (the `ttt-host` build the parity tests ran
 against; unchanged since `4d9440a`) has them; the test pins their digests. Re-vendor
