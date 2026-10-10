@@ -24,9 +24,10 @@ versions.
 pip install .          # zero runtime dependencies (socket/asyncio/struct only)
 ```
 
-Dev setup: `pip install -e '.[dev]'`, then `ruff check .`,
-`ruff format --check .`, `pytest`. The integration tests drive the real
-`ikigai` binary and skip themselves when it is not on `PATH`.
+Dev setup: `pip install -e '.[dev,examples]'`, then `just gates` (or
+`scripts/gates.sh`), which runs `ruff check .`, `ruff format --check .` and
+`pytest` exactly as CI does. The integration tests drive the real `ikigai`
+binary and skip themselves when it is not on `PATH`.
 
 ### You also need a host, and it must be recent enough
 
