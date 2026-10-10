@@ -307,6 +307,58 @@ def test_typed_errors_round_trip_with_taxonomy_intact():
         assert got.transient is transient, original
 
 
+# Every typed error as ``ikigai_core::Error``'s Display renders it (core's error.rs),
+# over the payloads of the Rust suite's typed_errors_round_trip_with_taxonomy_intact
+# (ikigai-cli crates/ikigai-wire/src/lib.rs). The message is the bare second column.
+DISPLAYED = [
+    (UnresolvedError("urn:x:y"), "no endpoint resolved for urn:x:y"),
+    (MissingArgumentError("in"), "missing required argument `in`"),
+    (InvalidArgumentError("n", "not a number"), "invalid argument `n`: not a number"),
+    (EndpointError("boom"), "endpoint error: boom"),
+    (DeniedError("needs urn:cap:x"), "denied: needs urn:cap:x"),
+    (NotFoundError("no such row"), "not found: no such row"),
+    (TimeoutError("5s elapsed"), "timeout: 5s elapsed"),
+    (UnavailableError("connection refused"), "unavailable: connection refused"),
+    (ConflictError("1,1 is taken"), "conflict: 1,1 is taken"),
+]
+
+
+@pytest.mark.parametrize(("error", "shown"), DISPLAYED)
+def test_display_renders_the_rust_kernels_display(error, shown):
+    got = wire.decode_reply(wire.encode_reply(ErrorTypedReply(error))).error
+    assert got.display() == shown
+    # str() and .message stay the bare message: that is what crosses the wire,
+    # and a prefix there would be doubled by the next peer's rendering.
+    assert str(got) == got.message == error.message
+    assert shown.endswith(got.message)
+
+
+def test_display_covers_every_typed_error():
+    # A variant added without a DISPLAYED row would render with the base
+    # ``endpoint error: `` prefix by inheritance, silently; this says so.
+    def typed(cls):
+        for sub in cls.__subclasses__():
+            yield sub
+            yield from typed(sub)
+
+    assert {type(e) for e, _ in DISPLAYED} == {EndpointError, *typed(EndpointError)}
+
+
+def test_a_v7_conflict_displays_as_rust_shows_the_downgrade():
+    # A v7 peer gets Endpoint("conflict: …"), and Rust displays THAT error with
+    # its own prefix; the face agrees rather than unwrapping it.
+    downgraded = wire.downgrade_error(ConflictError("1,1 is taken"), 7)
+    assert downgraded.display() == "endpoint error: conflict: 1,1 is taken"
+
+
+def test_the_wire_doctests_hold():
+    import doctest
+
+    result = doctest.testmod(wire)
+    assert result.attempted > 0
+    assert result.failed == 0
+
+
 def test_typed_error_fields_survive_the_wire():
     encoded = wire.encode_reply(ErrorTypedReply(InvalidArgumentError("n", "x")))
     got = wire.decode_reply(encoded).error

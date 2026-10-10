@@ -398,31 +398,11 @@ def reply(game: Game, write: str) -> str:
     try:
         message = game.sink(write)
     except EndpointError as refused:
-        message = said(refused)
+        message = refused.display()
     return game.view("view:reply", message=message)
 
 
 # -- the game at the host -----------------------------------------------------------------
-
-#: How ``ikigai_core::Error`` displays each variant, which is what the Rust view renders a
-#: refusal as. The wire's typed errors carry the endpoint's own message and the variant as a
-#: TYPE, so a Python ``str()`` omits these prefixes; the other variants' ``str()`` is
-#: already the Rust display.
-DISPLAYED = [
-    (DeniedError, "denied: "),
-    (NotFoundError, "not found: "),
-    (TimeoutError, "timeout: "),
-    (UnavailableError, "unavailable: "),
-    (ConflictError, "conflict: "),
-]
-
-
-def said(error: EndpointError) -> str:
-    """``error`` as the Rust kernel's ``Display`` spells it."""
-    if type(error) is EndpointError:
-        return f"endpoint error: {error.message}"
-    prefix = next((p for kind, p in DISPLAYED if isinstance(error, kind)), "")
-    return prefix + str(error)
 
 
 class Game:
@@ -716,7 +696,7 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(e, UnresolvedError) and not described():
                     return self.refuse(unresolved(view))
                 code = next((c for kind, c in STATUS_OF if isinstance(e, kind)), 500)
-                return self.answer(code, said(e))
+                return self.answer(code, e.display())
         headers = {"Cache-Control": "no-store"}
         if view.kind == "page":
             headers["Content-Security-Policy"] = PAGE_CSP

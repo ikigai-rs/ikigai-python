@@ -92,7 +92,10 @@ Notes:
   `UnavailableError`, and `ConflictError` (wire v8: the thing exists and its
   current state refuses the request — permanent, an HTTP 409; a v7 server
   sends the same failure as a plain `EndpointError("conflict: …")`).
-  `.message` is the endpoint's own message; `.transient`
+  `.message` (and `str(e)`) is the endpoint's own message, bare, because
+  that is what the wire carries; `.display()` renders the error the way the
+  Rust kernel's `Display` does (`denied: …`, `not found: …`,
+  `endpoint error: …`), for a person to read. `.transient`
   is `True` only for Timeout/Unavailable (re-issuing may succeed — what
   retry/failover logic gates on). A plain `except ikigai.EndpointError`
   still catches everything. A dead socket raises `ikigai.ConnectionLost`; a
