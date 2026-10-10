@@ -27,7 +27,7 @@ import pytest
 
 import ikigai
 from examples import tictactoe_app as app
-from examples.tictactoe_app import Refusal, Target, fill, respond, said, segments, target
+from examples.tictactoe_app import Refusal, Target, fill, respond, segments, target
 
 # -- the vendored files -------------------------------------------------------------------
 
@@ -324,19 +324,22 @@ def test_a_view_without_its_argument_fails():
 @pytest.mark.parametrize(
     ("error", "shown"),
     [
-        (ikigai.InvalidArgumentError("x", "bad"), "invalid argument `x`: bad"),
-        (ikigai.MissingArgumentError("content"), "missing required argument `content`"),
-        (ikigai.UnresolvedError("urn:a"), "no endpoint resolved for urn:a"),
-        (ikigai.EndpointError("boom"), "endpoint error: boom"),
+        (ikigai.ConflictError("1,1 is taken"), "conflict: 1,1 is taken"),
         (ikigai.DeniedError("no"), "denied: no"),
-        (ikigai.NotFoundError("gone"), "not found: gone"),
-        (ikigai.TimeoutError("slow"), "timeout: slow"),
-        (ikigai.UnavailableError("down"), "unavailable: down"),
-        (ikigai.ConflictError("taken"), "conflict: taken"),
+        (ikigai.EndpointError("boom"), "endpoint error: boom"),
+        (ikigai.MissingArgumentError("content"), "missing required argument `content`"),
     ],
 )
 def test_a_refusal_is_said_as_the_rust_kernel_displays_it(error, shown):
-    assert said(error) == shown
+    # The reply is the error's display() (every variant is pinned in test_wire.py);
+    # str() would drop the variant's prefix, which is what the Rust view shows.
+    game = FakeGame({})
+
+    def refuse(iri: str):
+        raise error
+
+    game.kernel.sink = refuse
+    assert app.reply(game, "move:1:1") == f"{shown}. X to play."
 
 
 # -- the edge: ttt-host's HTTP rules -----------------------------------------------------

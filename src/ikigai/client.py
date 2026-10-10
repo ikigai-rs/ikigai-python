@@ -12,7 +12,8 @@ Errors surface as TYPED exceptions since wire v7: the server's failure
 crosses with its taxonomy intact and is raised as the matching subclass of
 :class:`ikigai.EndpointError` (``DeniedError``, ``NotFoundError``,
 ``TimeoutError``, ``UnavailableError``, ``ConflictError`` (wire v8), …), with
-``.message`` carrying the endpoint's own message and ``.transient`` True only
+``.message`` carrying the endpoint's own message, ``.display()`` the error as
+the Rust kernel's ``Display`` renders it, and ``.transient`` True only
 for Timeout/Unavailable.
 """
 

@@ -93,17 +93,39 @@ class EndpointError(WireError):
     what a flat v6 ``Reply::Error`` string and an unknown-future variant
     surface as.
 
-    ``message`` is the endpoint's own message (no ``endpoint error: `` /
-    ``denied: `` rendering prefix — the TYPE carries the taxonomy).
+    ``message`` (and ``str(e)``) is the endpoint's own message, with no
+    ``endpoint error: `` / ``denied: `` rendering prefix — the TYPE carries
+    the taxonomy, and this is what crosses the wire, so a prefix here would be
+    doubled by the next peer's rendering. :meth:`display` is the other form:
+    the error as ``ikigai_core::Error``'s ``Display`` spells it, for a person.
     ``transient`` is True only for Timeout/Unavailable: re-issuing might
     succeed, which is what retry/failover logic gates on (mirrors
     ``ikigai_core::Error::is_transient``)."""
 
     transient = False
 
+    # What ``ikigai_core::Error``'s Display puts before ``message`` for this
+    # variant. Empty for the three variants whose ``message`` is already built
+    # in the Display's own words (Unresolved, MissingArgument, InvalidArgument).
+    _display_prefix = "endpoint error: "
+
     def __init__(self, message: str):
         super().__init__(message)
         self.message = message
+
+    def display(self) -> str:
+        """The error as the Rust kernel's ``Display`` renders it — what a
+        person should read. ``str(e)`` stays the bare message, which is what
+        the wire carries.
+
+        >>> EndpointError("boom").display()
+        'endpoint error: boom'
+        >>> DeniedError("needs urn:cap:x").display(), str(DeniedError("needs urn:cap:x"))
+        ('denied: needs urn:cap:x', 'needs urn:cap:x')
+        >>> InvalidArgumentError("n", "not a number").display()
+        'invalid argument `n`: not a number'
+        """
+        return self._display_prefix + self.message
 
     # Structural equality (type + args), so replies carrying errors compare
     # by value like every other wire type — exceptions default to identity,
@@ -124,6 +146,8 @@ class UnresolvedError(EndpointError):
         super().__init__(f"no endpoint resolved for {iri}")
         self.iri = iri
 
+    _display_prefix = ""
+
 
 class MissingArgumentError(EndpointError):
     """``WireError::MissingArgument``: a required argument was absent.
@@ -132,6 +156,8 @@ class MissingArgumentError(EndpointError):
     def __init__(self, name: str):
         super().__init__(f"missing required argument `{name}`")
         self.name = name
+
+    _display_prefix = ""
 
 
 class InvalidArgumentError(EndpointError):
@@ -143,16 +169,22 @@ class InvalidArgumentError(EndpointError):
         self.name = name
         self.detail = detail
 
+    _display_prefix = ""
+
 
 class DeniedError(EndpointError):
     """``WireError::Denied``: the capability did not authorize it — a
     PERMANENT denial (a failover must not paper over it; an HTTP face says
     403)."""
 
+    _display_prefix = "denied: "
+
 
 class NotFoundError(EndpointError):
     """``WireError::NotFound``: a bound endpoint reports the fronted thing
     absent — a permanent 404-equivalent."""
+
+    _display_prefix = "not found: "
 
 
 class TimeoutError(EndpointError, builtins.TimeoutError):
@@ -163,6 +195,7 @@ class TimeoutError(EndpointError, builtins.TimeoutError):
     deadline surfaces as ``client.ConnectionLost``, not this."""
 
     transient = True
+    _display_prefix = "timeout: "
 
 
 class UnavailableError(EndpointError):
@@ -170,6 +203,7 @@ class UnavailableError(EndpointError):
     refused / unreachable. TRANSIENT, like :class:`TimeoutError`."""
 
     transient = True
+    _display_prefix = "unavailable: "
 
 
 class ConflictError(EndpointError):
@@ -182,6 +216,8 @@ class ConflictError(EndpointError):
 
     A v7 peer cannot receive this variant: a reply to one carries
     ``EndpointError("conflict: {message}")`` instead."""
+
+    _display_prefix = "conflict: "
 
 
 # ---------------------------------------------------------------------------
