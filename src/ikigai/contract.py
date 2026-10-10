@@ -16,7 +16,15 @@ The digest is BLAKE3 over core's prefix-free canonical form, so this module need
 ``blake3`` package (the reference binding, over the same Rust ``blake3`` crate core
 hashes with): ``hashlib`` has no BLAKE3, and the IRI is only useful if it is
 byte-for-byte the one a Rust kernel computes for the same contract. The vectors in
-``tests/fixtures/contract_vectors.json`` were computed by core itself and pin that.
+``tests/vectors/contract_vectors.json`` are a verbatim copy of ikigai-vocab's
+``tests/vectors/contract_vectors.json``, which core computes and refuses to let drift,
+and pin that (ledger #1106).
+
+Lenient in, canonical out (ledger #1107): :func:`parse_match_iri` and
+:func:`parse_contract_iri` accept every spelling core accepts, and anything this face
+says back about an IRI it was handed goes through :func:`canonical_match_iri` /
+:func:`canonical_contract_iri`. What it mints (:func:`match_iri`, :func:`contract_iri`)
+is canonical by construction.
 
 Contracts are taken in the serde (JSON) shape of ``ikigai_core::ActionSpec`` — the
 shape a door's ``description_json`` carries and a Rust host deserializes when it
@@ -72,15 +80,14 @@ _HEX = frozenset(b"0123456789abcdefABCDEF")
 
 
 def _hex_byte(pair: bytes) -> int | None:
-    """Rust's ``u8::from_str_radix(pair, 16)`` over a two-byte slice: two hex digits,
-    or a ``+`` and one (Rust accepts the sign; Python's ``int`` would also take
-    whitespace and ``_``, which Rust refuses, so it is not used)."""
-    if len(pair) != 2:
+    """One escape's two bytes after ``%``: exactly two ASCII hex digits (RFC 3986
+    ``pct-encoded``), else ``None``. A sign is refused, as core refuses it since 0.1.94
+    (ledger #1096): before, ``%+1`` decoded to the same byte as ``%01``. Python's
+    ``int`` is only called on checked digits, since it would also take a sign,
+    whitespace and ``_``."""
+    if len(pair) != 2 or any(b not in _HEX for b in pair):
         return None
-    digits = pair[1:] if pair[:1] == b"+" else pair
-    if not digits or any(b not in _HEX for b in digits):
-        return None
-    return int(digits.decode("ascii"), 16)
+    return int(pair.decode("ascii"), 16)
 
 
 def _decode_segment(s: str) -> str | None:
@@ -134,6 +141,23 @@ def parse_match_iri(iri: str) -> tuple[Verb, str] | None:
     parsed_verb = _parse_verb_segment(verb) if sep else None
     decoded = _decode_segment(pattern) if parsed_verb is not None else None
     return None if decoded is None else (parsed_verb, decoded)
+
+
+def canonical_match_iri(iri: str) -> str | None:
+    """The canonical spelling of a match IRI, ``match_iri(*parse_match_iri(iri))``, or
+    ``None`` if ``iri`` is not one (core's ``canonical_match_iri``).
+
+    Lenient in, canonical out (ledger #1107): the parse accepts every spelling that
+    decodes to the same door (lower-case hex, an unnecessary escape, a raw brace), and
+    an IRI taken from a caller is said back in this spelling, never verbatim.
+
+    >>> canonical_match_iri("urn:ikigai:match:source:urn:%66ile:%7bpath}")
+    'urn:ikigai:match:source:urn:file:%7Bpath%7D'
+    >>> canonical_match_iri("urn:ikigai:match:source:%+1") is None
+    True
+    """
+    parsed = parse_match_iri(iri)
+    return None if parsed is None else match_iri(*parsed)
 
 
 # -- the canonical form ------------------------------------------------------
@@ -233,11 +257,15 @@ def contract_iri(endpoint_id: str, action: dict) -> str:
     """One verb's contract IRI, ``urn:ikigai:contract:{id}:{verb}:b3:{hex}`` (core's
     ``ActionSpec::contract_iri``): the ``ik:Action`` node of a Meta turtle face and a
     catalog, and what a manifold row's ``ik:contract`` points at."""
-    verb = Verb[action["verb"].upper()]
-    return (
-        f"{CONTRACT_PREFIX}{_encode_segment(endpoint_id)}:{_verb_segment(verb)}:"
-        f"{contract_id(endpoint_id, action)}"
+    return _contract_iri_of(
+        endpoint_id, Verb[action["verb"].upper()], contract_id(endpoint_id, action)
     )
+
+
+def _contract_iri_of(endpoint_id: str, verb: Verb, digest: str) -> str:
+    # A contract IRI from its parts, in the one canonical spelling (core's
+    # `contract_iri_of`): the id encoded, the digest as given (``b3:`` + lower hex).
+    return f"{CONTRACT_PREFIX}{_encode_segment(endpoint_id)}:{_verb_segment(verb)}:{digest}"
 
 
 def parse_contract_iri(iri: str) -> tuple[str, Verb, str] | None:
@@ -257,3 +285,17 @@ def parse_contract_iri(iri: str) -> tuple[str, Verb, str] | None:
     parsed_verb = _parse_verb_segment(verb) if sep else None
     decoded = _decode_segment(endpoint_id) if parsed_verb is not None else None
     return None if decoded is None else (decoded, parsed_verb, "b3:" + hex_digest.lower())
+
+
+def canonical_contract_iri(iri: str) -> str | None:
+    """The canonical spelling of a contract IRI, its parsed id, verb and digest written
+    back as :func:`contract_iri` writes them (id encoded, digest in lower-case hex), or
+    ``None`` if ``iri`` is not one (core's ``canonical_contract_iri``; see
+    :func:`canonical_match_iri` for the rule).
+
+    >>> iri = canonical_contract_iri("urn:ikigai:contract:%66ile:source:b3:" + "AB" * 32)
+    >>> iri == "urn:ikigai:contract:file:source:b3:" + "ab" * 32
+    True
+    """
+    parsed = parse_contract_iri(iri)
+    return None if parsed is None else _contract_iri_of(*parsed)

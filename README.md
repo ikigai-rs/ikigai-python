@@ -199,14 +199,20 @@ What a served endpoint gets for free, because its describe face is real:
   nodes), `text/plain`, `application/json`. The turtle face is
   `ikigai_vocab::to_turtle` byte for byte: each verb's `ik:Action` node is its
   content-addressed contract IRI and owns its inputs under that IRI.
-  `tests/test_contract.py` pins it against vectors core itself computed
-  (`tests/fixtures/`, with the generator and how to rerun it).
+  `tests/test_contract.py` pins it against core's own shared vectors,
+  `tests/vectors/contract_vectors.json`: a verbatim copy of ikigai-vocab's
+  `tests/vectors/contract_vectors.json`, which carries this face's doors and
+  ikigai-deno's. To pick up new vectors, copy that file again, unedited.
 - **Match and contract IRIs**: `ikigai.contract` mirrors core's
   `match_iri`/`parse_match_iri` (`urn:ikigai:match:{verb}:{pattern}`, the row a
   host's `urn:kernel:actions` gives one door and verb) and
   `contract_iri`/`parse_contract_iri`; a door's `action_matches()` lists both for
   each of its verbs. The match IRI is the stable one to quote: a contract IRI
-  changes with every edit to the contract.
+  changes with every edit to the contract. Lenient in, canonical out, as core:
+  a parse accepts any spelling core accepts (`%7b`, `%41`, a raw `{`, an
+  upper-case digest, but never a signed escape such as `%+1`), and
+  `canonical_match_iri`/`canonical_contract_iri` give the one spelling to say
+  back.
 
 ### Families and verbs
 
