@@ -1,0 +1,1563 @@
+{
+  "about": "Contract vectors computed by ikigai-core and ikigai-vocab from tests/vectors/contract_cases.json (crates/ikigai-vocab/tests/contract_vectors.rs, which fails if this file differs from what it computes). Verbs are spelled as ikigai_core::Verb serializes them; a parse that core refuses is null.",
+  "contracts": [
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:toUpper:source:b3:56a717faca9b77f84ac3e31a8083ae32d0d25565e28a843d9e5a1c05ed82c103",
+      "id": "toUpper",
+      "name": "empty-source"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:toLower:source:b3:7930b0c343d331179eff802f61e2cc49691383943381516413c8a80e75b370d4",
+      "id": "toLower",
+      "name": "empty-source-other-id"
+    },
+    {
+      "action": {
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:toUpper:sink:b3:70f6301e09ee1f1166965665c1b5ae88d2bc9c2b0cb7e93197c948c3c0de95e3",
+      "id": "toUpper",
+      "name": "empty-sink"
+    },
+    {
+      "action": {
+        "verb": "Meta"
+      },
+      "contract": "urn:ikigai:contract:toUpper:meta:b3:7252dcc78760da605edef78405fb838fc11a6b80b8c5d936b2c4ef8184e6ff97",
+      "id": "toUpper",
+      "name": "empty-meta"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "m",
+            "one_of": [
+              "x",
+              "y"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "a/b",
+          "c/d"
+        ],
+        "requires": [
+          "urn:cap:a",
+          "urn:cap:b"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:e:source:b3:3652d7760f3e70a285f195b562e0d2bd768f6649df12e6789b8d8430291b17d3",
+      "id": "e",
+      "name": "set-order-a"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "m",
+            "one_of": [
+              "y",
+              "x",
+              "y"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "c/d",
+          "a/b",
+          "a/b"
+        ],
+        "requires": [
+          "urn:cap:b",
+          "urn:cap:a",
+          "urn:cap:b"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:e:source:b3:3652d7760f3e70a285f195b562e0d2bd768f6649df12e6789b8d8430291b17d3",
+      "id": "e",
+      "name": "set-order-b (same digest as a)"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "urn:c",
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "in",
+            "required": true,
+            "source": "binding",
+            "summary": ""
+          },
+          {
+            "default": "",
+            "name": "in",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "verb": "Delete"
+      },
+      "contract": "urn:ikigai:contract:e:delete:b3:3a61ca1ae3dcf77f6b81963ad5c992b7296e3967536af4f6cc36bf7de34c66c8",
+      "id": "e",
+      "name": "same-name-inputs"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "default": "0",
+            "name": "k",
+            "one_of": [
+              "0",
+              "1"
+            ],
+            "required": false,
+            "source": "binding",
+            "summary": "a key"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "requires": [
+          "urn:cap:cms:read",
+          "legacy"
+        ],
+        "summary": "s",
+        "verb": "Exists"
+      },
+      "contract": "urn:ikigai:contract:urn:cms:graph:exists:b3:27ec4e5aafae22282daffef1e4a4adb38f558675212e4eb970de13dbc1951938",
+      "id": "urn:cms:graph",
+      "name": "every-field"
+    },
+    {
+      "action": {
+        "summary": "ünïcode ✓",
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ev%3Eil%20%2525%20a:b%20é:sink:b3:54220360edf32cc9826c4f58dab3236338f7d3d730b0ec696ec1d2e1fca3f6b4",
+      "id": "ev>il %25 a:b é",
+      "name": "hostile-id"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract::source:b3:8eed840c1b4730a18cd52dee3e8c29c9c8969bf716a5f7b67ea1b3eac1abfd43",
+      "id": "",
+      "name": "empty-id"
+    }
+  ],
+  "doors": [
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204",
+          "match": "urn:ikigai:match:source:urn:py:hello",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": "the name to greet"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/examples.hello",
+      "pattern": "urn:py:hello",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:hello> a ik:Endpoint ;\n    ik:id \"hello\" ;\n    ik:summary \"Greet someone\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:hello:input:who> ;\n    ik:action <urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204> .\n\n<urn:ikigai:endpoint:hello:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the name to greet\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the name to greet\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204:input:who> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:upper:source:b3:b2c8a94abfcf336c35b19fa2daacb86ac32444d3fbfe0fa082c9efa71d908e6a",
+          "match": "urn:ikigai:match:source:urn:py:upper",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "upper",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "text",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to uppercase"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Uppercase a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/examples.upper",
+      "pattern": "urn:py:upper",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:upper> a ik:Endpoint ;\n    ik:id \"upper\" ;\n    ik:summary \"Uppercase a string\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:upper:input:text> ;\n    ik:action <urn:ikigai:contract:upper:source:b3:b2c8a94abfcf336c35b19fa2daacb86ac32444d3fbfe0fa082c9efa71d908e6a> .\n\n<urn:ikigai:endpoint:upper:input:text> ik:inputName \"text\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to uppercase\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:upper:source:b3:b2c8a94abfcf336c35b19fa2daacb86ac32444d3fbfe0fa082c9efa71d908e6a:input:text> ik:inputName \"text\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to uppercase\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:upper:source:b3:b2c8a94abfcf336c35b19fa2daacb86ac32444d3fbfe0fa082c9efa71d908e6a> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:upper:source:b3:b2c8a94abfcf336c35b19fa2daacb86ac32444d3fbfe0fa082c9efa71d908e6a:input:text> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:reverse:source:b3:dd34a896ba19921b3c8ae380d92df9bdf3481c96ca88dfd0db313a3de2a9bebb",
+          "match": "urn:ikigai:match:source:urn:py:reverse",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "reverse",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "text",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to reverse"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Reverse a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/examples.reverse",
+      "pattern": "urn:py:reverse",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:reverse> a ik:Endpoint ;\n    ik:id \"reverse\" ;\n    ik:summary \"Reverse a string\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:reverse:input:text> ;\n    ik:action <urn:ikigai:contract:reverse:source:b3:dd34a896ba19921b3c8ae380d92df9bdf3481c96ca88dfd0db313a3de2a9bebb> .\n\n<urn:ikigai:endpoint:reverse:input:text> ik:inputName \"text\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to reverse\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:reverse:source:b3:dd34a896ba19921b3c8ae380d92df9bdf3481c96ca88dfd0db313a3de2a9bebb:input:text> ik:inputName \"text\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to reverse\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:reverse:source:b3:dd34a896ba19921b3c8ae380d92df9bdf3481c96ca88dfd0db313a3de2a9bebb> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:reverse:source:b3:dd34a896ba19921b3c8ae380d92df9bdf3481c96ca88dfd0db313a3de2a9bebb:input:text> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204",
+          "match": "urn:ikigai:match:source:urn:py:hello",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": "the name to greet"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/demo.hello",
+      "pattern": "urn:py:hello",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:hello> a ik:Endpoint ;\n    ik:id \"hello\" ;\n    ik:summary \"Greet someone\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:hello:input:who> ;\n    ik:action <urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204> .\n\n<urn:ikigai:endpoint:hello:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the name to greet\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the name to greet\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:hello:source:b3:fe99c3a3447449c4d6832c856b5ee38acb2f2353bb4780680d46b56687aec204:input:who> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:reverse:source:b3:f07bbfd668f65a98ef4e03d0061102ca148e0da0d916b2d880bab3d04264a0be",
+          "match": "urn:ikigai:match:source:urn:py:reverse",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "reverse",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to reverse"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Reverse a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/demo.reverse",
+      "pattern": "urn:py:reverse",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:reverse> a ik:Endpoint ;\n    ik:id \"reverse\" ;\n    ik:summary \"Reverse a string\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:reverse:input:in> ;\n    ik:action <urn:ikigai:contract:reverse:source:b3:f07bbfd668f65a98ef4e03d0061102ca148e0da0d916b2d880bab3d04264a0be> .\n\n<urn:ikigai:endpoint:reverse:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to reverse\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:reverse:source:b3:f07bbfd668f65a98ef4e03d0061102ca148e0da0d916b2d880bab3d04264a0be:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the text to reverse\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:reverse:source:b3:f07bbfd668f65a98ef4e03d0061102ca148e0da0d916b2d880bab3d04264a0be> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:reverse:source:b3:f07bbfd668f65a98ef4e03d0061102ca148e0da0d916b2d880bab3d04264a0be:input:in> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41",
+          "match": "urn:ikigai:match:source:urn:py:echo/%7Bmessage%7D",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "_echo",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "message",
+            "required": true,
+            "source": "binding",
+            "summary": "what to echo"
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "",
+            "name": "suffix",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Echo the name back",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/echo",
+      "pattern": "urn:py:echo/{message}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:_echo> a ik:Endpoint ;\n    ik:id \"_echo\" ;\n    ik:summary \"Echo the name back\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:_echo:input:message> ;\n    ik:input <urn:ikigai:endpoint:_echo:input:suffix> ;\n    ik:action <urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41> .\n\n<urn:ikigai:endpoint:_echo:input:message> ik:inputName \"message\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"what to echo\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:endpoint:_echo:input:suffix> ik:inputName \"suffix\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"\" .\n\n<urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41:input:message> ik:inputName \"message\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"what to echo\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41:input:suffix> ik:inputName \"suffix\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"\" .\n\n<urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41:input:message> ;\n    ik:input <urn:ikigai:contract:_echo:source:b3:249b62f857d3fd3e0fdd13650c6d0b17147ed91b95171ac2b12ddd5d6f535e41:input:suffix> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:note:source:b3:f08224b6928b3f8e95048551e86b5cb1ce8e6066890308ebad3cae6f6a09d610",
+          "match": "urn:ikigai:match:source:urn:py:note:%7Bkey%7D",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb",
+          "match": "urn:ikigai:match:sink:urn:py:note:%7Bkey%7D",
+          "verb": "Sink"
+        },
+        {
+          "contract": "urn:ikigai:contract:note:delete:b3:44ec3d246b8738f0c9426cd1bdb4269c18ba2d99efdfb19ff44711ed64dc3828",
+          "match": "urn:ikigai:match:delete:urn:py:note:%7Bkey%7D",
+          "verb": "Delete"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "read a note",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "write a note",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "forget a note",
+            "verb": "Delete"
+          }
+        ],
+        "id": "note",
+        "inputs": [],
+        "outputs": [],
+        "summary": "A key-value note",
+        "title": "Notes",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      },
+      "name": "python/note",
+      "pattern": "urn:py:note:{key}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:note> a ik:Endpoint ;\n    ik:id \"note\" ;\n    ik:title \"Notes\" ;\n    ik:summary \"A key-value note\" ;\n    ik:verb \"Source\", \"Sink\", \"Delete\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:note:source:b3:f08224b6928b3f8e95048551e86b5cb1ce8e6066890308ebad3cae6f6a09d610> ;\n    ik:action <urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb> ;\n    ik:action <urn:ikigai:contract:note:delete:b3:44ec3d246b8738f0c9426cd1bdb4269c18ba2d99efdfb19ff44711ed64dc3828> .\n\n<urn:ikigai:contract:note:source:b3:f08224b6928b3f8e95048551e86b5cb1ce8e6066890308ebad3cae6f6a09d610:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:note:source:b3:f08224b6928b3f8e95048551e86b5cb1ce8e6066890308ebad3cae6f6a09d610> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"read a note\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:note:source:b3:f08224b6928b3f8e95048551e86b5cb1ce8e6066890308ebad3cae6f6a09d610:input:key> .\n\n<urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:summary \"write a note\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb:input:key> ;\n    ik:input <urn:ikigai:contract:note:sink:b3:bfeddbb55fbc03c395eb5be276b7a6fd00e454865ccd3f3485126244458f4dcb:input:content> .\n\n<urn:ikigai:contract:note:delete:b3:44ec3d246b8738f0c9426cd1bdb4269c18ba2d99efdfb19ff44711ed64dc3828:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:note:delete:b3:44ec3d246b8738f0c9426cd1bdb4269c18ba2d99efdfb19ff44711ed64dc3828> a ik:Action ;\n    ik:verb \"Delete\" ;\n    ik:summary \"forget a note\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:note:delete:b3:44ec3d246b8738f0c9426cd1bdb4269c18ba2d99efdfb19ff44711ed64dc3828:input:key> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52",
+          "match": "urn:ikigai:match:source:urn:iki:tutorial:ttt:stored:%7Bx%7D:%7By%7D",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20",
+          "match": "urn:ikigai:match:sink:urn:iki:tutorial:ttt:stored:%7Bx%7D:%7By%7D",
+          "verb": "Sink"
+        },
+        {
+          "contract": "urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d",
+          "match": "urn:ikigai:match:delete:urn:iki:tutorial:ttt:stored:%7Bx%7D:%7By%7D",
+          "verb": "Delete"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "the mark played at (x, y); NotFound if none has been",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": "the mark to play, e.g. X or O"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "play a mark at (x, y)",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "clear the cell at (x, y)",
+            "verb": "Delete"
+          }
+        ],
+        "id": "ttt-stored",
+        "inputs": [],
+        "outputs": [],
+        "summary": "What has been played at (x, y): read it, play a mark, or clear it.",
+        "title": "Stored cell",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      },
+      "name": "python/ttt-stored",
+      "pattern": "urn:iki:tutorial:ttt:stored:{x}:{y}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:ttt-stored> a ik:Endpoint ;\n    ik:id \"ttt-stored\" ;\n    ik:title \"Stored cell\" ;\n    ik:summary \"What has been played at (x, y): read it, play a mark, or clear it.\" ;\n    ik:verb \"Source\", \"Sink\", \"Delete\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52> ;\n    ik:action <urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20> ;\n    ik:action <urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d> .\n\n<urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52:input:x> ik:inputName \"x\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the column — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52:input:y> ik:inputName \"y\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the row — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"the mark played at (x, y); NotFound if none has been\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52:input:x> ;\n    ik:input <urn:ikigai:contract:ttt-stored:source:b3:12866f4c1c56d33a487c3df0114432424fef04fbbc6085ccccdedc00c4f51c52:input:y> .\n\n<urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:x> ik:inputName \"x\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the column — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:y> ik:inputName \"y\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the row — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the mark to play, e.g. X or O\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:summary \"play a mark at (x, y)\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:x> ;\n    ik:input <urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:y> ;\n    ik:input <urn:ikigai:contract:ttt-stored:sink:b3:df1c11612f0e3d6bde4fbbdf52f7b21782593e2af3e673902ff4165dccae9f20:input:content> .\n\n<urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d:input:x> ik:inputName \"x\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the column — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d:input:y> ik:inputName \"y\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the row — any integer\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d> a ik:Action ;\n    ik:verb \"Delete\" ;\n    ik:summary \"clear the cell at (x, y)\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d:input:x> ;\n    ik:input <urn:ikigai:contract:ttt-stored:delete:b3:5e42e9f7eb3c514ba5b035128d08f97eb68c0ec3bf5799f9f3aa186bc935de0d:input:y> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57",
+          "match": "urn:ikigai:match:source:urn:py:guarded",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "guard>ed %41 naïve",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "a",
+            "name": "mode",
+            "one_of": [
+              "b",
+              "a",
+              "c"
+            ],
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "default": "3",
+            "name": "count",
+            "required": false,
+            "source": "argument",
+            "summary": "how many"
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "now",
+            "name": "when",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/turtle"
+        ],
+        "requires": [
+          "urn:cap:py:read",
+          "legacy label",
+          "urn:cap:py:a"
+        ],
+        "summary": "line one\nline two\\",
+        "title": "A \"quoted\"\ttitle",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "python/guarded",
+      "pattern": "urn:py:guarded",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:guard%3Eed%20%41%20naïve> a ik:Endpoint ;\n    ik:id \"guard>ed %41 naïve\" ;\n    ik:title \"A \\\"quoted\\\"\\ttitle\" ;\n    ik:summary \"line one\\nline two\\\\\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:py:read>, \"legacy label\", <urn:cap:py:a> ;\n    ik:input <urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:mode> ;\n    ik:input <urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:count> ;\n    ik:input <urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:when> ;\n    ik:action <urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57> .\n\n<urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:mode> ik:inputName \"mode\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"a\" ;\n    ik:oneOf \"b\" ;\n    ik:oneOf \"a\" ;\n    ik:oneOf \"c\" .\n\n<urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:count> ik:inputName \"count\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"how many\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> ;\n    ik:default \"3\" .\n\n<urn:ikigai:endpoint:guard%3Eed%20%41%20naïve:input:when> ik:inputName \"when\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"now\" .\n\n<urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:mode> ik:inputName \"mode\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"a\" ;\n    ik:oneOf \"b\" ;\n    ik:oneOf \"a\" ;\n    ik:oneOf \"c\" .\n\n<urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:count> ik:inputName \"count\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"how many\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> ;\n    ik:default \"3\" .\n\n<urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:when> ik:inputName \"when\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> ;\n    ik:default \"now\" .\n\n<urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:py:read> ;\n    ik:requires \"legacy label\" ;\n    ik:requires <urn:cap:py:a> ;\n    ik:input <urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:mode> ;\n    ik:input <urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:count> ;\n    ik:input <urn:ikigai:contract:guard%3Eed%20%2541%20naïve:source:b3:85b98ee9b4239e671cce45999b1eec54a22d7c2ed1f417ae206e4d1d9a066c57:input:when> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1",
+          "match": "urn:ikigai:match:source:urn:py:shuffled:%7Ba%7D:%7Bb%7D",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816",
+          "match": "urn:ikigai:match:exists:urn:py:shuffled:%7Ba%7D:%7Bb%7D",
+          "verb": "Exists"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "name": "zeta",
+                "one_of": [
+                  "y",
+                  "x",
+                  "y"
+                ],
+                "required": false,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "default": "1",
+                "name": "alpha",
+                "required": false,
+                "source": "argument",
+                "summary": "first"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:py:z",
+              "urn:cap:py:a",
+              "urn:cap:py:z"
+            ],
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:py:a"
+            ],
+            "verb": "Exists"
+          }
+        ],
+        "id": "urn:py:shuffled",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ]
+      },
+      "name": "python/shuffled",
+      "pattern": "urn:py:shuffled:{a}:{b}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:urn:py:shuffled> a ik:Endpoint ;\n    ik:id \"urn:py:shuffled\" ;\n    ik:verb \"Source\", \"Exists\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1> ;\n    ik:action <urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816> .\n\n<urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:zeta> ik:inputName \"zeta\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:oneOf \"y\" ;\n    ik:oneOf \"x\" ;\n    ik:oneOf \"y\" .\n\n<urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:alpha> ik:inputName \"alpha\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"first\" ;\n    ik:default \"1\" .\n\n<urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:requires <urn:cap:py:z> ;\n    ik:requires <urn:cap:py:a> ;\n    ik:requires <urn:cap:py:z> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:a> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:b> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:zeta> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:source:b3:affdf176531bf6a88407876dca6b6b0607d022deef4c46c52eaf725ff31e8fa1:input:alpha> .\n\n<urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816> a ik:Action ;\n    ik:verb \"Exists\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:requires <urn:cap:py:a> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816:input:a> ;\n    ik:input <urn:ikigai:contract:urn:py:shuffled:exists:b3:54725c33447c8a979cad5ea7b3b89da4f67ae1964ff9b24fb8ddded39e9fc816:input:b> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:hello:source:b3:4c2ae817db1ce38f9d444bc9a7e9e7ea3e7625290fbae5f34f2ae94aa7b73820",
+          "match": "urn:ikigai:match:source:urn:ts:hello",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "deno/hello",
+      "pattern": "urn:ts:hello",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:hello> a ik:Endpoint ;\n    ik:id \"hello\" ;\n    ik:summary \"Greet someone\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:hello:input:who> ;\n    ik:action <urn:ikigai:contract:hello:source:b3:4c2ae817db1ce38f9d444bc9a7e9e7ea3e7625290fbae5f34f2ae94aa7b73820> .\n\n<urn:ikigai:endpoint:hello:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:4c2ae817db1ce38f9d444bc9a7e9e7ea3e7625290fbae5f34f2ae94aa7b73820:input:who> ik:inputName \"who\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:hello:source:b3:4c2ae817db1ce38f9d444bc9a7e9e7ea3e7625290fbae5f34f2ae94aa7b73820> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:hello:source:b3:4c2ae817db1ce38f9d444bc9a7e9e7ea3e7625290fbae5f34f2ae94aa7b73820:input:who> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5",
+          "match": "urn:ikigai:match:source:urn:ts:echo:%7Bmsg%7D",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "echo",
+        "inputs": [
+          {
+            "name": "msg",
+            "required": true,
+            "source": "binding",
+            "summary": "what to say"
+          },
+          {
+            "default": "",
+            "name": "suffix",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Echo the name",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "deno/echo",
+      "pattern": "urn:ts:echo:{msg}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:echo> a ik:Endpoint ;\n    ik:id \"echo\" ;\n    ik:summary \"Echo the name\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:endpoint:echo:input:msg> ;\n    ik:input <urn:ikigai:endpoint:echo:input:suffix> ;\n    ik:action <urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5> .\n\n<urn:ikigai:endpoint:echo:input:msg> ik:inputName \"msg\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"what to say\" .\n\n<urn:ikigai:endpoint:echo:input:suffix> ik:inputName \"suffix\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:default \"\" .\n\n<urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5:input:msg> ik:inputName \"msg\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"what to say\" .\n\n<urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5:input:suffix> ik:inputName \"suffix\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:default \"\" .\n\n<urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5:input:msg> ;\n    ik:input <urn:ikigai:contract:echo:source:b3:f3d2db1524ccb1712d1daa3cf31446d0b7c4c8a6e9d7be30d01f05a522cdbfc5:input:suffix> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421",
+          "match": "urn:ikigai:match:source:urn:ts:guarded",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "guarded",
+        "inputs": [
+          {
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "upper",
+              "lower"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:ts:write",
+          "urn:cap:ts:read",
+          "legacy label"
+        ],
+        "summary": "",
+        "title": "Guarded",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "deno/guarded",
+      "pattern": "urn:ts:guarded",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:guarded> a ik:Endpoint ;\n    ik:id \"guarded\" ;\n    ik:title \"Guarded\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:ts:write>, <urn:cap:ts:read>, \"legacy label\" ;\n    ik:input <urn:ikigai:endpoint:guarded:input:in> ;\n    ik:input <urn:ikigai:endpoint:guarded:input:mode> ;\n    ik:action <urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421> .\n\n<urn:ikigai:endpoint:guarded:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:endpoint:guarded:input:mode> ik:inputName \"mode\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:oneOf \"upper\" ;\n    ik:oneOf \"lower\" .\n\n<urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421:input:mode> ik:inputName \"mode\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:oneOf \"upper\" ;\n    ik:oneOf \"lower\" .\n\n<urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:ts:write> ;\n    ik:requires <urn:cap:ts:read> ;\n    ik:requires \"legacy label\" ;\n    ik:input <urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421:input:in> ;\n    ik:input <urn:ikigai:contract:guarded:source:b3:06bb69f4aa45bca77b4b635480866eee3ae4376a58a687921b9c16be5372f421:input:mode> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e",
+          "match": "urn:ikigai:match:source:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38",
+          "match": "urn:ikigai:match:sink:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Sink"
+        },
+        {
+          "contract": "urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6",
+          "match": "urn:ikigai:match:delete:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Delete"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "read it",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              },
+              {
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": "the body to write"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "write it",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "clear it",
+            "verb": "Delete"
+          }
+        ],
+        "id": "kv",
+        "inputs": [],
+        "outputs": [],
+        "summary": "a key-value store",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      },
+      "name": "deno/kv",
+      "pattern": "urn:ts:kv:{bucket}:{key}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:kv> a ik:Endpoint ;\n    ik:id \"kv\" ;\n    ik:summary \"a key-value store\" ;\n    ik:verb \"Source\", \"Sink\", \"Delete\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e> ;\n    ik:action <urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38> ;\n    ik:action <urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6> .\n\n<urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e:input:bucket> ik:inputName \"bucket\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the bucket\" .\n\n<urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the key\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"read it\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e:input:bucket> ;\n    ik:input <urn:ikigai:contract:kv:source:b3:fe343cbc40b845c5bee69b572a2aa0bf8a110d6a4b292d59549f41bb19fd729e:input:key> .\n\n<urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:bucket> ik:inputName \"bucket\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the bucket\" .\n\n<urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the key\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the body to write\" .\n\n<urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:summary \"write it\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:bucket> ;\n    ik:input <urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:key> ;\n    ik:input <urn:ikigai:contract:kv:sink:b3:12a4a55eb07bd5e1d8ffecc365f28271df4f1a922ff923c389e99813955e7b38:input:content> .\n\n<urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6:input:bucket> ik:inputName \"bucket\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the bucket\" .\n\n<urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6:input:key> ik:inputName \"key\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"the key\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#integer> .\n\n<urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6> a ik:Action ;\n    ik:verb \"Delete\" ;\n    ik:summary \"clear it\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:input <urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6:input:bucket> ;\n    ik:input <urn:ikigai:contract:kv:delete:b3:d9163b6680d6376ca3ce3bea7788c74cf5013b3c54e52597c8d6c02204f11ca6:input:key> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a",
+          "match": "urn:ikigai:match:source:urn:ts:edge:%7Bb%7D:%7Ba%7D",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325",
+          "match": "urn:ikigai:match:exists:urn:ts:edge:%7Bb%7D:%7Ba%7D",
+          "verb": "Exists"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": "bee"
+              },
+              {
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": "ay"
+              },
+              {
+                "name": "zeta",
+                "required": true,
+                "source": "argument",
+                "summary": "last by name"
+              },
+              {
+                "name": "𝄞x",
+                "one_of": [
+                  "｡",
+                  "𝄞",
+                  "b",
+                  "a",
+                  "b"
+                ],
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "default": "d",
+                "name": "｡x",
+                "required": false,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "Alpha",
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/turtle"
+            ],
+            "requires": [
+              "urn:cap:z",
+              "urn:cap:a",
+              "urn:cap:z"
+            ],
+            "summary": "naïve — 𝄞 ｡",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": "bee"
+              },
+              {
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": "ay"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:a"
+            ],
+            "verb": "Exists"
+          }
+        ],
+        "id": "ev>il 100% naïve",
+        "inputs": [],
+        "outputs": [],
+        "summary": "every field the contract digest covers",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ]
+      },
+      "name": "deno/edge",
+      "pattern": "urn:ts:edge:{b}:{a}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:ev%3Eil%20100%%20naïve> a ik:Endpoint ;\n    ik:id \"ev>il 100% naïve\" ;\n    ik:summary \"every field the contract digest covers\" ;\n    ik:verb \"Source\", \"Exists\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a> ;\n    ik:action <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"bee\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"ay\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:zeta> ik:inputName \"zeta\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"last by name\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:𝄞x> ik:inputName \"𝄞x\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:oneOf \"｡\" ;\n    ik:oneOf \"𝄞\" ;\n    ik:oneOf \"b\" ;\n    ik:oneOf \"a\" ;\n    ik:oneOf \"b\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:｡x> ik:inputName \"｡x\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:default \"d\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:Alpha> ik:inputName \"Alpha\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"naïve — 𝄞 ｡\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:z> ;\n    ik:requires <urn:cap:a> ;\n    ik:requires <urn:cap:z> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:b> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:a> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:zeta> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:𝄞x> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:｡x> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:Alpha> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"bee\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"ay\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325> a ik:Action ;\n    ik:verb \"Exists\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:requires <urn:cap:a> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:b> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:a> .\n"
+    }
+  ],
+  "form": "ikigai:contract:v1",
+  "matches": [
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:iki:fn:toUpper",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:iki:fn:toUpper",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:iki:fn:toUpper",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:iki:fn:toUpper",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:iki:fn:toUpper",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:iki:fn:toUpper"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:file:%7Bpath%7D",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:file:%7Bpath%7D",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:file:%7Bpath%7D",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:file:%7Bpath%7D",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:file:{path}"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:a:%257B",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:a:%257B",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:a:%257B",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:a:%257B",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:a:%257B",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:a:%7B"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:a:%7B",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:a:%7B",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:a:%7B",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:a:%7B",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:a:%7B",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:a:{"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:sp%20ace:%3C%3E%22%7C%5E%60%5C:naïve",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:sp%20ace:%3C%3E%22%7C%5E%60%5C:naïve",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:sp%20ace:%3C%3E%22%7C%5E%60%5C:naïve",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:sp%20ace:%3C%3E%22%7C%5E%60%5C:naïve",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:sp%20ace:%3C%3E%22%7C%5E%60%5C:naïve",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:sp ace:<>\"|^`\\:naïve"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:ts:kv:%7Bbucket%7D:%7Bkey%7D",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:ts:kv:{bucket}:{key}"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:ts:naïve%20𝄞%7Cx",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:ts:naïve%20𝄞%7Cx",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:ts:naïve%20𝄞%7Cx",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:ts:naïve%20𝄞%7Cx",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:ts:naïve%20𝄞%7Cx",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:ts:naïve 𝄞|x"
+    }
+  ],
+  "parses": [
+    {
+      "canonical": "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+      "match": [
+        "Source",
+        "urn:file:{path}"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:meta:urn:a:%25",
+      "contract": null,
+      "iri": "urn:ikigai:match:meta:urn:a:%25",
+      "match": [
+        "Meta",
+        "urn:a:%"
+      ]
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:Source:urn:x",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:frobnicate:urn:x",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%G1",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%4",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%+1",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:é",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%C3%A9",
+      "match": [
+        "Source",
+        "é"
+      ]
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%C3",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:urn:cms:graph:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "urn:cms:graph",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:urn:cms:graph:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:ev%3Eil:delete:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "ev>il",
+        "Delete",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:ev%3Eil:delete:b3:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:x:source:b3:ababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:x:source:b3:+bababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract::sink:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "",
+        "Sink",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract::sink:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:sink:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:endpoint:x:action:source",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%-1",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%+F",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:a%+1b",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:% 1",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:%01",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%01",
+      "match": [
+        "Source",
+        "\u0001"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:%7B",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%7b",
+      "match": [
+        "Source",
+        "{"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:urn:file:{path}",
+      "match": [
+        "Source",
+        "urn:file:{path}"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:A",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%41",
+      "match": [
+        "Source",
+        "A"
+      ]
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:match:source:%é",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:",
+      "match": [
+        "Source",
+        ""
+      ]
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:%+1:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:%01:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "\u0001",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:%01:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:x:Source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": null,
+      "contract": null,
+      "iri": "urn:ikigai:contract:x:source:b3:abababababababababababababababababababababababababababababababab00",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:a:b:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "a:b",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:a:b:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:urn:%66ile:%7bpath%7d",
+      "match": [
+        "Source",
+        "urn:file:{path}"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:contract:%7Bx%7D:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "{x}",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:{x}:source:b3:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:file:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "file",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:%66ile:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    }
+  ]
+}

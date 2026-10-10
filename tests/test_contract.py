@@ -1,125 +1,166 @@
-"""Parity with core's content-addressed contracts and match IRIs (ledger #948, #1034).
+"""Parity with core's content-addressed contracts and match IRIs (ledger #948, #1034, #1106).
 
-Every expectation here comes from ``tests/fixtures/contract_vectors.json``, which
-ikigai-core 0.1.92 computed (``tests/fixtures/contract_vectors.rs`` is the generator,
-``tests/contract_cases.py`` the input; their headers say how to regenerate). Nothing is
-asserted from this face's own output, so a mirror that drifts from core fails here.
+Every expectation here comes from ``tests/vectors/contract_vectors.json``, a VERBATIM copy
+of ikigai-vocab's ``tests/vectors/contract_vectors.json``: core computes that file and its
+own test refuses to let it drift, and devtools' ``vector-drift`` compares this copy with
+it. Nothing is asserted from this face's own output, so a mirror that drifts from core
+fails here. To pick up new vectors, copy the file again; never edit or reformat it.
+
+The one face-local check: this face's API still builds the descriptions the shared file
+carries as its ``python/…`` doors (``tests/contract_doors.py``).
 """
 
 from __future__ import annotations
 
+import doctest
 import json
 from pathlib import Path
 
 import pytest
 
+import ikigai.contract
 from ikigai import Verb
 from ikigai.contract import (
+    canonical_contract_iri,
+    canonical_match_iri,
     contract_id,
     contract_iri,
     match_iri,
     parse_contract_iri,
     parse_match_iri,
 )
-from tests.contract_cases import CONTRACTS, doors, generator_input
+from ikigai.serve import action_matches, to_turtle
+from tests.contract_doors import doors
 
-FIXTURE = Path(__file__).parent / "fixtures" / "contract_vectors.json"
-VECTORS = json.loads(FIXTURE.read_text(encoding="utf-8"))
-BY_NAME = {case["name"]: case for case in VECTORS}
+VECTORS_FILE = Path(__file__).parent / "vectors" / "contract_vectors.json"
+VECTORS = json.loads(VECTORS_FILE.read_text(encoding="utf-8"))
+DOORS = VECTORS["doors"]
+CONTRACTS = VECTORS["contracts"]
+MATCHES = VECTORS["matches"]
+PARSES = VECTORS["parses"]
+DOOR = {d["name"]: d for d in DOORS}
+CONTRACT = {c["name"]: c for c in CONTRACTS}
 
-DOOR_CASES = [c for c in VECTORS if not (c.get("contract") or c.get("match") or c.get("parse"))]
-CONTRACT_CASES = [c for c in VECTORS if c.get("contract")]
-MATCH_CASES = [c for c in VECTORS if c.get("match")]
-PARSE_CASES = [c for c in VECTORS if c.get("parse")]
-
-
-def test_the_fixture_was_computed_from_these_cases():
-    # A changed door or case without a regenerated fixture fails HERE, by name, rather
-    # than as a confusing digest mismatch below.
-    inputs = generator_input()
-    assert [c["name"] for c in inputs] == [c["name"] for c in VECTORS]
-    for given, vector in zip(inputs, VECTORS, strict=True):
-        assert given["pattern"] == vector["pattern"], given["name"]
-        if "description" in given:
-            assert given["description"] == vector["description"], (
-                f"{given['name']}: the case changed since core computed the fixture; "
-                "regenerate it (tests/contract_cases.py says how)"
-            )
+PYTHON = "python/"
 
 
-@pytest.mark.parametrize("case", DOOR_CASES, ids=lambda c: c["name"])
+def _verb(name):
+    return None if name is None else Verb[name.upper()]
+
+
+def test_the_vectors_are_for_the_canonical_form_this_face_computes():
+    # Core bumps the form tag if the canonical form changes; a stale mirror should fail
+    # here, by name, rather than as sixty digest mismatches below.
+    assert VECTORS["form"] == ikigai.contract._CONTRACT_FORM
+
+
+def test_the_vectors_carry_every_door_this_face_builds():
+    carried = {d["name"][len(PYTHON) :] for d in DOORS if d["name"].startswith(PYTHON)}
+    assert carried == set(doors())
+
+
+@pytest.mark.parametrize("name", sorted(doors()))
+def test_this_faces_api_still_builds_the_description_the_vectors_carry(name):
+    door, vector = doors()[name], DOOR[PYTHON + name]
+    assert door.iri == vector["pattern"]
+    assert door.description_json() == vector["description"], (
+        f"{name}: the door changed since core computed the vectors; change it in core's "
+        "contract_cases.json too, regenerate there, and copy the file again"
+    )
+    # The methods a served door uses are the functions below, over that description.
+    assert door.description_turtle() == vector["turtle"]
+    assert door.action_matches() == vector["actions"]
+
+
+@pytest.mark.parametrize("case", DOORS, ids=lambda c: c["name"])
 def test_a_door_renders_its_meta_turtle_exactly_as_core_does(case):
-    door = doors()[case["name"]]
-    assert door.description_turtle() == case["turtle"]
+    assert to_turtle(case["description"]) == case["turtle"]
 
 
-@pytest.mark.parametrize("case", DOOR_CASES, ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", DOORS, ids=lambda c: c["name"])
 def test_a_door_names_its_matches_and_contracts_as_core_does(case):
-    door = doors()[case["name"]]
-    assert door.action_matches() == case["actions"]
+    assert action_matches(case["pattern"], case["description"]) == case["actions"]
 
 
-@pytest.mark.parametrize("case", DOOR_CASES, ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", DOORS, ids=lambda c: c["name"])
 def test_no_door_mints_the_retired_action_iri(case):
     # urn:ikigai:endpoint:{id}:action:{verb} MOVED in core 0.1.91 (not aliased: an
     # alias would re-merge different contracts under one subject).
-    assert ":action:" not in doors()[case["name"]].description_turtle()
+    assert ":action:" not in to_turtle(case["description"])
 
 
 def test_identical_contracts_share_a_node_and_different_ones_do_not():
     # examples.hello and demo.hello declare the same contract (derived vs explicit
     # args); the two `reverse`s do not (`text` vs `in`).
     def source(name):
-        return BY_NAME[name]["actions"][0]["contract"]
+        return DOOR[PYTHON + name]["actions"][0]["contract"]
 
     assert source("examples.hello") == source("demo.hello")
     assert source("examples.reverse") != source("demo.reverse")
 
 
-@pytest.mark.parametrize("case", CONTRACT_CASES, ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", CONTRACTS, ids=lambda c: c["name"])
 def test_a_contract_iri_is_cores(case):
-    endpoint_id, spec = CONTRACTS[case["name"]]
-    assert contract_iri(endpoint_id, spec) == case["contract_iri"]
-    assert contract_iri(endpoint_id, spec).endswith(":" + contract_id(endpoint_id, spec))
+    iri = contract_iri(case["id"], case["action"])
+    assert iri == case["contract"]
+    assert iri.endswith(":" + contract_id(case["id"], case["action"]))
+
+
+@pytest.mark.parametrize("case", CONTRACTS, ids=lambda c: c["name"])
+def test_a_contract_iri_parses_back_to_what_made_it(case):
+    assert parse_contract_iri(case["contract"]) == (
+        case["id"],
+        _verb(case["action"]["verb"]),
+        contract_id(case["id"], case["action"]),
+    )
 
 
 def test_declaration_order_and_duplicates_never_move_the_digest():
-    a = BY_NAME["set-order-a"]["contract_iri"]
-    assert BY_NAME["set-order-b (same digest as a)"]["contract_iri"] == a
-    assert (
-        BY_NAME["empty-source"]["contract_iri"] != BY_NAME["empty-source-other-id"]["contract_iri"]
-    )  # the id is part of the contract
+    a = CONTRACT["set-order-a"]["contract"]
+    assert CONTRACT["set-order-b (same digest as a)"]["contract"] == a
+    # The id is part of the contract.
+    assert CONTRACT["empty-source"]["contract"] != CONTRACT["empty-source-other-id"]["contract"]
 
 
-@pytest.mark.parametrize("case", MATCH_CASES, ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", MATCHES, ids=lambda c: c["pattern"])
 def test_a_match_iri_is_cores(case):
-    for row in case["matches"]:
-        verb = Verb[row["verb"].upper()]
+    for row in case["iris"]:
+        verb = _verb(row["verb"])
         assert match_iri(verb, case["pattern"]) == row["match"]
         assert parse_match_iri(row["match"]) == (verb, case["pattern"])
 
 
-def _verb_or_none(name):
-    return None if name is None else Verb[name.upper()]
-
-
-@pytest.mark.parametrize("case", PARSE_CASES, ids=lambda c: c["pattern"][:60])
+@pytest.mark.parametrize("case", PARSES, ids=lambda c: c["iri"][:60])
 def test_parsing_an_iri_agrees_with_core(case):
-    want = case["parsed_match"]
-    assert parse_match_iri(case["pattern"]) == (
-        None if want is None else (_verb_or_none(want[0]), want[1])
-    )
-    want = case["parsed_contract"]
-    assert parse_contract_iri(case["pattern"]) == (
-        None if want is None else (want[0], _verb_or_none(want[1]), want[2])
+    want = case["match"]
+    assert parse_match_iri(case["iri"]) == (None if want is None else (_verb(want[0]), want[1]))
+    want = case["contract"]
+    assert parse_contract_iri(case["iri"]) == (
+        None if want is None else (want[0], _verb(want[1]), want[2])
     )
 
 
-@pytest.mark.parametrize("case", CONTRACT_CASES, ids=lambda c: c["name"])
-def test_a_contract_iri_parses_back_to_what_made_it(case):
-    endpoint_id, spec = CONTRACTS[case["name"]]
-    assert parse_contract_iri(case["contract_iri"]) == (
-        endpoint_id,
-        Verb[spec["verb"].upper()],
-        contract_id(endpoint_id, spec),
-    )
+@pytest.mark.parametrize("case", PARSES, ids=lambda c: c["iri"][:60])
+def test_what_this_face_says_back_is_cores_canonical_spelling(case):
+    # Lenient in, canonical out (ledger #1107): any spelling that parses is said back
+    # as the one core emits, and that spelling is a fixed point.
+    said = canonical_match_iri(case["iri"]) or canonical_contract_iri(case["iri"])
+    assert said == case["canonical"]
+    if said is not None:
+        assert (canonical_match_iri(said) or canonical_contract_iri(said)) == said
+        assert parse_match_iri(said) == parse_match_iri(case["iri"])
+        assert parse_contract_iri(said) == parse_contract_iri(case["iri"])
+
+
+@pytest.mark.parametrize("escape", ["%+1", "%+F", "%-1", "a%+1b", "% 1", "%_1"])
+def test_a_signed_or_spaced_escape_is_refused(escape):
+    # ledger #1096: `%+1` used to decode to the byte `%01` does, so two IRIs named one
+    # door. An escape is `%` and exactly two hex digits.
+    assert parse_match_iri(f"urn:ikigai:match:source:{escape}") is None
+    assert parse_contract_iri(f"urn:ikigai:contract:{escape}:source:b3:{'ab' * 32}") is None
+
+
+def test_the_contract_module_doctests_hold():
+    # A doc comment that states a shape leaving the process is only trusted if it runs.
+    failed, attempted = doctest.testmod(ikigai.contract)
+    assert attempted and not failed
