@@ -298,7 +298,7 @@ def test_typed_errors_round_trip_with_taxonomy_intact():
         (NotFoundError("no such row"), False),
         (TimeoutError("5s elapsed"), True),
         (UnavailableError("connection refused"), True),
-        (ConflictError("square taken"), False),
+        (ConflictError("1,1 is taken"), False),
     ]
     for original, transient in cases:
         got = wire.decode_reply(wire.encode_reply(ErrorTypedReply(original))).error
