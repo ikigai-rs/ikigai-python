@@ -91,7 +91,7 @@ import types
 import typing
 from pathlib import Path
 
-from . import wire
+from . import contract, wire
 from .template import TemplateError, UriTemplate
 from .wire import (
     Cached,
@@ -589,76 +589,128 @@ class _Door:
             s += f"outputs: {', '.join(self._flat_outputs())}\n"
         return s
 
+    def action_specs_json(self) -> list[dict]:
+        """``Description::action_specs`` over :meth:`description_json`: one
+        ``ActionSpec`` (serde shape) per non-Meta verb, the explicit one where
+        declared, else synthesized from the flat fields with an empty summary. Read
+        from the JSON face on purpose: it is what a Rust host deserializes when it
+        mounts this peer, so a contract computed here is computed from the same data
+        as the host's."""
+        description = self.description_json()
+        explicit = {a["verb"]: a for a in description.get("actions", [])}
+        specs = []
+        for verb in description["verbs"]:
+            if verb == Verb.META.wire_name:
+                continue
+            specs.append(
+                explicit.get(verb)
+                or {
+                    "verb": verb,
+                    "summary": "",
+                    "inputs": description["inputs"],
+                    "outputs": description["outputs"],
+                    "requires": description.get("requires", []),
+                }
+            )
+        return specs
+
+    def action_matches(self) -> list[dict]:
+        """This door's rows as a host's manifold names them (ledger #948): per
+        non-Meta verb, the ``match`` IRI (``urn:ikigai:match:{verb}:{pattern}``, one
+        per door and verb) and the content-addressed ``contract`` IRI it satisfies
+        (``urn:ikigai:contract:{id}:{verb}:b3:{hex}``, its ``ik:contract``)."""
+        return [
+            {
+                "verb": spec["verb"],
+                "match": contract.match_iri(Verb[spec["verb"].upper()], self.iri),
+                "contract": contract.contract_iri(self.id, spec),
+            }
+            for spec in self.action_specs_json()
+        ]
+
     def description_turtle(self) -> str:
-        """The graph face (mirrors ``ikigai_vocab::to_turtle``): skolemized
-        node IRIs, no blank nodes, the shared ``ik:`` vocabulary. A flat
-        door's synthesized action REFERENCES the endpoint-level input nodes;
-        an explicit action (a family's) scopes its own under the action."""
+        """The graph face, mirroring ``ikigai_vocab::to_turtle`` byte for byte
+        (pinned by ``tests/fixtures/contract_vectors.json``, which core rendered):
+        skolemized node IRIs, no blank nodes, the shared ``ik:`` vocabulary. Each
+        verb's ``ik:Action`` node is its CONTENT-ADDRESSED contract
+        (:func:`ikigai.contract.contract_iri`) and owns its inputs under its own
+        IRI, for a flat door too. Rendered from :meth:`description_json`, the face a
+        Rust host reads, so the two cannot describe different contracts.
+
+        One defense is not mirrored: core degrades a ``class`` or ``requires`` value
+        that is still not an RFC 3987 IRI after escaping to a literal (it parses it
+        with ``oxiri``); here it stays an escaped ``<…>``. Every scope and class in
+        the ecosystem is a valid IRI, so no real description renders differently."""
+
+        description = self.description_json()
 
         def lit(s: str) -> str:
-            return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+            escaped = (
+                s.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+            )
+            return f'"{escaped}"'
+
+        def iri_term(s: str) -> str:
+            return f"<{contract.escape_iri_fragment(s)}>"
 
         def cap_term(scope: str) -> str:
             if scope.startswith(("urn:", "http://", "https://")):
-                return f"<{scope}>"
+                return iri_term(scope)
             return lit(scope)
 
-        def input_predicates(arg: ArgSpec) -> str:
+        def input_predicates(arg: dict) -> str:
             node = (
-                f"ik:inputName {lit(arg.name)} ;\n"
-                f"    ik:source {lit(arg.source)} ;\n"
-                f"    ik:required {'true' if arg.required else 'false'}"
+                f"ik:inputName {lit(arg['name'])} ;\n"
+                f"    ik:source {lit(arg['source'])} ;\n"
+                f"    ik:required {'true' if arg['required'] else 'false'}"
             )
-            if arg.summary:
-                node += f" ;\n    ik:summary {lit(arg.summary)}"
-            if arg.cls is not None:
-                node += f" ;\n    ik:class <{arg.cls}>"
-            if arg.default is not None:
-                node += f" ;\n    ik:default {lit(arg.default)}"
-            for value in arg.one_of:
+            if arg["summary"]:
+                node += f" ;\n    ik:summary {lit(arg['summary'])}"
+            if arg.get("class") is not None:
+                node += f" ;\n    ik:class {iri_term(arg['class'])}"
+            if arg.get("default") is not None:
+                node += f" ;\n    ik:default {lit(arg['default'])}"
+            for value in arg.get("one_of", []):
                 node += f" ;\n    ik:oneOf {lit(value)}"
             return node
 
-        endpoint_iri = f"urn:ikigai:endpoint:{self.id}"
-        preds = [
-            "a ik:Endpoint",
-            f"ik:id {lit(self.id)}",
-        ]
+        endpoint_iri = f"urn:ikigai:endpoint:{contract.escape_iri_fragment(self.id)}"
+        preds = ["a ik:Endpoint", f"ik:id {lit(self.id)}"]
         if self.title:
             preds.append(f"ik:title {lit(self.title)}")
         if self.summary:
             preds.append(f"ik:summary {lit(self.summary)}")
-        preds.append("ik:verb " + ", ".join(lit(v.wire_name) for v in self.verbs))
-        if self._flat_outputs():
-            preds.append("ik:output " + ", ".join(lit(o) for o in self._flat_outputs()))
-        if self._flat_requires():
-            preds.append("ik:requires " + ", ".join(cap_term(c) for c in self._flat_requires()))
+        preds.append("ik:verb " + ", ".join(lit(v) for v in description["verbs"]))
+        if description["outputs"]:
+            preds.append("ik:output " + ", ".join(lit(o) for o in description["outputs"]))
+        if description.get("requires"):
+            preds.append("ik:requires " + ", ".join(cap_term(c) for c in description["requires"]))
 
         extra_nodes: list[str] = []
-        for arg in self._flat_inputs():
-            node_iri = f"{endpoint_iri}:input:{arg.name}"
+        for arg in description["inputs"]:
+            node_iri = f"{endpoint_iri}:input:{contract.escape_iri_fragment(arg['name'])}"
             preds.append(f"ik:input <{node_iri}>")
             extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
 
-        # The per-verb ACTION view — the unit of selection.
-        for verb in self.verbs:
-            action = self.actions.get(verb)
-            if action is None:
-                continue  # Meta is never a selectable action
-            action_iri = f"{endpoint_iri}:action:{verb.wire_name.lower()}"
+        # The per-verb ACTION view — the unit of selection — one content-addressed
+        # contract node per non-Meta verb, its inputs under its own IRI.
+        for spec in self.action_specs_json():
+            action_iri = contract.contract_iri(self.id, spec)
             preds.append(f"ik:action <{action_iri}>")
-            action_preds = ["a ik:Action", f"ik:verb {lit(verb.wire_name)}"]
-            if action.summary and not self.flat:
-                action_preds.append(f"ik:summary {lit(action.summary)}")
-            action_preds.append(f"ik:output {lit(action.output)}")
-            for cap in action.requires:
+            action_preds = ["a ik:Action", f"ik:verb {lit(spec['verb'])}"]
+            if spec.get("summary"):
+                action_preds.append(f"ik:summary {lit(spec['summary'])}")
+            for output in spec.get("outputs", []):
+                action_preds.append(f"ik:output {lit(output)}")
+            for cap in spec.get("requires", []):
                 action_preds.append(f"ik:requires {cap_term(cap)}")
-            for arg in action.args:
-                if self.flat:
-                    node_iri = f"{endpoint_iri}:input:{arg.name}"
-                else:
-                    node_iri = f"{action_iri}:input:{arg.name}"
-                    extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
+            for arg in spec.get("inputs", []):
+                node_iri = f"{action_iri}:input:{contract.escape_iri_fragment(arg['name'])}"
+                extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
                 action_preds.append(f"ik:input <{node_iri}>")
             extra_nodes.append(f"<{action_iri}> " + " ;\n    ".join(action_preds) + " .")
 

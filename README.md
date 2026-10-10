@@ -1,7 +1,9 @@
 # ikigai-python
 
-A **pure-Python** (stdlib-only) client and servable peer for the
-[ikigai](https://github.com/ikigai-rs) wire protocol over Unix domain sockets.
+A **pure-Python** client and servable peer for the
+[ikigai](https://github.com/ikigai-rs) wire protocol over Unix domain sockets,
+with **one** runtime dependency, [`blake3`](https://pypi.org/project/blake3/)
+(see [Install](#install) for why).
 This is **L0** of the polyglot ladder: zero Rust, zero core changes — a Python
 process can *drive* a running ikigai kernel, and a Python process can *be*
 resources that a Rust host mounts.
@@ -21,8 +23,20 @@ versions.
 ## Install
 
 ```sh
-pip install .          # zero runtime dependencies (socket/asyncio/struct only)
+pip install .          # one runtime dependency: blake3
 ```
+
+**No longer stdlib-only.** The codec and transport still are
+(socket/asyncio/struct), but since core 0.1.91 a served door names each verb's
+contract by its CONTENT: `urn:ikigai:contract:{id}:{verb}:b3:{hex}`, a BLAKE3
+digest of core's canonical form, so identical contracts share one node and
+different ones never merge. `hashlib` has no BLAKE3, and the IRI is
+only worth emitting if it is byte-for-byte the one a Rust kernel computes for the
+same contract, so this package depends on
+[`blake3`](https://github.com/oconnor663/blake3-py), the reference binding (by a
+BLAKE3 co-designer, over the same Rust crate core hashes with), pinned
+`>=1.0,<2`. It ships wheels for every Python this package supports, so installing
+needs no Rust toolchain.
 
 Dev setup: `pip install -e '.[dev,examples]'`, then `just gates` (or
 `scripts/gates.sh`), which runs `ruff check .`, `ruff format --check .` and
@@ -182,7 +196,17 @@ What a served endpoint gets for free, because its describe face is real:
 - **Tracing**: a traced resolution through the mount gets a span for the
   Python invocation stitched into the host's execution tree.
 - Meta faces: `text/turtle` (default — skolemized `ik:` graph, no blank
-  nodes), `text/plain`, `application/json`.
+  nodes), `text/plain`, `application/json`. The turtle face is
+  `ikigai_vocab::to_turtle` byte for byte: each verb's `ik:Action` node is its
+  content-addressed contract IRI and owns its inputs under that IRI.
+  `tests/test_contract.py` pins it against vectors core itself computed
+  (`tests/fixtures/`, with the generator and how to rerun it).
+- **Match and contract IRIs**: `ikigai.contract` mirrors core's
+  `match_iri`/`parse_match_iri` (`urn:ikigai:match:{verb}:{pattern}`, the row a
+  host's `urn:kernel:actions` gives one door and verb) and
+  `contract_iri`/`parse_contract_iri`; a door's `action_matches()` lists both for
+  each of its verbs. The match IRI is the stable one to quote: a contract IRI
+  changes with every edit to the contract.
 
 ### Families and verbs
 

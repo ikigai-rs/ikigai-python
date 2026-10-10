@@ -1,7 +1,8 @@
 """ikigai-python: a pure-Python client and servable peer for the ikigai wire protocol.
 
-L0 of the polyglot ladder: stdlib-only (socket/asyncio/struct), speaking the
-length-prefixed postcard wire protocol over Unix domain sockets.
+L0 of the polyglot ladder, speaking the length-prefixed postcard wire protocol over
+Unix domain sockets. The codec and transport are stdlib (socket/asyncio/struct); the
+one dependency, ``blake3``, names a served door's content-addressed contracts.
 """
 
 from .client import (

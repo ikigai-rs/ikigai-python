@@ -376,8 +376,21 @@ def test_rust_host_cuts_a_cached_family_read_after_a_sink_through_the_mount(ttt_
     assert store.marks == {}
 
 
+@functools.lru_cache(maxsize=1)
+def host_version() -> tuple[int, ...]:
+    """The installed host's release, from ``ikigai --version`` (``ikigai 0.1.44``)."""
+    out = subprocess.run([IKIGAI, "--version"], capture_output=True, text=True, timeout=30)
+    return tuple(int(part) for part in out.stdout.split()[-1].split("."))
+
+
+#: The first ikigai-cli on core/vocab 0.1.91, whose Meta turtle names an action by its
+#: content-addressed contract IRI instead of ``urn:ikigai:endpoint:{id}:action:{verb}``
+#: (ledger #948). The host renders ``describe`` itself, from this peer's JSON face.
+CONTRACT_IRI_HOST = (0, 1, 44)
+
+
 def test_rust_host_lists_and_describes_a_python_family(ttt_store):
-    path, _ = ttt_store
+    path, store = ttt_store
     out = run_repl(
         "list",
         "describe urn:iki:tutorial:ttt:stored:0:0",
@@ -386,7 +399,16 @@ def test_rust_host_lists_and_describes_a_python_family(ttt_store):
     )
     assert "urn:iki:tutorial:ttt:stored:{x}:{y}" in out  # the template, not a name
     assert "ttt-stored" in out
-    assert "<urn:ikigai:endpoint:ttt-stored:action:sink> a ik:Action" in out
+    if host_version() >= CONTRACT_IRI_HOST:
+        # The host computed this from our JSON face; it must be the IRI we compute.
+        from examples.tictactoe_store import stored_cell
+
+        (sink,) = [m for m in stored_cell(store).action_matches() if m["verb"] == "Sink"]
+        assert f"<{sink['contract']}> a ik:Action" in out
+        assert ":action:sink>" not in out
+    else:
+        # An older host renders with its own (pre-0.1.91) vocab, whatever we serve.
+        assert "<urn:ikigai:endpoint:ttt-stored:action:sink> a ik:Action" in out
     assert 'ik:source "binding"' in out
 
 
