@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ikigai"
 version = "0.1.0"
-description = "Pure-Python client and servable peer for the ikigai wire protocol (resource-oriented computing over Unix domain sockets)"
+description = "Python client and servable peer for the ikigai wire protocol (resource-oriented computing over Unix domain sockets)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT OR Apache-2.0"
@@ -19,9 +19,14 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-# Zero runtime dependencies, deliberately: the codec and transport are stdlib
-# (socket / asyncio / struct), mirroring the kernel's runtime-free posture.
-dependencies = []
+# ONE runtime dependency, and only one: the codec and transport are stdlib (socket /
+# asyncio / struct), mirroring the kernel's runtime-free posture, but a served door's
+# contract IRI is a BLAKE3 digest (urn:ikigai:contract:{id}:{verb}:b3:{hex}, ledger
+# #948/#1034) and hashlib has no BLAKE3. `blake3` is the reference binding (its author
+# co-designed BLAKE3) over the same Rust crate ikigai-core hashes with. The floor is
+# 1.0: the first stable release, and blake3()/update()/hexdigest() are all this uses;
+# the ceiling is the next major, the one place that API may change.
+dependencies = ["blake3>=1.0,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]

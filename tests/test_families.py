@@ -191,13 +191,19 @@ def test_the_turtle_face_scopes_inputs_per_action(served):
     with ikigai.connect(served) as k:
         ttl = k.meta("urn:py:note:x").text
     assert 'ik:verb "Source", "Sink", "Delete", "Meta"' in ttl
-    assert "ik:action <urn:ikigai:endpoint:note:action:sink>" in ttl
-    assert "<urn:ikigai:endpoint:note:action:sink> a ik:Action" in ttl
-    assert '<urn:ikigai:endpoint:note:action:sink:input:content> ik:inputName "content"' in ttl
-    assert '<urn:ikigai:endpoint:note:action:delete:input:key> ik:inputName "key"' in ttl
+    # Each verb's node is its content-addressed contract (ledger #948), and owns its
+    # inputs under its own IRI. tests/test_contract.py pins the digests against core.
+    contracts = {m["verb"]: m["contract"] for m in notes_family()[0].action_matches()}
+    sink, delete = contracts["Sink"], contracts["Delete"]
+    assert sink.startswith("urn:ikigai:contract:note:sink:b3:")
+    assert f"ik:action <{sink}>" in ttl
+    assert f"<{sink}> a ik:Action" in ttl
+    assert f'<{sink}:input:content> ik:inputName "content"' in ttl
+    assert f'<{delete}:input:key> ik:inputName "key"' in ttl
     assert 'ik:source "binding"' in ttl
-    assert "action:meta" not in ttl  # Meta is never a selectable action
-    assert "action:exists" not in ttl  # the default Exists is not declared
+    assert ":meta:b3:" not in ttl  # Meta is never a selectable action
+    assert ":exists:b3:" not in ttl  # the default Exists is not declared
+    assert ":action:" not in ttl  # the retired urn:ikigai:endpoint:{id}:action:{verb}
 
 
 def test_a_custom_exists_replaces_the_default(socket_dir):
