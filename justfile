@@ -1,9 +1,10 @@
 # ikigai-python local gates.
 #
 # `just gates` runs scripts/gates.sh, the same script .github/workflows/ci.yml runs
-# after installing: ruff check, ruff format --check, pytest, stopping at the first
-# failure with that command's exit status. The commands live in the script only, so
-# CI and this recipe cannot drift apart.
+# after installing: ruff check, ruff format --check, pytest, then the packaging gate
+# (python -m build + twine check on the sdist and wheel — never an upload), stopping
+# at the first failure with that command's exit status. The commands live in the
+# script only, so CI and this recipe cannot drift apart.
 #
 # The devtools gates (`just -f ~/git-personal/ikigai-devtools/justfile gates`) find
 # this recipe because the repo has no Cargo.toml, and run it with a full log and a

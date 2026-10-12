@@ -94,6 +94,8 @@ def coerce_arg(value) -> ArgRef:
 
 
 def build_request(verb: Verb, iri: str, args: dict) -> Request:
+    """A :class:`Request` with each arg run through :func:`coerce_arg`. Raises
+    ``TypeError`` for a value that cannot be sent (see :func:`coerce_arg`)."""
     return Request(verb, iri, {name: coerce_arg(value) for name, value in args.items()})
 
 
@@ -122,6 +124,9 @@ class Client:
         file=None,
         server_version: int | None = None,
     ):
+        """Adopt an ALREADY-helloed socket: this does not dial, say hello or negotiate a
+        version. Prefer :func:`connect`, which does all three; ``file`` defaults to a
+        ``makefile`` over ``sock``, and ``server_version=None`` means genuinely unknown."""
         self._sock = sock
         self._file = file if file is not None else sock.makefile("rwb")
         #: When set, requests go as ``Call::IssueAs`` under this capability
@@ -246,15 +251,19 @@ class Client:
     # -- lifecycle ---------------------------------------------------------
 
     def close(self) -> None:
+        """Close the socket and its file. Idempotent at the socket level, but a closed
+        client is final: it does not redial, and every later call fails."""
         try:
             self._file.close()
         finally:
             self._sock.close()
 
     def __enter__(self) -> Client:
+        """``with ikigai.connect() as k:`` — returns this client."""
         return self
 
     def __exit__(self, *exc) -> None:
+        """Close the client on leaving the ``with`` block."""
         self.close()
 
 

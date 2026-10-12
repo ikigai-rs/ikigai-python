@@ -29,7 +29,12 @@ classifiers = [
 dependencies = ["blake3>=1.0,<2"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5"]
+# `build` and `twine` are here because the packaging gate is a gate like any
+# other: scripts/gates.sh builds the sdist + wheel and runs `twine check` on
+# both, so the README/metadata that PyPI will render is checked on every run.
+# NOTHING here uploads — publishing is Brian's, and the publish fence refuses
+# `twine upload` anyway.
+dev = ["pytest>=8", "ruff>=0.5", "build>=1", "twine>=6"]
 # The examples/ REST faces. Minima are the versions the smoke tests were
 # built and verified against.
 examples = [
@@ -41,6 +46,8 @@ examples = [
 
 [project.urls]
 Homepage = "https://github.com/ikigai-rs/ikigai-python"
+Repository = "https://github.com/ikigai-rs/ikigai-python"
+Issues = "https://github.com/ikigai-rs/ikigai-python/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ikigai"]
@@ -52,7 +59,17 @@ src = ["src", "tests", "examples", "."]
 extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B"]
+select = ["E", "F", "W", "I", "UP", "B", "D1"]
+
+# The docstring gate covers the PUBLIC API: D1 is "docstring missing" over
+# src/, so every public module, class, method, function and __init__ in the
+# shipped package states what it is and the constraint its type cannot show.
+# tests/ and examples/ are not shipped and their names ARE their docstrings
+# (`test_<what>_<expectation>`), so requiring a docstring on each would be
+# noise; they are excluded here, not from ruff entirely.
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D1"]
+"examples/**" = ["D1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -39,9 +39,11 @@ BLAKE3 co-designer, over the same Rust crate core hashes with), pinned
 needs no Rust toolchain.
 
 Dev setup: `pip install -e '.[dev,examples]'`, then `just gates` (or
-`scripts/gates.sh`), which runs `ruff check .`, `ruff format --check .` and
-`pytest` exactly as CI does. The integration tests drive the real `ikigai`
-binary and skip themselves when it is not on `PATH`.
+`scripts/gates.sh`), which runs `ruff check .`, `ruff format --check .`,
+`pytest`, and finally the packaging gate — `python -m build` (sdist + wheel)
+then `twine check` on both, which is what renders this README the way PyPI
+will. It never uploads: publishing is Brian's. The integration tests drive the
+real `ikigai` binary and skip themselves when it is not on `PATH`.
 
 ### You also need a host, and it must be recent enough
 

@@ -38,6 +38,7 @@ from .serve import endpoint, serve
     ],
 )
 def hello(who: str) -> str:
+    """Greet ``who`` — the demo's smallest served resource."""
     return f"Hello, {who}!"
 
 
@@ -55,10 +56,14 @@ def hello(who: str) -> str:
     cacheable=True,  # a pure function of its input — the host kernel may cache it
 )
 def reverse(**kwargs) -> str:
+    """Reverse the ``in`` argument's text (a reserved word, so ``**kwargs`` receives it)."""
     return kwargs["in"][::-1]
 
 
 def main(argv: list[str]) -> int:
+    """Serve the demo's two endpoints and block. ``argv`` is the arguments after the
+    module name: an optional socket path, and ``--verbatim`` to list entry patterns
+    unstripped (the form an ``--override``/``--prefer`` mount needs). Returns 0."""
     # --verbatim: list entry patterns unstripped, the form override/prefer
     # mounts need (they forward IRIs unchanged; alias mounts re-prefix
     # stripped patterns and would double-prefix verbatim ones).

@@ -140,6 +140,10 @@ class ArgSpec:
         one_of: list[str] | None = None,
         source: str = "argument",
     ):
+        """``name`` is the wire argument name. ``default`` forces ``required`` False (as
+        in Rust); ``cls`` is an XSD class IRI; ``one_of`` an enforced value set;
+        ``source`` is ``"argument"`` or ``"binding"``. The ``py_*`` attributes are
+        routing state, set later, never serialized."""
         if source not in ("argument", "binding"):
             raise ValueError(f"ArgSpec source must be `argument` or `binding` (got {source!r})")
         self.name = name
@@ -165,6 +169,8 @@ class ArgSpec:
 
     @classmethod
     def of(cls, spec) -> ArgSpec:
+        """An :class:`ArgSpec` from ``spec``: itself, a bare name string, or a dict in
+        the serde shape. ``TypeError`` for anything else."""
         if isinstance(spec, ArgSpec):
             return spec
         if isinstance(spec, str):
@@ -429,6 +435,9 @@ class Action:
         cacheable: bool = False,
         requires: list[str] | None = None,
     ):
+        """``verb`` and ``handler`` are the action; ``template`` supplies the bindings
+        (each variable is an input, first in order). ``cacheable`` is refused for a
+        mutating verb; ``args=None`` derives the contract from the signature."""
         if cacheable and _is_mutating(verb):
             raise ValueError(f"{where}: a {verb.wire_name} answer is never cacheable")
         self.verb = verb
@@ -499,6 +508,8 @@ class _Door:
     flat = False
 
     def __init__(self, pattern: str, id: str, title: str, summary: str):
+        """``pattern`` must be a ``urn:`` (a template for a family). ``id`` names the
+        door (used in catalog rows and contract IRIs); ``actions`` starts empty."""
         if not pattern.startswith("urn:"):
             raise ValueError(f"endpoint IRI must be a urn: ({pattern!r})")
         self.template = UriTemplate(pattern)
@@ -770,6 +781,8 @@ class EndpointDef(_Door):
         cacheable: bool = False,
         requires: list[str] | None = None,
     ):
+        """Wrap ``handler`` as the Source action of ``iri``. ``id`` defaults to the
+        handler's name; ``summary`` to the handler docstring's first line."""
         super().__init__(
             iri,
             id or handler.__name__,
@@ -791,26 +804,32 @@ class EndpointDef(_Door):
 
     @property
     def handler(self):
+        """The Source handler."""
         return self.actions[Verb.SOURCE].handler
 
     @property
     def args(self) -> list[ArgSpec]:
+        """The Source action's inputs (bindings first, then by-value arguments)."""
         return self.actions[Verb.SOURCE].args
 
     @property
     def derived(self) -> bool:
+        """True when the Source contract came from the signature (no explicit ``args=``)."""
         return self.actions[Verb.SOURCE].derived
 
     @property
     def output(self) -> str:
+        """The Source action's declared output media type."""
         return self.actions[Verb.SOURCE].output
 
     @property
     def cacheable(self) -> bool:
+        """True when the Source answer is a pure function of its inputs."""
         return self.actions[Verb.SOURCE].cacheable
 
     @property
     def requires(self) -> list[str]:
+        """The Source action's required capabilities (``urn:cap:`` scopes)."""
         return self.actions[Verb.SOURCE].requires
 
 
@@ -919,6 +938,8 @@ class Family(_Door):
     Source needs no invalidation code on this side."""
 
     def __init__(self, pattern: str, *, id: str | None = None, title: str = "", summary: str = ""):
+        """``id`` defaults to the pattern's last variable-free segment (see
+        :func:`_default_id`); every verb is declared later by its decorator."""
         super().__init__(pattern, id or _default_id(pattern), title, summary)
 
     def _declare(self, verb: Verb, fn, **contract):
@@ -1101,6 +1122,10 @@ class Space:
     caller the declared forms first."""
 
     def __init__(self, endpoints, *, strip_alias: bool = True):
+        """``endpoints`` are ``@endpoint`` functions, :class:`EndpointDef`\\ s or
+        :class:`Family`\\ s; ``strip_alias`` is the default for direct
+        :meth:`entries` calls. A duplicate pattern or an endpoint declaring no verb
+        raises ``ValueError``."""
         defs = [fn.ikigai_endpoint if hasattr(fn, "ikigai_endpoint") else fn for fn in endpoints]
         for d in defs:
             if not isinstance(d, _Door):
@@ -1149,6 +1174,10 @@ class Space:
         )
 
     def dispatch(self, call: wire.Call, strip_alias: bool | None = None) -> Reply:
+        """Answer one decoded Call. ``strip_alias`` is the connection's hello mode
+        (``None`` uses the server default): an alias mount tries stripped patterns
+        first, every other caller the declared ones first. Never raises for a
+        well-formed call — a failure comes back as an ``ErrorTypedReply``."""
         alias_first = strip_alias is True
         if isinstance(call, EntriesCall):
             return EntriesReply(self.entries(strip_alias))
@@ -1338,6 +1367,8 @@ class Server:
         strip_alias: bool = True,
         check_peer_uid: bool = True,
     ):
+        """Bind ``path`` (created ``0600`` in a ``0700`` parent), replacing a leftover
+        socket at that path. ``check_peer_uid=False`` serves any peer — tests only."""
         self.space = Space(endpoints, strip_alias=strip_alias)
         self.path = Path(path)
         self._check_peer_uid = check_peer_uid
@@ -1350,6 +1381,8 @@ class Server:
         self._closing = False
 
     def serve_forever(self) -> None:
+        """Accept and serve connections until :meth:`shutdown`; each connection is
+        handled on its own daemon thread."""
         while True:
             try:
                 conn, _ = self._listener.accept()
@@ -1445,6 +1478,8 @@ class Server:
         return True
 
     def shutdown(self) -> None:
+        """Stop :meth:`serve_forever` and remove the socket file. Safe to call from
+        another thread; a no-op if the server is already down."""
         self._closing = True
         # On Linux, closing a listening socket does NOT wake a thread blocked
         # in accept() — connect once to nudge the accept loop awake, so a
@@ -1459,9 +1494,11 @@ class Server:
         self.path.unlink(missing_ok=True)
 
     def __enter__(self) -> Server:
+        """``with Server(...) as s:`` — returns this server (already bound)."""
         return self
 
     def __exit__(self, *exc) -> None:
+        """Shut the server down on leaving the ``with`` block."""
         self.shutdown()
 
 

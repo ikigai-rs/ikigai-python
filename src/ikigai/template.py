@@ -46,6 +46,7 @@ class TemplateError(ValueError):
     """A malformed or ambiguous template (``ikigai_core::TemplateError``)."""
 
     def __init__(self, detail: str):
+        """``detail`` is the reason alone; ``str(e)`` prefixes ``invalid URI template: ``."""
         self.detail = detail
         super().__init__(f"invalid URI template: {detail}")
 
@@ -62,6 +63,8 @@ class UriTemplate:
     __slots__ = ("source", "_parts")
 
     def __init__(self, source: str):
+        """Parse ``source``, raising :class:`TemplateError` for an unclosed ``{``,
+        an invalid variable name, an empty ``{}`` or adjacent variables."""
         parts: list[tuple[bool, str]] = []  # (is_var, text)
         rest = source
         while (rel := rest.find("{")) != -1:
@@ -131,10 +134,14 @@ class UriTemplate:
         return "".join(out)
 
     def __repr__(self) -> str:
+        """``UriTemplate('…')`` — the source text, quoted."""
         return f"UriTemplate({self.source!r})"
 
     def __eq__(self, other) -> bool:
+        """Two templates are equal iff their SOURCE text is: matching behavior
+        follows from the text, so no parse tree needs comparing."""
         return isinstance(other, UriTemplate) and other.source == self.source
 
     def __hash__(self) -> int:
+        """Hash the source text, consistent with :meth:`__eq__`."""
         return hash(self.source)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The gates CI runs, in CI's order: lint, format check, tests.
+# The gates CI runs, in CI's order: lint, format check, tests, packaging.
 #
 #   scripts/gates.sh [python]
 #
@@ -21,6 +21,12 @@
 #   - an `ikigai` imported from anywhere but this checkout's src/ means the tests
 #     exercise some other copy of the package and say nothing about this one.
 # The extras are read from pyproject.toml, so the list is not repeated here.
+#
+# The packaging gate BUILDS the sdist and wheel and runs `twine check` on them, the
+# same command that renders the README the way PyPI will — it does NOT upload.
+# Publishing is Brian's, and the publish fence refuses `twine upload` anyway. The
+# build goes to a temp dir so a `dist/` never lands in the checkout (and is removed
+# even on failure).
 #
 # Installing is not this script's job: CI's Install step does it, and locally it is
 # `python -m pip install -e '.[dev,examples]'` into the venv you use.
@@ -94,4 +100,9 @@ echo "── ruff check" &&
     echo "── ruff format --check" &&
     "$PY" -m ruff format --check . &&
     echo "── pytest" &&
-    "$PY" -m pytest -q
+    "$PY" -m pytest -q &&
+    echo "── build + twine check (sdist and wheel; no upload)" &&
+    DEST="$(mktemp -d)" &&
+    trap 'rm -rf "$DEST"' EXIT &&
+    "$PY" -m build --outdir "$DEST" . &&
+    "$PY" -m twine check "$DEST"/*

@@ -49,10 +49,12 @@ class Reader:
     """A cursor over one postcard message. Every read is bounds-checked."""
 
     def __init__(self, data: bytes):
+        """Cursor at the front of ``data``; the bytes are held, not copied."""
         self._data = data
         self._pos = 0
 
     def take(self, n: int) -> bytes:
+        """The next ``n`` bytes, advancing the cursor; ``DecodeError`` if fewer remain."""
         end = self._pos + n
         if end > len(self._data):
             raise DecodeError(
@@ -64,9 +66,11 @@ class Reader:
         return chunk
 
     def u8(self) -> int:
+        """One byte as an int (``0``-``255``)."""
         return self.take(1)[0]
 
     def bool(self) -> bool:
+        """One byte as a bool; any byte but ``0x00``/``0x01`` is a ``DecodeError``."""
         b = self.u8()
         if b == 0:
             return False
@@ -75,6 +79,8 @@ class Reader:
         raise DecodeError(f"invalid bool byte 0x{b:02x}")
 
     def varint(self, max_bits: int = 64) -> int:
+        """An unsigned LEB128 varint, refusing a stream that runs long or a value that
+        does not fit ``max_bits`` — a malformed peer, not merely a large number."""
         n = 0
         shift = 0
         while True:
@@ -90,9 +96,11 @@ class Reader:
         return n
 
     def byte_string(self) -> bytes:
+        """A varint length, then that many bytes (the ``String``/``Vec<u8>`` layout)."""
         return self.take(self.varint())
 
     def string(self) -> str:
+        """A :meth:`byte_string` decoded as UTF-8; invalid UTF-8 is a ``DecodeError``."""
         raw = self.byte_string()
         try:
             return raw.decode("utf-8")
