@@ -657,7 +657,13 @@ def to_turtle(description: dict) -> str:
     percent-encoded into a legal ``IRIREF`` (:func:`ikigai.contract.escape_iri_fragment`)
     and then PARSED (:func:`ikigai.contract.is_iri`, core's ``Iri::parse``); one that is
     still not an IRI is written as a literal of the original string, never raw. Pinned
-    by the vectors' ``core/hostile-terms`` door."""
+    by the vectors' ``core/hostile-terms`` door.
+
+    A NAME (the endpoint id, an input name) is not an authored IRI, so its ``%`` is a
+    character and is written as ``%25`` before the rest is escaped (``ikigai_vocab``'s
+    ``name_fragment``, mirrored below): the node IRIs then spell an id exactly as a
+    contract IRI does, and ``100%`` can no longer emit an IRI no parser accepts (ledger
+    #1345). Pinned by the vectors' ``core/percent-names`` door."""
 
     def lit(s: str) -> str:
         escaped = (
@@ -674,6 +680,11 @@ def to_turtle(description: dict) -> str:
         # `http://ok> . <urn:z` escapes to an authority with a non-numeric port) is a literal.
         escaped = contract.escape_iri_fragment(s)
         return f"<{escaped}>" if contract.is_iri(escaped) else lit(s)
+
+    def name_fragment(s: str) -> str:
+        # Core's `name_fragment`: `%` as `%25`, then what an IRIREF cannot carry. An
+        # authored IRI (`iri_term`) keeps its `%`; a name's `%` is never an escape.
+        return contract.escape_iri_fragment(s.replace("%", "%25"))
 
     def cap_term(scope: str) -> str:
         # Core's `cap_term`: the prefix only decides whether to TRY an IRI.
@@ -697,7 +708,7 @@ def to_turtle(description: dict) -> str:
             node += f" ;\n    ik:oneOf {lit(value)}"
         return node
 
-    endpoint_iri = f"urn:ikigai:endpoint:{contract.escape_iri_fragment(description['id'])}"
+    endpoint_iri = f"urn:ikigai:endpoint:{name_fragment(description['id'])}"
     preds = ["a ik:Endpoint", f"ik:id {lit(description['id'])}"]
     if description["title"]:
         preds.append(f"ik:title {lit(description['title'])}")
@@ -711,7 +722,7 @@ def to_turtle(description: dict) -> str:
 
     extra_nodes: list[str] = []
     for arg in description["inputs"]:
-        node_iri = f"{endpoint_iri}:input:{contract.escape_iri_fragment(arg['name'])}"
+        node_iri = f"{endpoint_iri}:input:{name_fragment(arg['name'])}"
         preds.append(f"ik:input <{node_iri}>")
         extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
 
@@ -728,7 +739,7 @@ def to_turtle(description: dict) -> str:
         for cap in spec.get("requires", []):
             action_preds.append(f"ik:requires {cap_term(cap)}")
         for arg in spec.get("inputs", []):
-            node_iri = f"{action_iri}:input:{contract.escape_iri_fragment(arg['name'])}"
+            node_iri = f"{action_iri}:input:{name_fragment(arg['name'])}"
             extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
             action_preds.append(f"ik:input <{node_iri}>")
         extra_nodes.append(f"<{action_iri}> " + " ;\n    ".join(action_preds) + " .")
