@@ -33,6 +33,7 @@ mounts this peer — so the digest here and the host's are computed from the sam
 
 from __future__ import annotations
 
+import ipaddress
 import struct
 
 import blake3
@@ -68,6 +69,245 @@ def escape_iri_fragment(s: str) -> str:
     cannot carry, leaving ``%`` alone (so NOT injective, by core's design: authored
     IRIs may already carry escapes). Safe strings come back unchanged."""
     return "".join(_percent(c) if _forbidden(c) else c for c in s)
+
+
+# --- ikigai_core::Iri::parse ------------------------------------------------------------
+#
+# Core validates an IRI with `oxiri::Iri::parse` (oxiri 0.2.11, the version core's lock
+# holds): RFC 3987, absolute form. What follows is that parser's CHECKED path with no
+# base, state for state (`parse_scheme_start` through `parse_fragment` in oxiri's
+# `IriParser`), keeping only the accept/refuse answer. It is a port, not an IRI
+# grammar of this face's own: where oxiri is stricter or looser than the RFC, so is
+# this, because the only thing that matters is answering exactly as core does.
+
+_SUB_DELIMS_AND_UNRESERVED = frozenset("!$&'()*+,-.;=_~")
+
+# The ucschar ranges oxiri's `is_iunreserved_or_sub_delims` admits beyond ASCII.
+_UCSCHAR = (
+    (0xA0, 0xD7FF),
+    (0xF900, 0xFDCF),
+    (0xFDF0, 0xFFEF),
+    *((plane, plane + 0xFFFD) for plane in range(0x10000, 0xE0000, 0x10000)),
+    (0xE1000, 0xEFFFD),
+)
+
+# The iprivate ranges a query (only) may also carry.
+_IPRIVATE = ((0xE000, 0xF8FF), (0xF0000, 0xFFFFD), (0x100000, 0x10FFFD))
+
+
+def _in_ranges(c: str, ranges) -> bool:
+    o = ord(c)
+    return any(lo <= o <= hi for lo, hi in ranges)
+
+
+def _ascii_alnum(c: str) -> bool:
+    return c.isascii() and c.isalnum()
+
+
+def _unreserved_or_sub_delims(c: str) -> bool:
+    return _ascii_alnum(c) or c in _SUB_DELIMS_AND_UNRESERVED
+
+
+def _iunreserved_or_sub_delims(c: str) -> bool:
+    return _unreserved_or_sub_delims(c) or _in_ranges(c, _UCSCHAR)
+
+
+def _pchar(c: str) -> bool:
+    return _iunreserved_or_sub_delims(c) or c in ":@"
+
+
+def _query_char(c: str) -> bool:
+    return _pchar(c) or c in "/?" or _in_ranges(c, _IPRIVATE)
+
+
+def _fragment_char(c: str) -> bool:
+    return _pchar(c) or c in "/?"
+
+
+def _userinfo_char(c: str) -> bool:
+    return _iunreserved_or_sub_delims(c) or c == ":"
+
+
+def _ascii_hex(c: str | None) -> bool:
+    return c is not None and c in "0123456789abcdefABCDEF"
+
+
+def _ipv6(ip: str) -> bool:
+    # Rust's `Ipv6Addr::from_str`: hex groups, one `::`, an optional trailing IPv4. The
+    # stdlib parser agrees on that grammar but also takes a `%zone`, which Rust does not.
+    if "%" in ip:
+        return False
+    try:
+        ipaddress.IPv6Address(ip)
+    except ValueError:
+        return False
+    return True
+
+
+def _ip_v_future(ip: str) -> bool:
+    # IPvFuture = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" ), as oxiri checks it.
+    if not ip or ip[0] not in "vV":
+        return False
+    version, dot, rest = ip[1:].partition(".")
+    if not version or not all(_ascii_hex(c) for c in version):
+        return False
+    if not dot or not rest:
+        return False
+    return all(_unreserved_or_sub_delims(c) or c == ":" for c in rest)
+
+
+class _IriParser:
+    """oxiri's `IriParser::<_, false>` without an output buffer: each method is the
+    oxiri state of the same name, and returns whether the rest of the input parses."""
+
+    def __init__(self, iri: str):
+        self.iri = iri
+        self.pos = 0
+        self.scheme_end = 0  # index just past the scheme's ':' (input_scheme_end)
+
+    def _next(self) -> str | None:
+        if self.pos >= len(self.iri):
+            return None
+        c = self.iri[self.pos]
+        self.pos += 1
+        return c
+
+    def _front(self) -> str | None:
+        return self.iri[self.pos] if self.pos < len(self.iri) else None
+
+    def _codepoint_or_echar(self, c: str, valid) -> bool:
+        if valid(c):
+            return True
+        if c == "%":
+            return _ascii_hex(self._next()) and _ascii_hex(self._next())
+        return False
+
+    def scheme_start(self) -> bool:
+        c = self._front()
+        if c is not None and c.isascii() and c.isalpha():
+            return self.scheme()
+        # ':' first is NoScheme; anything else is a relative reference, which parses or
+        # not but is never ABSOLUTE, and `Iri::parse` refuses it either way.
+        return False
+
+    def scheme(self) -> bool:
+        while True:
+            c = self._next()
+            if c is not None and (_ascii_alnum(c) or c in "+-."):
+                continue
+            if c == ":":
+                self.scheme_end = self.pos
+                if self._front() == "/":
+                    self._next()
+                    return self.path_or_authority()
+                return self.path()
+            return False  # a relative reference: never absolute
+
+    def path_or_authority(self) -> bool:
+        if self._front() == "/":
+            self._next()
+            return self.authority()
+        return self.path()
+
+    def authority(self) -> bool:
+        while True:
+            c = self._next()
+            if c == "@":
+                return self.host()
+            if c is None or c in "[/?#":
+                self.pos = self.scheme_end + 2  # no userinfo: rescan as the host
+                return self.host()
+            if not self._codepoint_or_echar(c, _userinfo_char):
+                return False
+
+    def host(self) -> bool:
+        if self._front() == "[":
+            start = self.pos
+            while (c := self._next()) is not None:
+                if c == "]":
+                    ip = self.iri[start + 1 : self.pos - 1]
+                    if ip[:1] in ("v", "V"):
+                        if not _ip_v_future(ip):
+                            return False
+                    elif not _ipv6(ip):
+                        return False
+                    c = self._next()
+                    if c == ":":
+                        return self.port()
+                    if c is None or c in "/?#":
+                        return self.path_start(c)
+                    return False
+            return False  # an unclosed '['
+        while True:
+            c = self._next()
+            if c == ":":
+                return self.port()
+            if c is None or c in "/?#":
+                return self.path_start(c)
+            if not self._codepoint_or_echar(c, _iunreserved_or_sub_delims):
+                return False
+
+    def port(self) -> bool:
+        while True:
+            c = self._next()
+            if c is None or c in "/?#":
+                return self.path_start(c)
+            if not (c.isascii() and c.isdigit()):
+                return False
+
+    def path_start(self, c: str | None) -> bool:
+        if c is None:
+            return True
+        if c == "?":
+            return self.query()
+        if c == "#":
+            return self.fragment()
+        if c == "/":
+            return self.path()
+        return self._codepoint_or_echar(c, _pchar) and self.path()
+
+    def path(self) -> bool:
+        while True:
+            c = self._next()
+            if c is None:
+                return True
+            if c == "/":
+                continue
+            if c == "?":
+                return self.query()
+            if c == "#":
+                return self.fragment()
+            if not self._codepoint_or_echar(c, _pchar):
+                return False
+
+    def query(self) -> bool:
+        while (c := self._next()) is not None:
+            if c == "#":
+                return self.fragment()
+            if not self._codepoint_or_echar(c, _query_char):
+                return False
+        return True
+
+    def fragment(self) -> bool:
+        while (c := self._next()) is not None:
+            if not self._codepoint_or_echar(c, _fragment_char):
+                return False
+        return True
+
+
+def is_iri(s: str) -> bool:
+    """Whether ``ikigai_core::Iri::parse`` accepts ``s``: an absolute IRI by RFC 3987,
+    as core's ``oxiri`` (0.2.11) checks it. Ported from oxiri's parser, not written from
+    the RFC, so this face accepts and refuses exactly what core does.
+
+    >>> is_iri("urn:cap:core:read"), is_iri("urn:cls:a%3E%20b")
+    (True, True)
+    >>> is_iri("not%20a%20class")  # no scheme
+    False
+    >>> is_iri("http://ok%3E%20.%20%3Curn:z")  # a "port" that is not digits
+    False
+    """
+    return _IriParser(s).scheme_start()
 
 
 def _encode_segment(s: str) -> str:

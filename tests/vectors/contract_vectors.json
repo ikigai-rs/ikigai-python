@@ -1107,6 +1107,64 @@
       "name": "deno/edge",
       "pattern": "urn:ts:edge:{b}:{a}",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:ev%3Eil%20100%%20naïve> a ik:Endpoint ;\n    ik:id \"ev>il 100% naïve\" ;\n    ik:summary \"every field the contract digest covers\" ;\n    ik:verb \"Source\", \"Exists\", \"Meta\" ;\n    ik:action <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a> ;\n    ik:action <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"bee\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"ay\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:zeta> ik:inputName \"zeta\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"last by name\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:𝄞x> ik:inputName \"𝄞x\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:oneOf \"｡\" ;\n    ik:oneOf \"𝄞\" ;\n    ik:oneOf \"b\" ;\n    ik:oneOf \"a\" ;\n    ik:oneOf \"b\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:｡x> ik:inputName \"｡x\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:default \"d\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:Alpha> ik:inputName \"Alpha\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"naïve — 𝄞 ｡\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:z> ;\n    ik:requires <urn:cap:a> ;\n    ik:requires <urn:cap:z> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:b> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:a> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:zeta> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:𝄞x> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:｡x> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:source:b3:ede299fcda8a7de77d27728bdad76d869f77300ecae22749af248b4908f98e4a:input:Alpha> .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:b> ik:inputName \"b\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"bee\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:a> ik:inputName \"a\" ;\n    ik:source \"binding\" ;\n    ik:required true ;\n    ik:summary \"ay\" .\n\n<urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325> a ik:Action ;\n    ik:verb \"Exists\" ;\n    ik:output \"text/plain;charset=utf-8\" ;\n    ik:requires <urn:cap:a> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:b> ;\n    ik:input <urn:ikigai:contract:ev%3Eil%20100%25%20naïve:exists:b3:16bbdd3b12e2525ad5a2052c1d6797add433f1814c7ed942da49bbd3d9efc325:input:a> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3",
+          "match": "urn:ikigai:match:source:urn:core:hostile",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "hostile-terms",
+        "inputs": [
+          {
+            "class": "urn:cls:a> b",
+            "name": "encoded",
+            "required": true,
+            "source": "argument",
+            "summary": "line one\r\nline\ttwo"
+          },
+          {
+            "class": "http://ok> . <urn:z> a <urn:w",
+            "default": "x\ry",
+            "name": "fallback",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "class": "not a class",
+            "name": "bare",
+            "one_of": [
+              "a\nb",
+              "c\td"
+            ],
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/turtle"
+        ],
+        "requires": [
+          "urn:cap:core:read",
+          "not an iri",
+          "urn:cap:x> . <urn:everything",
+          "https://cap> . <urn:z"
+        ],
+        "summary": "one\ntwo\rthree\tfour \"q\" \\",
+        "title": "T\tab\r\nend",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "core/hostile-terms",
+      "pattern": "urn:core:hostile",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:hostile-terms> a ik:Endpoint ;\n    ik:id \"hostile-terms\" ;\n    ik:title \"T\\tab\\r\\nend\" ;\n    ik:summary \"one\\ntwo\\rthree\\tfour \\\"q\\\" \\\\\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:core:read>, \"not an iri\", <urn:cap:x%3E%20.%20%3Curn:everything>, \"https://cap> . <urn:z\" ;\n    ik:input <urn:ikigai:endpoint:hostile-terms:input:encoded> ;\n    ik:input <urn:ikigai:endpoint:hostile-terms:input:fallback> ;\n    ik:input <urn:ikigai:endpoint:hostile-terms:input:bare> ;\n    ik:action <urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3> .\n\n<urn:ikigai:endpoint:hostile-terms:input:encoded> ik:inputName \"encoded\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"line one\\r\\nline\\ttwo\" ;\n    ik:class <urn:cls:a%3E%20b> .\n\n<urn:ikigai:endpoint:hostile-terms:input:fallback> ik:inputName \"fallback\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class \"http://ok> . <urn:z> a <urn:w\" ;\n    ik:default \"x\\ry\" .\n\n<urn:ikigai:endpoint:hostile-terms:input:bare> ik:inputName \"bare\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class \"not a class\" ;\n    ik:oneOf \"a\\nb\" ;\n    ik:oneOf \"c\\td\" .\n\n<urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:encoded> ik:inputName \"encoded\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"line one\\r\\nline\\ttwo\" ;\n    ik:class <urn:cls:a%3E%20b> .\n\n<urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:fallback> ik:inputName \"fallback\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class \"http://ok> . <urn:z> a <urn:w\" ;\n    ik:default \"x\\ry\" .\n\n<urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:bare> ik:inputName \"bare\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:class \"not a class\" ;\n    ik:oneOf \"a\\nb\" ;\n    ik:oneOf \"c\\td\" .\n\n<urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/turtle\" ;\n    ik:requires <urn:cap:core:read> ;\n    ik:requires \"not an iri\" ;\n    ik:requires <urn:cap:x%3E%20.%20%3Curn:everything> ;\n    ik:requires \"https://cap> . <urn:z\" ;\n    ik:input <urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:encoded> ;\n    ik:input <urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:fallback> ;\n    ik:input <urn:ikigai:contract:hostile-terms:source:b3:b4a81f6a2abe24e9275be4c405680e210521f377537d62c5f6953383e177fef3:input:bare> .\n"
     }
   ],
   "form": "ikigai:contract:v1",
