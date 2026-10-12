@@ -652,10 +652,12 @@ def to_turtle(description: dict) -> str:
     (:func:`ikigai.contract.contract_iri`) and owns its inputs under its own IRI, for a
     flat door too.
 
-    One defense is not mirrored: core degrades a ``class`` or ``requires`` value that
-    is still not an RFC 3987 IRI after escaping to a literal (it parses it with
-    ``oxiri``); here it stays an escaped ``<…>``. Every scope and class in the
-    ecosystem is a valid IRI, so no real description renders differently."""
+    A ``class`` or ``requires`` value is author-supplied and meant to be an IRI, so it
+    gets core's two defenses (``ikigai_vocab``'s ``iri_term``, mirrored below): it is
+    percent-encoded into a legal ``IRIREF`` (:func:`ikigai.contract.escape_iri_fragment`)
+    and then PARSED (:func:`ikigai.contract.is_iri`, core's ``Iri::parse``); one that is
+    still not an IRI is written as a literal of the original string, never raw. Pinned
+    by the vectors' ``core/hostile-terms`` door."""
 
     def lit(s: str) -> str:
         escaped = (
@@ -668,9 +670,13 @@ def to_turtle(description: dict) -> str:
         return f'"{escaped}"'
 
     def iri_term(s: str) -> str:
-        return f"<{contract.escape_iri_fragment(s)}>"
+        # Core's `iri_term`: escape, then parse; a value that is still no IRI (a class
+        # `http://ok> . <urn:z` escapes to an authority with a non-numeric port) is a literal.
+        escaped = contract.escape_iri_fragment(s)
+        return f"<{escaped}>" if contract.is_iri(escaped) else lit(s)
 
     def cap_term(scope: str) -> str:
+        # Core's `cap_term`: the prefix only decides whether to TRY an IRI.
         if scope.startswith(("urn:", "http://", "https://")):
             return iri_term(scope)
         return lit(scope)
