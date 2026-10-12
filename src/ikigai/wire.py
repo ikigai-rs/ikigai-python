@@ -110,6 +110,8 @@ class EndpointError(WireError):
     _display_prefix = "endpoint error: "
 
     def __init__(self, message: str):
+        """``message`` is the endpoint's own message; the variant's rendering prefix
+        (``_display_prefix``) is added only by :meth:`display`, never stored."""
         super().__init__(message)
         self.message = message
 
@@ -131,9 +133,11 @@ class EndpointError(WireError):
     # by value like every other wire type — exceptions default to identity,
     # which would make ErrorTypedReply round-trip comparisons meaningless.
     def __eq__(self, other) -> bool:
+        """Same variant and same args — value equality, as :meth:`__hash__` matches."""
         return type(self) is type(other) and self.args == other.args
 
     def __hash__(self) -> int:
+        """Hash of the variant and its args, so an error is usable as a dict key."""
         return hash((type(self), self.args))
 
 
@@ -143,6 +147,8 @@ class UnresolvedError(EndpointError):
     it fronts absent). Permanent."""
 
     def __init__(self, iri: str):
+        """``iri`` is the unresolved target, kept as :attr:`iri`; ``message`` is the
+        ``no endpoint resolved for {iri}`` form the wire carries."""
         super().__init__(f"no endpoint resolved for {iri}")
         self.iri = iri
 
@@ -154,6 +160,7 @@ class MissingArgumentError(EndpointError):
     Permanent."""
 
     def __init__(self, name: str):
+        """``name`` is the absent argument, kept as :attr:`name`."""
         super().__init__(f"missing required argument `{name}`")
         self.name = name
 
@@ -165,6 +172,8 @@ class InvalidArgumentError(EndpointError):
     Permanent."""
 
     def __init__(self, name: str, detail: str):
+        """``name`` and ``detail`` are kept as :attr:`name`/:attr:`detail`; the wire
+        carries ``invalid argument `{name}`: {detail}``."""
         super().__init__(f"invalid argument `{name}`: {detail}")
         self.name = name
         self.detail = detail
@@ -293,14 +302,17 @@ class Capability:
 
     @classmethod
     def root(cls) -> Capability:
+        """Root authority: ``scopes is None`` (the wire's ``Kind::Root``)."""
         return cls(None)
 
     @classmethod
     def scoped(cls, scopes) -> Capability:
+        """Authority limited to ``scopes`` (``urn:cap:`` strings), sorted on the wire."""
         return cls(frozenset(scopes))
 
     @property
     def is_root(self) -> bool:
+        """True when this capability is root, i.e. carries no scope limit."""
         return self.scopes is None
 
 
@@ -315,14 +327,17 @@ class Expiry:
 
     @classmethod
     def always(cls) -> Expiry:
+        """No expiry claimed: the result may be cached and re-validated freely."""
         return cls("always")
 
     @classmethod
     def never(cls) -> Expiry:
+        """The result is a pure function of its inputs — cacheable indefinitely."""
         return cls("never")
 
     @classmethod
     def at(cls, millis: int) -> Expiry:
+        """Expire at ``millis`` since the Unix epoch (the wire's ``Expiry::At``)."""
         return cls("at", millis)
 
 
@@ -352,6 +367,9 @@ class Representation:
         expiry: Expiry | None = None,
         cache_status: CacheStatus | None = None,
     ):
+        """``media_type`` may carry parameters (``text/plain;charset=utf-8``), which are
+        split out and merged under ``params``; ``expiry`` defaults to ``Expiry.always()``.
+        ``cache_status`` is stamped by the client on receipt, not part of the value."""
         base, _, rest = media_type.partition(";")
         parsed: dict[str, str] = {}
         if rest:
@@ -378,9 +396,12 @@ class Representation:
 
     @property
     def text(self) -> str:
+        """The data decoded as UTF-8; raises ``UnicodeDecodeError`` on other bytes."""
         return self.data.decode("utf-8")
 
     def __eq__(self, other) -> bool:
+        """Value equality over data, media type, params and expiry — but NOT
+        ``cache_status``, which is stamped on receipt and is not part of the value."""
         return (
             isinstance(other, Representation)
             and self.data == other.data
@@ -390,6 +411,8 @@ class Representation:
         )
 
     def __repr__(self) -> str:
+        """``Representation('media/type', N bytes, kind)`` — no body, so a log line
+        stays short."""
         return f"Representation({self.media_type!r}, {len(self.data)} bytes, {self.expiry.kind})"
 
 
@@ -680,6 +703,9 @@ def _put_trace_event(out: bytearray, event: TraceEvent) -> None:
 
 
 def encode_call(call: Call) -> bytes:
+    """A Call as one postcard payload: the variant's index, then its fields in Rust
+    declaration order (maps and sets in ``BTreeMap``/``BTreeSet`` key order). Raises
+    ``TypeError`` for anything that is not a Call — the encoder never guesses."""
     out = bytearray()
     if isinstance(call, Issue):
         out += encode_varint(0)
@@ -890,6 +916,9 @@ def _get_trace_event(r: Reader) -> TraceEvent:
 
 
 def decode_call(payload: bytes) -> Call:
+    """Decode one postcard Call payload, asserting it is consumed exactly. A truncated
+    or unknown-variant payload raises :class:`ProtocolError` (never ``DecodeError``), so
+    a caller has one exception type to catch for a bad frame."""
     try:
         r = Reader(payload)
         variant = r.varint(32)
@@ -917,6 +946,9 @@ def decode_call(payload: bytes) -> Call:
 
 
 def decode_reply(payload: bytes) -> Reply:
+    """Decode one postcard Reply payload, asserting it is consumed exactly. An
+    unknown-future error variant degrades to a named :class:`EndpointError` (see
+    :func:`_get_wire_error`); a corrupt frame raises :class:`ProtocolError`."""
     try:
         r = Reader(payload)
         variant = r.varint(32)
@@ -961,6 +993,7 @@ def frame(payload: bytes) -> bytes:
 
 
 def write_frame(writer: BinaryIO, payload: bytes) -> None:
+    """Write one :func:`frame` and flush, so the peer is not left waiting on a buffer."""
     writer.write(frame(payload))
     writer.flush()
 
@@ -1039,6 +1072,9 @@ def connect_version(offered: int, answered: int) -> str | int:
 
 
 def encode_hello(hello: Hello) -> bytes:
+    """A hello payload: the magic, the version as ``u32`` big-endian, then the mode
+    byte. Deliberately not postcard — the codec whose version is being negotiated must
+    not be needed to negotiate it."""
     return HELLO_MAGIC + struct.pack(">I", hello.version) + bytes([hello.mode])
 
 

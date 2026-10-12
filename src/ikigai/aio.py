@@ -66,6 +66,9 @@ class AsyncClient:
         timeout: float | None = DEFAULT_TIMEOUT,
         server_version: int | None = None,
     ):
+        """Adopt an ALREADY-helloed stream pair: this does not dial, say hello or
+        negotiate a version. Prefer :func:`connect`, which does all three. ``timeout``
+        bounds each read; ``server_version=None`` means genuinely unknown."""
         self._reader = reader
         self._writer = writer
         self._timeout = timeout
@@ -121,20 +124,27 @@ class AsyncClient:
     # -- the five verbs ----------------------------------------------------
 
     async def source(self, iri: str, **args) -> Representation:
+        """Read a resource's representation."""
         return await self._issue(build_request(Verb.SOURCE, iri, args))
 
     async def sink(self, iri: str, value=None, **args) -> Representation:
+        """Write to a resource; ``value`` rides as the ``content`` argument (the wire
+        convention for the piped value), as in the sync client."""
         if value is not None:
             args["content"] = value
         return await self._issue(build_request(Verb.SINK, iri, args))
 
     async def exists(self, iri: str, **args) -> Representation:
+        """Test for a resource's existence (the endpoint's own ``true``/``false`` text)."""
         return await self._issue(build_request(Verb.EXISTS, iri, args))
 
     async def delete(self, iri: str, **args) -> Representation:
+        """Remove a resource."""
         return await self._issue(build_request(Verb.DELETE, iri, args))
 
     async def meta(self, iri: str, as_: str | None = None, **args) -> Representation:
+        """Read a resource's self-description, rendered ``as_`` a media type (the
+        server's default face is ``text/turtle``)."""
         if as_ is not None:
             args["as"] = as_
         return await self._issue(build_request(Verb.META, iri, args))
@@ -142,6 +152,8 @@ class AsyncClient:
     # -- sugar -------------------------------------------------------------
 
     async def describe(self, iri: str) -> dict | None:
+        """The structured self-description (Meta as JSON), parsed; ``None`` when the
+        endpoint has none or the face isn't JSON-renderable."""
         try:
             representation = await self.meta(iri, as_="application/json")
         except EndpointError:
@@ -152,6 +164,9 @@ class AsyncClient:
             return None
 
     async def entries(self) -> list[SpaceEntry] | None:
+        """The catalog: every binding the server's space enumerates (already
+        capability-scoped by the server). ``None`` if the space does not support
+        enumeration."""
         reply = await self._round_trip(EntriesCall())
         if isinstance(reply, EntriesReply):
             return None if reply.entries is None else list(reply.entries)
@@ -161,10 +176,14 @@ class AsyncClient:
         raise ProtocolError(f"unexpected reply to Entries: {reply!r}")
 
     async def is_cached(self, iri: str, **args) -> bool:
+        """Whether sourcing ``iri`` with these args would be served from the server's
+        cache (the probe runs under the server's own authority, as in the sync client)."""
         reply = await self._round_trip(IsCached(build_request(Verb.SOURCE, iri, args)))
         return isinstance(reply, Cached) and reply.cached
 
     async def source_traced(self, iri: str, **args) -> tuple[Representation, list[TraceEvent]]:
+        """Source a resource AND record the resolution: the representation plus the
+        server's trace spans (the execution tree)."""
         call = IssueTraced(
             build_request(Verb.SOURCE, iri, args),
             self.capability or Capability.root(),
@@ -183,6 +202,7 @@ class AsyncClient:
     # -- lifecycle ---------------------------------------------------------
 
     async def close(self) -> None:
+        """Close the stream; safe to call more than once, and final once closed."""
         self._writer.close()
         try:
             await self._writer.wait_closed()
@@ -190,9 +210,11 @@ class AsyncClient:
             pass
 
     async def __aenter__(self) -> AsyncClient:
+        """``async with await aio.connect() as k:`` — returns this client."""
         return self
 
     async def __aexit__(self, *exc) -> None:
+        """Close the client on leaving the ``async with`` block."""
         await self.close()
 
 
