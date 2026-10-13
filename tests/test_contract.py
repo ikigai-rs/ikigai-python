@@ -160,6 +160,48 @@ def test_a_signed_or_spaced_escape_is_refused(escape):
     assert parse_contract_iri(f"urn:ikigai:contract:{escape}:source:b3:{'ab' * 32}") is None
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "http://[::1]/x",  # ledger #1361: a name's brackets stay in the path
+        "a\u0085b",  # NEL, a C1 control: outside ucschar
+        "del\x7f nel\x85 pua\ue000 nonchar\ufdd0\uffff",
+        "a#b?c#d",  # ledger #1390: a name is one path segment
+        "100%",  # `%` is a character in a name, never an escape
+    ],
+)
+def test_a_name_round_trips_through_encode_and_parse(name):
+    # The encoder is injective (`%` itself is encoded), so a match IRI and a contract
+    # IRI parse back to exactly the name that made them, whatever the name holds.
+    from ikigai.contract import _decode_segment, encode_name
+
+    assert _decode_segment(encode_name(name)) == name
+    match = match_iri(Verb.SOURCE, name)
+    assert parse_match_iri(match) == (Verb.SOURCE, name)
+    assert canonical_match_iri(match) == match
+    contract = contract_iri(name, {"verb": "Source"})
+    assert parse_contract_iri(contract) == (
+        name,
+        Verb.SOURCE,
+        contract_id(name, {"verb": "Source"}),
+    )
+    assert canonical_contract_iri(contract) == contract
+
+
+def test_the_name_encoder_encodes_percent_and_the_new_classes():
+    # The rule core's `encode_name` follows (ledger #1345, #1361, #1390): `%`, what a
+    # Turtle IRIREF cannot carry, `[`/`]`, `#`/`?`, and every non-`ucschar` code point.
+    from ikigai.contract import encode_name
+
+    assert encode_name("toUpper") == "toUpper"
+    assert encode_name("naïve") == "naïve"  # ordinary Unicode is written as it is
+    assert encode_name("50% off") == "50%25%20off"
+    assert encode_name("http://[::1]/x") == "http://%5B::1%5D/x"
+    assert encode_name("a\x7fb\x85c") == "a%7Fb%C2%85c"
+    assert encode_name("\ue000\uffff") == "%EE%80%80%EF%BF%BF"
+    assert encode_name("a#b?c") == "a%23b%3Fc"
+
+
 def test_the_contract_module_doctests_hold():
     # A doc comment that states a shape leaving the process is only trusted if it runs.
     failed, attempted = doctest.testmod(ikigai.contract)

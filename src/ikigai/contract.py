@@ -67,7 +67,12 @@ def _percent(c: str) -> str:
 def escape_iri_fragment(s: str) -> str:
     """``ikigai_core::escape_iri_fragment``: percent-encode what a Turtle ``IRIREF``
     cannot carry, leaving ``%`` alone (so NOT injective, by core's design: authored
-    IRIs may already carry escapes). Safe strings come back unchanged."""
+    IRIs may already carry escapes). Safe strings come back unchanged.
+
+    Stops at the Turtle grammar: ``[``, ``]``, ``#``, ``?`` and the non-``ucschar``
+    code points are left as they are here, because an authored IRI needs its brackets
+    (an IPv6 host) and may carry a fragment. A NAME goes through :func:`encode_name`
+    instead, which encodes all of them."""
     return "".join(_percent(c) if _forbidden(c) else c for c in s)
 
 
@@ -310,10 +315,53 @@ def is_iri(s: str) -> bool:
     return _IriParser(s).scheme_start()
 
 
-def _encode_segment(s: str) -> str:
-    """Core's injective segment encoding: the IRIREF set AND ``%`` itself, so every
-    match or contract IRI parses back to exactly what made it."""
-    return "".join(_percent(c) if c == "%" or _forbidden(c) else c for c in s)
+def _is_non_ucschar(c: str) -> bool:
+    """``ikigai_core::iri::is_non_ucschar``: DEL, and every non-ASCII code point RFC 3987
+    leaves out of ``ucschar`` (the C1 controls, private use, the noncharacters, the
+    specials block, and the tags and variation-selector plane E0000 to E0FFF). A code
+    point a Turtle ``IRIREF`` carries but the IRI grammar does not admit in a path
+    segment, so a NAME holding one has to be encoded for its IRI to parse (ledger
+    #1361). ``escape_iri_fragment`` stops at the Turtle grammar and leaves them alone."""
+    cp = ord(c)
+    if cp < 0x80:
+        # The rest of ASCII is the escapers' business, never this predicate's.
+        return cp == 0x7F
+    return not _in_ranges(c, _UCSCHAR)
+
+
+def _must_encode_name(c: str) -> bool:
+    """Core's ``must_encode``: what a NAME cannot carry in an IRI position."""
+    return (
+        c == "%"  # so the encoding is injective and inverts exactly
+        or _forbidden(c)  # what a Turtle IRIREF cannot carry
+        or c in "[]"  # an IRI admits them only around an IP-literal host
+        or c in "#?"  # a name is one path segment; either would end it here
+        or _is_non_ucschar(c)
+    )
+
+
+def encode_name(s: str) -> str:
+    """``ikigai_core::encode_name``: percent-encode a NAME for an IRI position,
+    injectively — the one spelling of every name this face mints an IRI from (a door
+    pattern, an endpoint id, an input name). Everything else, ordinary Unicode
+    included, is written as it is.
+
+    >>> encode_name("toUpper")
+    'toUpper'
+    >>> encode_name("naïve")
+    'naïve'
+    >>> encode_name("50% off")
+    '50%25%20off'
+    >>> encode_name("http://[::1]/x")  # a name's brackets are encoded, an IRI's are not
+    'http://%5B::1%5D/x'
+    >>> encode_name("a\\x7fb\\x85c")  # DEL, NEL: no IRI carries them raw
+    'a%7Fb%C2%85c'
+    >>> encode_name("\\ue000\\uffff")  # private use, a noncharacter
+    '%EE%80%80%EF%BF%BF'
+    >>> encode_name("a#b?c")  # would start a fragment or a query
+    'a%23b%3Fc'
+    """
+    return "".join(_percent(c) if _must_encode_name(c) else c for c in s)
 
 
 _HEX = frozenset(b"0123456789abcdefABCDEF")
@@ -370,7 +418,7 @@ def match_iri(verb: Verb, pattern: str) -> str:
     >>> match_iri(Verb.SOURCE, "urn:py:echo/{message}")
     'urn:ikigai:match:source:urn:py:echo/%7Bmessage%7D'
     """
-    return f"{MATCH_PREFIX}{_verb_segment(verb)}:{_encode_segment(pattern)}"
+    return f"{MATCH_PREFIX}{_verb_segment(verb)}:{encode_name(pattern)}"
 
 
 def parse_match_iri(iri: str) -> tuple[Verb, str] | None:
@@ -505,7 +553,7 @@ def contract_iri(endpoint_id: str, action: dict) -> str:
 def _contract_iri_of(endpoint_id: str, verb: Verb, digest: str) -> str:
     # A contract IRI from its parts, in the one canonical spelling (core's
     # `contract_iri_of`): the id encoded, the digest as given (``b3:`` + lower hex).
-    return f"{CONTRACT_PREFIX}{_encode_segment(endpoint_id)}:{_verb_segment(verb)}:{digest}"
+    return f"{CONTRACT_PREFIX}{encode_name(endpoint_id)}:{_verb_segment(verb)}:{digest}"
 
 
 def parse_contract_iri(iri: str) -> tuple[str, Verb, str] | None:
