@@ -192,6 +192,38 @@
       "contract": "urn:ikigai:contract::source:b3:8eed840c1b4730a18cd52dee3e8c29c9c8969bf716a5f7b67ea1b3eac1abfd43",
       "id": "",
       "name": "empty-id"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:http://%5B::1%5D/x:source:b3:3936e52c5e24133be81b3aa5219b52ec4d9584a27a4e26d04d4dc73c00484b8c",
+      "id": "http://[::1]/x",
+      "name": "bracket-id"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:a%7Fb%C2%85c%EE%80%80d%EF%B7%90e%EF%BF%BF:source:b3:f9a37f3c9e57549f265b8f5bc06568059e2c1f3f8275e0795369da202ed92fd8",
+      "id": "abcd﷐e￿",
+      "name": "non-ucschar-id"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:a%23b%23c:source:b3:6e04692c043eda0dfe2cd1852b4829287e797de3bba958474d963f4832621781",
+      "id": "a#b#c",
+      "name": "hash-id"
+    },
+    {
+      "action": {
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:a%3Fb:source:b3:e63faad3e17439c692d7f4764bfacff21b042453b368ee62c5c304e8379303b7",
+      "id": "a?b",
+      "name": "query-id"
     }
   ],
   "doors": [
@@ -1209,6 +1241,90 @@
       "name": "core/percent-names",
       "pattern": "urn:core:percent",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:50%25%20off> a ik:Endpoint ;\n    ik:id \"50% off\" ;\n    ik:title \"Percent names\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:a%20b>, \"urn:cap:100%\" ;\n    ik:input <urn:ikigai:endpoint:50%25%20off:input:100%25> ;\n    ik:input <urn:ikigai:endpoint:50%25%20off:input:rate%2525> ;\n    ik:action <urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba> .\n\n<urn:ikigai:endpoint:50%25%20off:input:100%25> ik:inputName \"100%\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with a bare %\" ;\n    ik:class <urn:cls:a%20b> .\n\n<urn:ikigai:endpoint:50%25%20off:input:rate%2525> ik:inputName \"rate%25\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name that looks escaped\" ;\n    ik:class \"urn:cls:100%\" .\n\n<urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba:input:100%25> ik:inputName \"100%\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with a bare %\" ;\n    ik:class <urn:cls:a%20b> .\n\n<urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba:input:rate%2525> ik:inputName \"rate%25\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name that looks escaped\" ;\n    ik:class \"urn:cls:100%\" .\n\n<urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:a%20b> ;\n    ik:requires \"urn:cap:100%\" ;\n    ik:input <urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba:input:100%25> ;\n    ik:input <urn:ikigai:contract:50%25%20off:source:b3:cae854874a08526e56e594b6b59cd0aee627dde531ba76668d5997cd234e90ba:input:rate%2525> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618",
+          "match": "urn:ikigai:match:source:http://%5B::1%5D:8080/%7Bkey%7D",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "http://[::1]/x",
+        "inputs": [
+          {
+            "class": "http://[::1]/cls",
+            "name": "a[0]",
+            "required": true,
+            "source": "argument",
+            "summary": "a name with brackets"
+          },
+          {
+            "name": "del nel pua nonchar﷐￿",
+            "required": false,
+            "source": "argument",
+            "summary": "a name with every kind of non-ucschar code point"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "http://[::1]/cap"
+        ],
+        "summary": "",
+        "title": "Bracket names",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "core/bracket-names",
+      "pattern": "http://[::1]:8080/{key}",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:http://%5B::1%5D/x> a ik:Endpoint ;\n    ik:id \"http://[::1]/x\" ;\n    ik:title \"Bracket names\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <http://[::1]/cap> ;\n    ik:input <urn:ikigai:endpoint:http://%5B::1%5D/x:input:a%5B0%5D> ;\n    ik:input <urn:ikigai:endpoint:http://%5B::1%5D/x:input:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF> ;\n    ik:action <urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618> .\n\n<urn:ikigai:endpoint:http://%5B::1%5D/x:input:a%5B0%5D> ik:inputName \"a[0]\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with brackets\" ;\n    ik:class <http://[::1]/cls> .\n\n<urn:ikigai:endpoint:http://%5B::1%5D/x:input:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF> ik:inputName \"del nel pua nonchar﷐￿\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name with every kind of non-ucschar code point\" .\n\n<urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618:input:a%5B0%5D> ik:inputName \"a[0]\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with brackets\" ;\n    ik:class <http://[::1]/cls> .\n\n<urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618:input:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF> ik:inputName \"del nel pua nonchar﷐￿\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name with every kind of non-ucschar code point\" .\n\n<urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <http://[::1]/cap> ;\n    ik:input <urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618:input:a%5B0%5D> ;\n    ik:input <urn:ikigai:contract:http://%5B::1%5D/x:source:b3:71ab627206c5985436015af569d7118be27f00f9960425bac74d4ac7ba2e1618:input:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955",
+          "match": "urn:ikigai:match:source:urn:hq:%7Bkey%7D%3Fview=full%23top",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "id": "a#b?c#d",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "x#y",
+            "required": true,
+            "source": "argument",
+            "summary": "a name with a hash"
+          },
+          {
+            "name": "q?r",
+            "required": false,
+            "source": "argument",
+            "summary": "a name with a question mark"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:hq?scope#all"
+        ],
+        "summary": "",
+        "title": "Hash and query names",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "core/hash-query-names",
+      "pattern": "urn:hq:{key}?view=full#top",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:a%23b%3Fc%23d> a ik:Endpoint ;\n    ik:id \"a#b?c#d\" ;\n    ik:title \"Hash and query names\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:hq?scope#all> ;\n    ik:input <urn:ikigai:endpoint:a%23b%3Fc%23d:input:x%23y> ;\n    ik:input <urn:ikigai:endpoint:a%23b%3Fc%23d:input:q%3Fr> ;\n    ik:action <urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955> .\n\n<urn:ikigai:endpoint:a%23b%3Fc%23d:input:x%23y> ik:inputName \"x#y\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with a hash\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:endpoint:a%23b%3Fc%23d:input:q%3Fr> ik:inputName \"q?r\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name with a question mark\" .\n\n<urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955:input:x%23y> ik:inputName \"x#y\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"a name with a hash\" ;\n    ik:class <http://www.w3.org/2001/XMLSchema#string> .\n\n<urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955:input:q%3Fr> ik:inputName \"q?r\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"a name with a question mark\" .\n\n<urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:hq?scope#all> ;\n    ik:input <urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955:input:x%23y> ;\n    ik:input <urn:ikigai:contract:a%23b%3Fc%23d:source:b3:65eed3db2f6ecce5f3c5fecd0686e5d3f26454d0962c8c61bfe0ff5b7d544955:input:q%3Fr> .\n"
     }
   ],
   "form": "ikigai:contract:v1",
@@ -1387,6 +1503,106 @@
         }
       ],
       "pattern": "urn:ts:naïve 𝄞|x"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:http://%5B::1%5D/%7Bpath%7D",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:http://%5B::1%5D/%7Bpath%7D",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:http://%5B::1%5D/%7Bpath%7D",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:http://%5B::1%5D/%7Bpath%7D",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:http://%5B::1%5D/%7Bpath%7D",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "http://[::1]/{path}"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:x:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:x:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:x:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:x:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:x:del%7F%20nel%C2%85%20pua%EE%80%80%20nonchar%EF%B7%90%EF%BF%BF",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:x:del nel pua nonchar﷐￿"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:x:a%23b%23c",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:x:a%23b%23c",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:x:a%23b%23c",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:x:a%23b%23c",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:x:a%23b%23c",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:x:a#b#c"
+    },
+    {
+      "iris": [
+        {
+          "match": "urn:ikigai:match:source:urn:x:%7Bk%7D%3Fq=1",
+          "verb": "Source"
+        },
+        {
+          "match": "urn:ikigai:match:sink:urn:x:%7Bk%7D%3Fq=1",
+          "verb": "Sink"
+        },
+        {
+          "match": "urn:ikigai:match:exists:urn:x:%7Bk%7D%3Fq=1",
+          "verb": "Exists"
+        },
+        {
+          "match": "urn:ikigai:match:delete:urn:x:%7Bk%7D%3Fq=1",
+          "verb": "Delete"
+        },
+        {
+          "match": "urn:ikigai:match:meta:urn:x:%7Bk%7D%3Fq=1",
+          "verb": "Meta"
+        }
+      ],
+      "pattern": "urn:x:{k}?q=1"
     }
   ],
   "parses": [
@@ -1659,6 +1875,90 @@
         "b3:abababababababababababababababababababababababababababababababab"
       ],
       "iri": "urn:ikigai:contract:%66ile:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:http://%5B::1%5D/x",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:http://[::1]/x",
+      "match": [
+        "Source",
+        "http://[::1]/x"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:http://%5B::1%5D/x",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:http://%5B::1%5D/x",
+      "match": [
+        "Source",
+        "http://[::1]/x"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:a%7Fb%C2%85c",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:a%7Fb%C2%85c",
+      "match": [
+        "Source",
+        "abc"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:contract:http://%5B::1%5D/x:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "http://[::1]/x",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:http://[::1]/x:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:match:source:a%23b%3Fc",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:a%23b%3Fc",
+      "match": [
+        "Source",
+        "a#b?c"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:a%23b%3Fc",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:a#b?c",
+      "match": [
+        "Source",
+        "a#b?c"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:match:source:a%23b%3Fc",
+      "contract": null,
+      "iri": "urn:ikigai:match:source:a%23b%3fc",
+      "match": [
+        "Source",
+        "a#b?c"
+      ]
+    },
+    {
+      "canonical": "urn:ikigai:contract:a%23b%23c:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "a#b#c",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:a#b#c:source:b3:abababababababababababababababababababababababababababababababab",
+      "match": null
+    },
+    {
+      "canonical": "urn:ikigai:contract:a%23b%23c:source:b3:abababababababababababababababababababababababababababababababab",
+      "contract": [
+        "a#b#c",
+        "Source",
+        "b3:abababababababababababababababababababababababababababababababab"
+      ],
+      "iri": "urn:ikigai:contract:a%23b%23c:source:b3:abababababababababababababababababababababababababababababababab",
       "match": null
     }
   ]

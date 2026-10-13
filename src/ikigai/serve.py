@@ -670,11 +670,15 @@ def to_turtle(description: dict) -> str:
     still not an IRI is written as a literal of the original string, never raw. Pinned
     by the vectors' ``core/hostile-terms`` door.
 
-    A NAME (the endpoint id, an input name) is not an authored IRI, so its ``%`` is a
-    character and is written as ``%25`` before the rest is escaped (``ikigai_vocab``'s
-    ``name_fragment``, mirrored below): the node IRIs then spell an id exactly as a
-    contract IRI does, and ``100%`` can no longer emit an IRI no parser accepts (ledger
-    #1345). Pinned by the vectors' ``core/percent-names`` door."""
+    A NAME (the endpoint id, an input name) is not an authored IRI: it goes through
+    core's ONE name encoder (``ikigai_core::encode_name``,
+    :func:`ikigai.contract.encode_name`, mirrored below), so its ``%`` is a character
+    (``%25``) and so are ``[``, ``]``, ``#``, ``?`` and every non-``ucschar`` code
+    point. The node IRIs then spell an id exactly as a contract IRI does, ``100%`` can
+    no longer emit an IRI no parser accepts (ledger #1345), a bracket name and an
+    IPv6-host id stay in the path (ledger #1361) and ``a#b`` cannot move the rest of a
+    name into a fragment (ledger #1390). Pinned by the vectors' ``core/percent-names``,
+    ``core/bracket-names`` and ``core/hash-query-names`` doors."""
 
     def lit(s: str) -> str:
         escaped = (
@@ -693,9 +697,10 @@ def to_turtle(description: dict) -> str:
         return f"<{escaped}>" if contract.is_iri(escaped) else lit(s)
 
     def name_fragment(s: str) -> str:
-        # Core's `name_fragment`: `%` as `%25`, then what an IRIREF cannot carry. An
-        # authored IRI (`iri_term`) keeps its `%`; a name's `%` is never an escape.
-        return contract.escape_iri_fragment(s.replace("%", "%25"))
+        # Core's `name_fragment`: ikigai_core::encode_name, the ONE spelling of every
+        # name core mints an IRI from. An authored IRI (`iri_term`) keeps its `%`, `[`,
+        # `]`, `#`, `?` and non-ucschar code points; a name's are all encoded.
+        return contract.encode_name(s)
 
     def cap_term(scope: str) -> str:
         # Core's `cap_term`: the prefix only decides whether to TRY an IRI.
