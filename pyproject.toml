@@ -35,6 +35,15 @@ dependencies = ["blake3>=1.0,<2"]
 # NOTHING here uploads — publishing is Brian's, and the publish fence refuses
 # `twine upload` anyway.
 dev = ["pytest>=8", "ruff>=0.5", "build>=1", "twine>=6"]
+# The QUIC transport (`ikigai.quic`): a remote door over QUIC with pinned certificates,
+# the way ikigai-cli's `ikigai-quic` speaks. Optional, and nothing outside that module
+# imports it, so the Unix-socket client never needs it. The floor is the oldest aioquic
+# the suite was run against (tests/test_quic.py and tests/test_quic_interop.py, on
+# Python 3.11 with cryptography 42.0.0); the ceiling is aioquic's next major, the one
+# place its protocol and configuration API may change. `cryptography` is named because
+# the module imports it directly (certificate and key loading); aioquic already
+# requires it, and 42 is the floor aioquic 1.2 itself sets.
+quic = ["aioquic>=1.2,<2", "cryptography>=42"]
 # The examples/ REST faces. Minima are the versions the smoke tests were
 # built and verified against.
 examples = [

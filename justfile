@@ -11,7 +11,7 @@
 # real exit status. Do not call those gates from here: they refuse to loop.
 #
 # With no argument the script picks the first of .venv/bin/python, venv/bin/python
-# and python3 that has the dev and examples extras and imports ikigai from this
+# and python3 that has the dev, examples and quic extras and imports ikigai from this
 # checkout; `just gates path/to/python` names one instead.
 
 # Lint, format check and tests, exactly as CI runs them.

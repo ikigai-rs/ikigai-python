@@ -17,9 +17,42 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: python -m pip install -e '.[dev,examples]'
+        run: python -m pip install -e '.[dev,examples,quic]'
       - name: Gates (ruff check · ruff format --check · pytest)
         # The same script `just gates` runs locally, so the two cannot drift.
         # Integration tests that need the `ikigai` binary skip themselves
-        # when it is absent (CI has no Rust host; they run locally).
+        # when it is absent here; the `interop` job below runs the QUIC ones
+        # against a real Rust door.
         run: scripts/gates.sh python
+
+  interop:
+    # The QUIC client against the REAL Rust door (tests/test_quic_interop.py): ikigai-cli
+    # built from crates.io with its `quic` feature, `--locked` (the lock it was published
+    # with), and cached by version so only a version bump rebuilds it. `--require-interop`
+    # turns a missing binary into a FAILURE: a skipped interop suite would pass green while
+    # covering nothing.
+    runs-on: ubuntu-latest
+    env:
+      IKIGAI_CLI_VERSION: "0.1.62"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache the ikigai binary
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/ikigai
+          key: ikigai-cli-${{ env.IKIGAI_CLI_VERSION }}-quic-${{ runner.os }}
+      - name: Build ikigai-cli (quic)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo install ikigai-cli --version "$IKIGAI_CLI_VERSION" --locked --features quic
+      - name: Put the binary on PATH
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/ikigai" --version
+      - name: Install
+        run: python -m pip install -e '.[dev,quic]'
+      - name: Interop (the Python QUIC client against a local Rust door)
+        run: python -m pytest -q --require-interop tests/test_quic_interop.py
