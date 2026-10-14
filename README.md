@@ -3,7 +3,8 @@
 A **pure-Python** client and servable peer for the
 [ikigai](https://github.com/ikigai-rs) wire protocol over Unix domain sockets,
 with **one** runtime dependency, [`blake3`](https://pypi.org/project/blake3/)
-(see [Install](#install) for why).
+(see [Install](#install) for why), and an optional **QUIC** client for a
+remote door (the `quic` extra, see [QUIC](#quic-a-remote-door)).
 This is **L0** of the polyglot ladder: zero Rust, zero core changes — a Python
 process can *drive* a running ikigai kernel, and a Python process can *be*
 resources that a Rust host mounts.
@@ -24,6 +25,7 @@ versions.
 
 ```sh
 pip install .          # one runtime dependency: blake3
+pip install '.[quic]'  # plus the QUIC client: aioquic (and cryptography, which it uses)
 ```
 
 **No longer stdlib-only.** The codec and transport still are
@@ -38,7 +40,7 @@ BLAKE3 co-designer, over the same Rust crate core hashes with), pinned
 `>=1.0,<2`. It ships wheels for every Python this package supports, so installing
 needs no Rust toolchain.
 
-Dev setup: `pip install -e '.[dev,examples]'`, then `just gates` (or
+Dev setup: `pip install -e '.[dev,examples,quic]'`, then `just gates` (or
 `scripts/gates.sh`), which runs `ruff check .`, `ruff format --check .`,
 `pytest`, and finally the packaging gate — `python -m build` (sdist + wheel)
 then `twine check` on both, which is what renders this README the way PyPI
@@ -136,6 +138,65 @@ published on `app.state.kernel`. It is usable directly by Litestar
 (`lifespan=[aio.lifespan(path)]`) and adapts in one line for
 FastHTML/Starlette and Falcon; the docstring carries a snippet per
 framework.
+
+## QUIC: a remote door
+
+`ikigai.quic` speaks to a door across the network the way ikigai-cli's
+`ikigai-quic` does: QUIC with mutually pinned certificates, no CA. It is an
+optional extra (`pip install 'ikigai[quic]'`, which pulls
+[aioquic](https://github.com/aiortc/aioquic) `>=1.2,<2`); nothing else in the
+package imports it, so the socket client above never needs it. No Rust
+toolchain is needed on this side.
+
+```python
+from ikigai import quic
+
+with quic.connect("quic://door.example:4434", cert_dir="~/.ikigai/layers-client/me") as k:
+    k.server_version                       # 8 (or 7 against an older door)
+    k.fingerprint                          # this certificate's id, as the door enrolls it
+    k.source("urn:layers:me", **{"as": "application/json"}).text
+```
+
+The client is the same surface as `ikigai.Client` (it is one: the five verbs,
+`describe`, `entries`, `is_cached`, `source_traced`, typed errors), and
+`quic.connect_async(...)` is the awaitable twin of `ikigai.aio`.
+
+- **The cert dir** is the layout `ikigai cert generate --dir DIR` writes:
+  `server.crt` (the door's certificate, to pin), `client.crt` and `client.key`
+  (this client's identity). A `server.key` there is never read.
+  `quic.CertSet.from_dir(DIR, server_cert=…, client_cert=…, client_key=…)`
+  replaces single files, as the cli's `--server-cert` and friends do.
+- **The wire** is the socket's codec with different framing: one
+  bidirectional stream per call, carrying the postcard `Call` and `Reply`
+  each ended by the stream's FIN, with no length header and no hello. The
+  ALPN id is the version: the client offers `ikigai/8` then `ikigai/7`, and
+  refuses a door that negotiates neither.
+- **Trust.** The server's leaf certificate must equal `server.crt` byte for
+  byte (no chain is built, no host name checked; the TLS name sent is
+  `ikigai`, as the Rust client's). The check runs as the handshake completes,
+  before any call, so an unpinned server hears nothing. The door pins the
+  client's certificate the same way and then maps its fingerprint
+  (`quic.fingerprint`: lowercase hex SHA-256 of the DER) to a grant.
+- **Every refusal names its cause**: `quic.PinMismatchError` (not the pinned
+  door; both fingerprints named), `quic.ClientRefusedError` (the door's TLS
+  refused this certificate: not in its trust list), `quic.NotEnrolledError`
+  (the door trusts it but holds no grant for it; `.fingerprint` is what its
+  operator enrolls — this one arrives at the first call, since TLS 1.3 lets
+  the client finish before the door has judged it), `quic.CertSetError` (a
+  file missing or unusable on this side, named), `ProtocolError` (no common
+  wire version) and `ikigai.ConnectionLost` (unreachable, or silent past a
+  deadline).
+- **Liveness and deadlines** are the Rust client's: a ping every 5 s, a dead
+  door found within 15 s, while a call may stay silent for its own deadline
+  (`timeout`, 300 s; 30 s for `meta`/`entries`). A connection the door ended
+  (doors bound connection age) is redialed at the next call. A read whose
+  reply was lost in that moment is sent again; a `sink` or `delete` never is,
+  and raises `ConnectionLost` for its caller to decide.
+
+The Rust interop suite (`tests/test_quic_interop.py`) starts a scratch
+`ikigai serve quic://127.0.0.1:0` with a scratch cert set and drives it with
+this client, including both refusals; CI runs it against ikigai-cli built
+with its `quic` feature.
 
 ## Serve (the peer-module seed)
 
@@ -397,6 +458,9 @@ caching unchanged. See `examples/README.md`; install with
 
 ## Security posture
 
+Over QUIC, trust is the pinned certificate pair (see [QUIC](#quic-a-remote-door)):
+the door decides what a certificate may do, and the client never widens it.
+
 A UDS peer trusts its connections: the socket is `0600`, and both the Python
 server and the Rust server refuse peers whose kernel-verified UID (SO_PEERCRED
 / LOCAL_PEERCRED) differs from their own. A capability carried on
@@ -410,7 +474,10 @@ the Rust side too; do not treat a Python peer as a capability boundary.
 record the layout. Highlights that a public ABI document should state:
 
 - Framing: `u32` **big-endian** length + [postcard](https://postcard.jamesmunns.com)
-  payload; 64 MiB frame cap, checked before allocation.
+  payload; 64 MiB frame cap, checked before allocation. Over QUIC there is no
+  length header and no hello: each call is one bidirectional stream, the
+  stream's FIN ends each message, and the negotiated ALPN id (`ikigai/8`,
+  `ikigai/7`) is the version.
 - **Version hello (since v6, REQUIRED since v7).** The first frame each way
   is `b"IKWH"` + `u32` big-endian version + `u8` mode — deliberately *not*
   postcard, because the codec whose version is being negotiated must not be

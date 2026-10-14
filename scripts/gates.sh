@@ -16,8 +16,9 @@
 #
 # The check REFUSES an interpreter that cannot run what CI runs, rather than running
 # anyway, because both ways it can fall short pass silently:
-#   - the examples smoke tests `importorskip` their web framework, so without the
-#     `examples` extras they SKIP, pytest exits 0, and the gate covers less than CI;
+#   - the examples smoke tests `importorskip` their web framework, and the QUIC tests
+#     `aioquic`, so without the `examples` and `quic` extras they SKIP, pytest exits 0,
+#     and the gate covers less than CI;
 #   - an `ikigai` imported from anywhere but this checkout's src/ means the tests
 #     exercise some other copy of the package and say nothing about this one.
 # The extras are read from pyproject.toml, so the list is not repeated here.
@@ -29,7 +30,7 @@
 # even on failure).
 #
 # Installing is not this script's job: CI's Install step does it, and locally it is
-# `python -m pip install -e '.[dev,examples]'` into the venv you use.
+# `python -m pip install -e '.[dev,examples,quic]'` into the venv you use.
 
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -48,14 +49,14 @@ if sys.version_info < (3, 11):
 with open("pyproject.toml", "rb") as f:
     extras = tomllib.load(f)["project"]["optional-dependencies"]
 missing = []
-for req in extras["dev"] + extras["examples"]:
+for req in extras["dev"] + extras["examples"] + extras["quic"]:
     name = re.match(r"[A-Za-z0-9._-]+", req).group(0)
     try:
         md.distribution(name)
     except md.PackageNotFoundError:
         missing.append(name)
 if missing:
-    sys.exit("missing the dev/examples extras: " + ", ".join(missing))
+    sys.exit("missing the dev/examples/quic extras: " + ", ".join(missing))
 try:
     import ikigai
 except ImportError:
@@ -71,7 +72,7 @@ if [ $# -gt 0 ]; then
     PY="$1"
     why="$(check_python "$PY" 2>&1)" || {
         echo "gates: $PY cannot run the gates: $why" >&2
-        echo "  install with: $PY -m pip install -e '.[dev,examples]'" >&2
+        echo "  install with: $PY -m pip install -e '.[dev,examples,quic]'" >&2
         exit 2
     }
 else
@@ -89,7 +90,7 @@ else
     if [ -z "$PY" ]; then
         echo "gates: no interpreter here can run the gates — NOTHING WAS GATED" >&2
         printf '%s' "$report" >&2
-        echo "  install into one with: <python> -m pip install -e '.[dev,examples]'" >&2
+        echo "  install into one with: <python> -m pip install -e '.[dev,examples,quic]'" >&2
         exit 2
     fi
 fi

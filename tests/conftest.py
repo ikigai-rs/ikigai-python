@@ -18,6 +18,16 @@ import pytest
 from ikigai import wire
 
 
+def pytest_addoption(parser):
+    # CI's interop job installs the Rust host and passes this, so a missing `ikigai` there
+    # is a FAILURE: a skipped interop suite would pass green while covering nothing.
+    parser.addoption(
+        "--require-interop",
+        action="store_true",
+        help="fail, not skip, the Rust-door interop tests when `ikigai` is missing",
+    )
+
+
 @pytest.fixture
 def socket_dir():
     # UDS paths are length-limited (~104 bytes on macOS); tempfile's default
