@@ -61,6 +61,13 @@ Issues = "https://github.com/ikigai-rs/ikigai-python/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ikigai"]
 
+# A local virtualenv is never part of the source distribution (ledger #1585). Hatchling reads
+# only the ROOT .gitignore, and a venv's own `*` .gitignore does not stop it, so without this
+# an untracked venv/ at the root is swept into the sdist, and building the wheel FROM that
+# sdist refuses venv/bin/python, an absolute symlink. CI's clean checkout never has one.
+[tool.hatch.build.targets.sdist]
+exclude = ["/venv", "/.venv"]
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests", "examples", "."]

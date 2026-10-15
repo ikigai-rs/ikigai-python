@@ -1,0 +1,2651 @@
+{
+  "about": "Capability vectors computed by ikigai-core from tests/vectors/capability_cases.json (crates/ikigai-vocab/tests/capability_vectors.rs, which fails if this file differs from what it computes). A capability is \"root\" or the list of scopes it holds; verbs are spelled as ikigai_core::Verb serializes them; a denial is the text of the kernel's Denied, null when the floor admits the request.",
+  "coverage": [
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:anything:read"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:secret:read:-x"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:fs:read:-/root"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "*"
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": ""
+    },
+    {
+      "allows": true,
+      "capability": "root",
+      "satisfies": true,
+      "scope": "urn:cap:x:*:read"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:personal:calendar:read:freebusy"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:personal:calendar:read:freebusy"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:personal:calendar:read:freebusy"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:personal:calendar:read:detail"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:personal:calendar:read:freebusy"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:personal:calendar:read:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:personal:calendar:read:freebusy"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:personal:*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:fs:read:/root",
+        "urn:cap:secret:read:-x"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:fs:read:/root"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/root",
+        "urn:cap:secret:read:-x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:secret:read:-x"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/root",
+        "urn:cap:secret:read:-x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:fs:read:-/root"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/root",
+        "urn:cap:secret:read:-x"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:secret:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/root",
+        "urn:cap:secret:read:-x"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:secret:read:-*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:fs:read:/r",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/r",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:bob"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:fs:read:/r",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:fs:read:/r"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/r",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:urn:example:person:alice",
+        "urn:cap:principal:urn:example:person:bob",
+        "urn:cap:x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:urn:example:person:alice",
+        "urn:cap:principal:urn:example:person:bob",
+        "urn:cap:x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:bob"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:urn:example:person:alice",
+        "urn:cap:principal:urn:example:person:bob",
+        "urn:cap:x"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:x"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:urn:example:person:alice",
+        "urn:cap:principal:urn:example:person:bob",
+        "urn:cap:x"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:*"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:*"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:*"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:*"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:*"
+      ],
+      "satisfies": true,
+      "scope": "*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:*"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:*"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:urn:*"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:urn:*"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:urn:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:x",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:x",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:x"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:not an iri",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:not an iri"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:not an iri",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:urn:x:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:x:*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:principal:urn:x:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:x:-y"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:principal:x:-y"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:principal:x:-y"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:principal:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:browse:read:*"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:browse:read:ikigai-core"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:browse:read:ikigai-gonk"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:browse:read"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:browse:write:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": true,
+      "scope": "*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:browse:read:ikigai-core*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:browse:read:ikigai-core:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:browse:read:ikigai-core"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:browse:*:ikigai-core"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:-/secret"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:fs:read:-/secret"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:-/secret"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:fs:read:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:-/secret"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:fs:*"
+    },
+    {
+      "allows": false,
+      "capability": [],
+      "satisfies": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [],
+      "satisfies": false,
+      "scope": "*"
+    },
+    {
+      "allows": false,
+      "capability": [],
+      "satisfies": false,
+      "scope": ""
+    },
+    {
+      "allows": false,
+      "capability": [],
+      "satisfies": false,
+      "scope": "urn:cap:x"
+    },
+    {
+      "allows": true,
+      "capability": [
+        ""
+      ],
+      "satisfies": true,
+      "scope": ""
+    },
+    {
+      "allows": false,
+      "capability": [
+        ""
+      ],
+      "satisfies": true,
+      "scope": "*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:net:localhost:11434"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:net:localhost:11434"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:**"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:net:localhost:11434"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:net:localhost:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:fs:read:/tmp"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:script:run:close-door"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:script:run:open-*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:script:run:open-door"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:script:run:open-*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:anything"
+      ],
+      "satisfies": true,
+      "scope": "*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:Net:x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:Net:x"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:net:x"
+    },
+    {
+      "allows": true,
+      "capability": [
+        "urn:cap:x:*:read",
+        "urn:cap:x:a:read"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:x:*:read"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:x:*:read",
+        "urn:cap:x:a:read"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:x:b:read"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:cal:read:-x",
+        "urn:cap:cal:-read"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:cal:read"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:cal:read:-x",
+        "urn:cap:cal:-read"
+      ],
+      "satisfies": false,
+      "scope": "urn:cap:cal:-read"
+    },
+    {
+      "allows": false,
+      "capability": [
+        "urn:cap:cal:read:-x",
+        "urn:cap:cal:-read"
+      ],
+      "satisfies": true,
+      "scope": "urn:cap:cal:*"
+    }
+  ],
+  "denials": [
+    {
+      "capability": [
+        "urn:cap:nothing"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)",
+      "description": {
+        "id": "exacting",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:cal:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "exact",
+      "target": "urn:cal",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read"
+      ],
+      "denied": null,
+      "description": {
+        "id": "exacting",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:cal:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "exact-held",
+      "target": "urn:cal",
+      "verb": "Source"
+    },
+    {
+      "capability": "root",
+      "denied": null,
+      "description": {
+        "id": "exacting",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:cal:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "exact-root",
+      "target": "urn:cal",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read:-x",
+        "urn:cap:cal:-read"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)",
+      "description": {
+        "id": "exacting",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:cal:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "exact-held-exclusions",
+      "target": "urn:cal",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:script:run:close-door"
+      ],
+      "denied": "capability does not grant `urn:cap:script:run:open-*` (declared by `urn:script:open-door`; any grant under `urn:cap:script:run:open-` satisfies it)",
+      "description": {
+        "id": "scriptlike",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:script:run:open-*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "family",
+      "target": "urn:script:open-door",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:script:run:open-door"
+      ],
+      "denied": null,
+      "description": {
+        "id": "scriptlike",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:script:run:open-*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "family-held",
+      "target": "urn:script:open-door",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `*` (declared by `urn:x`; any grant at all satisfies it)",
+      "description": {
+        "id": "anything",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "star",
+      "target": "urn:x",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:anything"
+      ],
+      "denied": null,
+      "description": {
+        "id": "anything",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "star-held",
+      "target": "urn:x",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:net:localhost:11434"
+      ],
+      "denied": null,
+      "description": {
+        "id": "netlike",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "net-host",
+      "target": "urn:net",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:fs:read:/tmp"
+      ],
+      "denied": "capability does not grant `urn:cap:net:*` (declared by `urn:net`; any grant under `urn:cap:net:` satisfies it)",
+      "description": {
+        "id": "netlike",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "net-unrelated",
+      "target": "urn:net",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:net:example.com"
+      ],
+      "denied": "capability does not grant `urn:cap:fetch:read` (declared by `urn:fetch`)",
+      "description": {
+        "id": "fetch",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:net:*",
+          "urn:cap:fetch:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "first-unsatisfied-second",
+      "target": "urn:fetch",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `urn:cap:net:*` (declared by `urn:fetch`; any grant under `urn:cap:net:` satisfies it)",
+      "description": {
+        "id": "fetch",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:net:*",
+          "urn:cap:fetch:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "first-unsatisfied-first",
+      "target": "urn:fetch",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `urn:cap:secret` (declared by `urn:data:secret`)",
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "target-not-id",
+      "target": "urn:data:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:write` (declared by `urn:cal`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "per-verb-sink-with-read",
+      "target": "urn:cal",
+      "verb": "Sink"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:write"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "per-verb-sink-with-write",
+      "target": "urn:cal",
+      "verb": "Sink"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:write"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "per-verb-source-with-write",
+      "target": "urn:cal",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:write"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "undeclared-exists-with-write",
+      "target": "urn:cal",
+      "verb": "Exists"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "undeclared-exists-with-read",
+      "target": "urn:cal",
+      "verb": "Exists"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:write` (declared by `urn:cal`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "undeclared-delete-with-read",
+      "target": "urn:cal",
+      "verb": "Delete"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:write"
+      ],
+      "denied": "capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "undeclared-delete-with-write",
+      "target": "urn:cal",
+      "verb": "Delete"
+    },
+    {
+      "capability": [
+        "urn:cap:cal:read",
+        "urn:cap:cal:write"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "undeclared-delete-with-both",
+      "target": "urn:cal",
+      "verb": "Delete"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:cal:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:cal:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "cal",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "meta-with-nothing",
+      "target": "urn:cal",
+      "verb": "Meta"
+    },
+    {
+      "capability": [
+        "urn:cap:fs:read:-/x"
+      ],
+      "denied": "capability does not grant `urn:cap:fs:read:-/x` (declared by `urn:excl`)",
+      "description": {
+        "id": "excluded",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:fs:read:-/x"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "required-exclusion-held",
+      "target": "urn:excl",
+      "verb": "Source"
+    },
+    {
+      "capability": "root",
+      "denied": null,
+      "description": {
+        "id": "excluded",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:fs:read:-/x"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "required-exclusion-root",
+      "target": "urn:excl",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `urn:cap:secret` (declared by `urn:data:secret`)",
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "no-verb-sink",
+      "target": "urn:data:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [
+        "urn:cap:secret"
+      ],
+      "denied": null,
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "no-verb-exists-held",
+      "target": "urn:data:secret",
+      "verb": "Exists"
+    }
+  ],
+  "deny_scopes": [
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:read:-/root/secret"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:write:-/root/secret"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:delete:-/root/secret"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:list:-/root/secret"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:read:-secret"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:read:-/Users/brian/secrets"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-example.com"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-example.com:443"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-example.com/admin"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-example.com:443/admin"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-[::1]:8080"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:/root"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:/a-b"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:a-b"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:notes:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:/a:-b"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:*"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:net:example.com"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:net:example.com:-1"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:net:[::1]:8080"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:net:*"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:store:read:graph:urn:x:-y"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:ledger:read:my-ledger"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:dev-server:read"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:personal:calendar:read:freebusy"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:Fs:read:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:-fs:read"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:other:fs:read:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": ""
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:other:fs:-x"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:write:-notes/private"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:net:-internal.example"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs_x:-y"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:9fs:-y"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:_fs:-y"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:Read:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs::-x"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:read:-"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:fs:-"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "URN:cap:fs:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fé:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:réad:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:fs:read:x:-y"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:principal:x:-y"
+    },
+    {
+      "is_deny_scope": true,
+      "scope": "urn:cap:principal:urn:-x"
+    },
+    {
+      "is_deny_scope": false,
+      "scope": "urn:cap:principal:urn:example:person:alice"
+    }
+  ],
+  "floors": [
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:personal:calendar:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:personal:calendar:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "calendar",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "calendar",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:write"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read",
+            "urn:cap:personal:calendar:write"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:personal:calendar:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:personal:calendar:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "calendar",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "calendar-with-meta",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:write"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:personal:calendar:read",
+            "urn:cap:personal:calendar:write"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "flat-source",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "drop",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:drop:write"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Sink"
+        ]
+      },
+      "name": "flat-sink",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:drop:write"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:drop:write"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:drop:write"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:drop:write"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "no-verb",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Meta"
+        ]
+      },
+      "name": "meta-only",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:secret"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:act:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:flat",
+              "urn:cap:act:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "loose",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:flat"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "no-verb-with-actions",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:flat",
+            "urn:cap:act:read",
+            "urn:cap:act:write"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:flat",
+            "urn:cap:act:read",
+            "urn:cap:act:write"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:flat",
+            "urn:cap:act:read",
+            "urn:cap:act:write"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:flat",
+            "urn:cap:act:read",
+            "urn:cap:act:write"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "open",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "open",
+      "verbs": [
+        {
+          "required_scopes": [],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "nothing",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "nothing",
+      "verbs": [
+        {
+          "required_scopes": [],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:own"
+            ],
+            "verb": "Source"
+          }
+        ],
+        "id": "replaced",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:flat"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "per-verb-replaces-flat",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:own"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:flat"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:own"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:own",
+            "urn:cap:flat"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "verb": "Source"
+          }
+        ],
+        "id": "item",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:store:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "empty-action-replaces-flat",
+      "verbs": [
+        {
+          "required_scopes": [],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:store:read"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:store:read"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:a",
+              "urn:cap:b"
+            ],
+            "verb": "Sink"
+          },
+          {
+            "requires": [
+              "urn:cap:b",
+              "urn:cap:c"
+            ],
+            "verb": "Delete"
+          }
+        ],
+        "id": "drop",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Sink",
+          "Delete"
+        ]
+      },
+      "name": "dedup-in-declaration-order",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:b",
+            "urn:cap:c"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:b"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:b",
+            "urn:cap:c"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:b",
+            "urn:cap:c"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:probe"
+            ],
+            "verb": "Exists"
+          }
+        ],
+        "id": "probe",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists"
+        ]
+      },
+      "name": "declared-exists",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:read"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:read",
+            "urn:cap:probe"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:probe"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:read",
+            "urn:cap:probe"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:w"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "odd",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:r"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "action-for-undeclared-verb",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:first"
+            ],
+            "verb": "Source"
+          },
+          {
+            "requires": [
+              "urn:cap:second"
+            ],
+            "verb": "Source"
+          }
+        ],
+        "id": "twice",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "first-action-wins",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:first"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:first"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:first"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:first"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:meta"
+            ],
+            "verb": "Meta"
+          }
+        ],
+        "id": "self",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:r"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "meta-action-is-not-gated",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:r"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "dup",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:a",
+          "urn:cap:a",
+          "urn:cap:b"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "duplicate-verbs",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:a",
+            "urn:cap:b"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:a",
+            "urn:cap:b"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:a",
+            "urn:cap:b"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:a",
+            "urn:cap:b"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    },
+    {
+      "description": {
+        "id": "fetch",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:net:*",
+          "urn:cap:fetch:read",
+          "*"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "families-and-star",
+      "verbs": [
+        {
+          "required_scopes": [
+            "urn:cap:net:*",
+            "urn:cap:fetch:read",
+            "*"
+          ],
+          "verb": "Source"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:net:*",
+            "urn:cap:fetch:read",
+            "*"
+          ],
+          "verb": "Sink"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:net:*",
+            "urn:cap:fetch:read",
+            "*"
+          ],
+          "verb": "Exists"
+        },
+        {
+          "required_scopes": [
+            "urn:cap:net:*",
+            "urn:cap:fetch:read",
+            "*"
+          ],
+          "verb": "Delete"
+        },
+        {
+          "required_scopes": [],
+          "verb": "Meta"
+        }
+      ]
+    }
+  ],
+  "form": "ikigai:capability:v1",
+  "principals": [
+    {
+      "capability": "root",
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:fs:read:/r"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:fs:read:/r",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "principal": "urn:example:person:alice"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:example:person:alice",
+        "urn:cap:principal:urn:example:person:bob",
+        "urn:cap:x"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "principal": "urn:example:person:alice"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "principal": "urn:example:person:alice"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:*",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "principal": "urn:example:person:alice"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:https://example.org/people/brian#me"
+      ],
+      "principal": "https://example.org/people/brian#me"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:example:passkey:Zx-9_a"
+      ],
+      "principal": "urn:example:passkey:Zx-9_a"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:not an iri",
+        "urn:cap:principal:urn:example:person:alice"
+      ],
+      "principal": "urn:example:person:alice"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:alice"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:two words"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:two words"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:<a>"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:*:x"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:https://e.org/*"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:x:-y"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:-x"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "principal": null
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "principal": "urn:x:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      ],
+      "principal": "urn:x:ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+    },
+    {
+      "capability": [
+        "urn:cap:principal:urn:x:éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      ],
+      "principal": null
+    }
+  ]
+}

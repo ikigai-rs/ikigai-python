@@ -102,3 +102,14 @@ def test_docstring_gate_is_selected_for_the_public_api():
     assert "D1" in ignores["tests/**"]
     assert "D1" in ignores["examples/**"]
     assert not any(pattern.startswith("src") for pattern in ignores)
+
+
+def test_a_local_virtualenv_never_enters_the_sdist():
+    # Ledger #1585: an untracked venv/ at the root was swept into the sdist, and the wheel
+    # built from it refused venv/bin/python (an absolute symlink), so the local packaging
+    # gate failed in any checkout that had one. Both names are ignored by git and excluded
+    # from the sdist explicitly, since hatchling reads only the root .gitignore.
+    ignored = (ROOT / ".gitignore").read_text().splitlines()
+    assert {"venv/", ".venv/"} <= set(ignored)
+    sdist = load_pyproject()["tool"]["hatch"]["build"]["targets"]["sdist"]
+    assert {"/venv", "/.venv"} <= set(sdist["exclude"])
