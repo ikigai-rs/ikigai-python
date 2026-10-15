@@ -22,7 +22,18 @@ import pytest
 import ikigai
 import ikigai.capability
 from ikigai.capability import allows, denial_message, is_deny_scope, principal, satisfies
-from ikigai.serve import Server, Space, endpoint, family, required_scopes, unsatisfied_scopes
+from ikigai.contract import contract_iri
+from ikigai.serve import (
+    Server,
+    Space,
+    action_matches,
+    action_specs,
+    endpoint,
+    family,
+    required_scopes,
+    to_turtle,
+    unsatisfied_scopes,
+)
 from ikigai.wire import (
     Capability,
     DeniedError,
@@ -115,15 +126,8 @@ def test_principal_is_cores(row):
 # Rows where this face and core DISAGREE, held as strict xfails so the rest of the vectors
 # land while the hub decides which side has the bug (ledger #1583). Strict: a fix on either
 # side turns the row into an XPASS, which fails, so the entry cannot outlive the disagreement.
-DISAGREES = {
-    # Core's Description::action_specs takes the FIRST action declared for a verb
-    # (`find`); `ikigai.serve.action_specs` builds a dict, so the LAST one wins.
-    "first-action-wins": "action_specs: core takes the first action for a verb, this face the last",
-    # Core deduplicates every scope of the union; `required_scopes` here checks a scope
-    # against the union only BEFORE adding a whole `requires` list, so a scope repeated
-    # inside one list is kept twice.
-    "duplicate-verbs": "required_scopes: a scope repeated within one requires list is not deduped",
-}
+# Empty since ledger #1586 brought `first-action-wins` and `duplicate-verbs` to core's answer.
+DISAGREES: dict[str, str] = {}
 
 
 def floor_params():
@@ -143,6 +147,18 @@ def test_required_scopes_is_cores(floor):
         assert required_scopes(floor["description"], verb(row["verb"])) == row["required_scopes"], (
             row["verb"]
         )
+
+
+def test_the_first_action_for_a_verb_is_its_contract_too():
+    # `action_specs` feeds the contract IRIs and the turtle face as well as the floor, so
+    # core's first-wins rule (`find`) holds there too: the vectors' `twice` door declares
+    # Source twice, and only the first declaration is its contract (ledger #1586).
+    (twice,) = [f["description"] for f in VECTORS["floors"] if f["name"] == "first-action-wins"]
+    first, second = twice["actions"]
+    assert action_specs(twice) == [first]
+    (row,) = action_matches("urn:py:twice", twice)
+    assert row["contract"] == contract_iri("twice", first) != contract_iri("twice", second)
+    assert "urn:cap:first" in to_turtle(twice) and "urn:cap:second" not in to_turtle(twice)
 
 
 # -- denials: the kernel's text for the first unsatisfied scope -------------------------
