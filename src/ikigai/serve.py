@@ -644,8 +644,12 @@ class _Door:
 def action_specs(description: dict) -> list[dict]:
     """``Description::action_specs`` over a description in its serde (JSON) shape: one
     ``ActionSpec`` (serde shape) per non-Meta verb, the explicit one where declared,
-    else synthesized from the flat fields with an empty summary."""
-    explicit = {a["verb"]: a for a in description.get("actions", [])}
+    else synthesized from the flat fields with an empty summary. A verb with several
+    explicit actions takes the FIRST, as core's ``find`` does; that choice is the floor,
+    the contract IRI and the turtle face alike (ledger #1586)."""
+    explicit: dict[str, dict] = {}
+    for action in description.get("actions", []):
+        explicit.setdefault(action["verb"], action)
     specs = []
     for verb in description["verbs"]:
         if verb == Verb.META.wire_name:
@@ -677,8 +681,14 @@ def required_scopes(description: dict, verb: Verb) -> list[str]:
       a cut, so it is never cheaper than the verbs that were declared).
     - ``Meta``: nothing. Self-description stays readable wherever the catalog lists it.
 
-    Deduplicated, in declaration order.
+    The union an undeclared verb gets is deduplicated, in declaration order; a declared
+    verb's own ``requires`` comes back as declared, duplicates and all. That is core's
+    behavior today, whatever its doc says (ledger #1587), and the vectors pin it.
 
+    >>> dup = {"verbs": ["Source"], "inputs": [], "outputs": [],
+    ...     "requires": ["urn:cap:a", "urn:cap:a", "urn:cap:b"]}
+    >>> required_scopes(dup, Verb.SOURCE), required_scopes(dup, Verb.DELETE)
+    (['urn:cap:a', 'urn:cap:a', 'urn:cap:b'], ['urn:cap:a', 'urn:cap:b'])
     >>> calendar = {"verbs": ["Source", "Sink", "Meta"], "inputs": [], "outputs": [],
     ...     "actions": [{"verb": "Source", "requires": ["urn:cap:cal:read"]},
     ...                 {"verb": "Sink", "requires": ["urn:cap:cal:write"]}]}
@@ -694,7 +704,9 @@ def required_scopes(description: dict, verb: Verb) -> list[str]:
         sources = [description.get("requires", [])]
         sources += [a.get("requires", []) for a in description.get("actions", [])]
     for requires in sources:
-        every += [scope for scope in requires if scope not in every]
+        for scope in requires:  # one scope at a time, so a repeat WITHIN a list is caught too
+            if scope not in every:
+                every.append(scope)
     own: dict[str, list[str]] = {}
     for declared_verb, requires in declared:
         own.setdefault(declared_verb, requires)  # the first spec for a verb, as core's find
