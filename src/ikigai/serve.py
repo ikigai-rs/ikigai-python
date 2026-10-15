@@ -73,9 +73,29 @@ v8: a v7 peer (the server accepts one) receives it as
 
 **Security posture**: the socket is ``0600`` in a ``0700`` directory and
 peers are refused unless their kernel-verified UID matches the server's —
-the same transport trust as the Rust IPC server. A capability carried on
-``IssueAs``/``IssueTraced`` is accepted but not enforced per-scope
-(capability-on-the-wire for IPC is a known TODO on the Rust side too).
+the same transport trust as the Rust IPC server.
+
+**Declared = enforced** (ledger #1580): every call runs the door's own
+declared-capability floor before a handler is entered, the same rule a Rust
+kernel applies, so a host that mounts this peer and memoizes its contract can
+rely on the peer refusing what the contract no longer admits.
+
+- The capability a call carries is the one checked: ``IssueAs`` and
+  ``IssueTraced`` resolve under theirs. A plain ``Issue`` resolves under ROOT,
+  exactly as the Rust IPC door does (its ``Issue`` is ``issue_as(root)``): the
+  socket admits only the owner, whose entitlement is root, so the carried
+  capability needs no clamp.
+- What a verb requires is core's table (:func:`required_scopes`): a declared
+  verb, its own ``requires`` (an explicit per-verb ``requires`` REPLACES the
+  flat one); an undeclared ``Exists``, what ``Source`` requires; any other
+  undeclared verb, everything declared; ``Meta``, nothing.
+- Coverage is core's predicate (:mod:`ikigai.capability`): a plain scope held
+  exactly, an exclusion never granted, a trailing ``*`` satisfied by any held
+  scope under its prefix.
+- A refusal crosses as ``Denied`` with core's text, word for word
+  (``capability does not grant `urn:cap:x` (declared by `urn:py:x`)``), and the
+  handler never runs. An unbound name is still ``Unresolved`` whatever the
+  caller holds.
 """
 
 from __future__ import annotations
@@ -92,10 +112,14 @@ import typing
 from pathlib import Path
 
 from . import contract, wire
+from .capability import denial_message
+from .capability import satisfies as capability_satisfies
 from .template import TemplateError, UriTemplate
 from .wire import (
     Cached,
     CacheStatus,
+    Capability,
+    DeniedError,
     EndpointError,
     EntriesCall,
     EntriesReply,
@@ -637,6 +661,59 @@ def action_specs(description: dict) -> list[dict]:
             }
         )
     return specs
+
+
+def required_scopes(description: dict, verb: Verb) -> list[str]:
+    """The scopes a request with ``verb`` must hold to pass the declared-capability floor,
+    read from a description in its serde (JSON) shape: core's
+    ``Description::required_scopes``, the same table, row for row, a Rust kernel's floor
+    applies (ledger #750).
+
+    - A declared verb: exactly its own ``requires``, from :func:`action_specs`, so an
+      explicit per-verb ``requires`` REPLACES the flat one rather than adding to it.
+    - An undeclared ``Exists``: what ``Source`` requires, or everything declared when
+      there is no ``Source``.
+    - Any other undeclared verb: every scope declared anywhere (a mutating verb forces
+      a cut, so it is never cheaper than the verbs that were declared).
+    - ``Meta``: nothing. Self-description stays readable wherever the catalog lists it.
+
+    Deduplicated, in declaration order.
+
+    >>> calendar = {"verbs": ["Source", "Sink", "Meta"], "inputs": [], "outputs": [],
+    ...     "actions": [{"verb": "Source", "requires": ["urn:cap:cal:read"]},
+    ...                 {"verb": "Sink", "requires": ["urn:cap:cal:write"]}]}
+    >>> required_scopes(calendar, Verb.SINK), required_scopes(calendar, Verb.EXISTS)
+    (['urn:cap:cal:write'], ['urn:cap:cal:read'])
+    >>> required_scopes(calendar, Verb.DELETE), required_scopes(calendar, Verb.META)
+    (['urn:cap:cal:read', 'urn:cap:cal:write'], [])
+    """
+    declared = [(spec["verb"], spec.get("requires", [])) for spec in action_specs(description)]
+    every: list[str] = []
+    sources = [requires for _, requires in declared]
+    if not declared:
+        sources = [description.get("requires", [])]
+        sources += [a.get("requires", []) for a in description.get("actions", [])]
+    for requires in sources:
+        every += [scope for scope in requires if scope not in every]
+    own: dict[str, list[str]] = {}
+    for declared_verb, requires in declared:
+        own.setdefault(declared_verb, requires)  # the first spec for a verb, as core's find
+    if verb.wire_name in own:
+        return list(own[verb.wire_name])
+    if verb == Verb.META:
+        return []
+    if verb == Verb.EXISTS and Verb.SOURCE.wire_name in own:
+        return list(own[Verb.SOURCE.wire_name])
+    return every
+
+
+def unsatisfied_scopes(description: dict, verb: Verb, capability: Capability) -> list[str]:
+    """The scopes in :func:`required_scopes` that ``capability`` does not satisfy (core's
+    ``Description::unsatisfied_scopes``): empty exactly when the floor admits the
+    request. Satisfaction is :func:`ikigai.capability.satisfies`."""
+    return [
+        s for s in required_scopes(description, verb) if not capability_satisfies(capability, s)
+    ]
 
 
 def action_matches(pattern: str, description: dict) -> list[dict]:
@@ -1188,11 +1265,18 @@ class Space:
             return EntriesReply(self.entries(strip_alias))
         if isinstance(call, IsCached):
             return Cached(False)  # this peer keeps no representation cache
-        if isinstance(call, Issue | IssueAs):
-            return self._resolve(call.request, alias_first)
+        if isinstance(call, Issue):
+            # A plain Issue resolves under ROOT, as the Rust IPC door's does
+            # (`Resolver::issue` is `issue_as(root)`): the socket admits only the
+            # peercred-verified owner, whose entitlement is root.
+            return self._resolve(call.request, alias_first, Capability.root())
+        if isinstance(call, IssueAs):
+            # The carried capability, enforced. The owner's ceiling is root, so
+            # resolving under the carried capability IS the clamp.
+            return self._resolve(call.request, alias_first, call.capability)
         if isinstance(call, IssueTraced):
             started = int(time.time() * 1000)
-            reply = self._resolve(call.request, alias_first)
+            reply = self._resolve(call.request, alias_first, call.capability)
             ended = int(time.time() * 1000)
             if not isinstance(reply, Resolved):
                 return reply  # a typed error crosses untraced
@@ -1211,7 +1295,16 @@ class Space:
             return ResolvedTraced(reply.representation, reply.cache_status, (event,))
         return ErrorTypedReply(EndpointError(f"unsupported call {type(call).__name__}"))
 
-    def _resolve(self, request: Request, alias_first: bool = False) -> Reply:
+    def _resolve(
+        self,
+        request: Request,
+        alias_first: bool = False,
+        capability: Capability | None = None,
+    ) -> Reply:
+        """Route and answer ``request`` under ``capability`` (``None`` is root). The
+        declared-capability floor runs after routing and before anything is invoked,
+        as a Rust kernel's does: an unbound name is ``Unresolved`` whatever the caller
+        holds, ``Meta`` is never gated, and a refused call never enters a handler."""
         d, bindings = self.lookup(request.target, alias_first)
         if d is None:
             # The same variant the Rust kernel answers with, so the host-side
@@ -1222,6 +1315,14 @@ class Space:
             # catalog's own pattern text matches its template, so Meta on
             # `urn:…:{x}:{y}` describes the family.
             return self._meta(d, request)
+        if capability is not None and not capability.is_root:
+            # Declared = enforced (ledger #1580); root satisfies every scope. Read
+            # from the door's described contract on every call, so the floor is
+            # computed from the same data a mounting host reads, and a verb
+            # declared after this Space was built is floored on its own declaration.
+            lacking = unsatisfied_scopes(d.description_json(), request.verb, capability)
+            if lacking:
+                return ErrorTypedReply(DeniedError(denial_message(lacking[0], request.target)))
         action = d.actions.get(request.verb)
         if action is None and request.verb == Verb.EXISTS:
             return self._exists(d, bindings, request)

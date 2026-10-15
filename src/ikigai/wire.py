@@ -315,6 +315,21 @@ class Capability:
         """True when this capability is root, i.e. carries no scope limit."""
         return self.scopes is None
 
+    def allows(self, scope: str) -> bool:
+        """Whether this grants ``scope`` matched exactly: core's ``allows``, see
+        :func:`ikigai.capability.allows` (an exclusion is never granted)."""
+        from .capability import allows
+
+        return allows(self, scope)
+
+    def satisfies(self, scope: str) -> bool:
+        """Whether this satisfies one DECLARED scope as the kernel's floor decides it
+        (a trailing ``*`` is "holds any scope under this prefix"): core's
+        ``satisfies``, see :func:`ikigai.capability.satisfies`."""
+        from .capability import satisfies
+
+        return satisfies(self, scope)
+
 
 @dataclass(frozen=True)
 class Expiry:
