@@ -463,10 +463,29 @@ the door decides what a certificate may do, and the client never widens it.
 
 A UDS peer trusts its connections: the socket is `0600`, and both the Python
 server and the Rust server refuse peers whose kernel-verified UID (SO_PEERCRED
-/ LOCAL_PEERCRED) differs from their own. A capability carried on
-`IssueAs`/`IssueTraced` is accepted and surfaced (e.g. in trace spans) but
-**not enforced per-scope** — capability-on-the-wire for IPC is a known TODO on
-the Rust side too; do not treat a Python peer as a capability boundary.
+/ LOCAL_PEERCRED) differs from their own.
+
+**Declared = enforced.** A served door runs its own declared-capability floor
+on every call, before its handler is entered, with the same rule a Rust kernel
+applies — so a host that mounts this peer (and memoizes its contract) can rely
+on the peer refusing what the contract does not admit:
+
+- `IssueAs` and `IssueTraced` resolve under the capability they carry. A plain
+  `Issue` resolves under root, as the Rust IPC door's does: the socket admits
+  only its owner, whose entitlement is root.
+- A declared verb needs its own `requires` (a per-verb `requires=` on a family
+  replaces the flat one, never adds to it); an undeclared `Exists` needs what
+  `Source` needs; any other undeclared verb needs everything the door declares;
+  `Meta` is never gated.
+- Coverage is core's: a plain scope must be held exactly, an exclusion
+  (`urn:cap:fs:read:-/secret`) is never granted by being held, and a trailing
+  `*` (`urn:cap:net:*`) is satisfied by any held scope under its prefix.
+  `Capability.satisfies(scope)` asks the same question.
+- A refusal crosses typed as `DeniedError`, with core's text
+  (``capability does not grant `urn:cap:x` (declared by `urn:py:x`)``).
+
+The floor is coarse: a handler does not see the caller's capability, so a rule
+finer than a declared scope (a path, a host) is not expressible here yet.
 
 ## Wire-protocol notes (for implementors)
 
