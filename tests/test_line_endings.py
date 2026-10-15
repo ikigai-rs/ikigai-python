@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 SHARED = [
     "tests/vectors/contract_vectors.json",
+    "tests/vectors/capability_vectors.json",
     "tests/ttt_template_cases.txt",
     "tests/test_wire.py",
 ]

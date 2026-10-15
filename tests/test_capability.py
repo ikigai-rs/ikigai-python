@@ -1,13 +1,21 @@
 """The served door's declared-capability floor (ledger #1580) and the coverage
-predicate it runs on, pinned with ikigai-core's own cases.
+predicate it runs on, pinned with ikigai-core's own vectors (ledger #1583).
 
-Each table below is taken from a named test or doctest in
-``ikigai-core/crates/ikigai-core/src/capability.rs``, ``describe.rs`` or ``kernel.rs``
-(core 0.1.10x, main at 61ecdee), so a divergence from core fails here rather than as a
-host that admits what this peer refuses, or the reverse."""
+Every coverage, principal, floor and denial expectation comes from
+``tests/vectors/capability_vectors.json``, a VERBATIM copy of ikigai-vocab's
+``tests/vectors/capability_vectors.json``: core computes that file (its denials by issuing
+through a kernel) and its own test refuses to let it drift, and devtools' ``vector-drift``
+compares this copy with it. So a divergence from core fails here rather than as a host that
+admits what this peer refuses, or the reverse. To pick up new vectors, copy the file again;
+never edit or reformat it.
+
+The face-local checks stay: the doctests, the ``denied:`` display of the text, and the floor
+as ``Space.dispatch`` and the socket enforce it."""
 
 import doctest
+import json
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -33,9 +41,25 @@ from ikigai.wire import (
 
 ROOT = Capability.root()
 
+VECTORS_FILE = Path(__file__).parent / "vectors" / "capability_vectors.json"
+VECTORS = json.loads(VECTORS_FILE.read_text(encoding="utf-8"))
+
 
 def scoped(*scopes):
     return Capability.scoped(scopes)
+
+
+def capability(held):
+    """A vector's capability: ``"root"`` or the list of scopes it holds."""
+    return ROOT if held == "root" else Capability.scoped(held)
+
+
+def verb(name):
+    return Verb[name.upper()]
+
+
+def ids(rows, *fields):
+    return [" ".join(str(row[f]) for f in fields)[:120] for row in rows]
 
 
 def test_the_capability_doctests_hold():
@@ -52,237 +76,88 @@ def test_the_floor_doctests_hold():
     assert result.attempted > 0 and result.failed == 0
 
 
-# -- is_deny_scope: `deny_shape_pins_every_real_form` and the `is_deny_scope` doctest ----
-
-DENIES = [
-    "urn:cap:fs:read:-/root/secret",
-    "urn:cap:fs:write:-/root/secret",
-    "urn:cap:fs:delete:-/root/secret",
-    "urn:cap:fs:list:-/root/secret",
-    "urn:cap:fs:read:-secret",
-    "urn:cap:fs:read:-/Users/brian/secrets",
-    "urn:cap:net:-example.com",
-    "urn:cap:net:-example.com:443",
-    "urn:cap:net:-example.com/admin",
-    "urn:cap:net:-example.com:443/admin",
-    "urn:cap:net:-[::1]:8080",
-    "urn:cap:net:-",
-]
-
-GRANTS = [
-    "urn:cap:fs:read:/root",
-    "urn:cap:fs:read:/a-b",
-    "urn:cap:fs:read:a-b",
-    "urn:cap:fs:read:notes:-x",
-    "urn:cap:fs:read:/a:-b",
-    "urn:cap:fs:read:*",
-    "urn:cap:fs:read",
-    "urn:cap:net:example.com",
-    "urn:cap:net:example.com:-1",
-    "urn:cap:net:[::1]:8080",
-    "urn:cap:net:*",
-    "urn:cap:store:read:graph:urn:x:-y",
-    "urn:cap:ledger:read:my-ledger",
-    "urn:cap:dev-server:read",
-    "urn:cap:personal:calendar:read:freebusy",
-    "urn:cap:Fs:read:-x",
-    "urn:cap:-fs:read",
-    "urn:cap:",
-    "urn:cap",
-    "urn:other:fs:read:-x",
-    "",
-]
+def test_the_vectors_are_the_form_this_face_reads():
+    assert VECTORS["form"] == "ikigai:capability:v1"
+    for section in ("deny_scopes", "coverage", "principals", "floors", "denials"):
+        assert VECTORS[section], f"capability_vectors.json has no {section}"
 
 
-@pytest.mark.parametrize("scope", DENIES)
-def test_every_real_deny_form_is_an_exclusion(scope):
-    assert is_deny_scope(scope)
+# -- is_deny_scope ---------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("scope", GRANTS)
-def test_grants_that_look_like_exclusions_are_not(scope):
-    assert not is_deny_scope(scope)
+@pytest.mark.parametrize("row", VECTORS["deny_scopes"], ids=ids(VECTORS["deny_scopes"], "scope"))
+def test_is_deny_scope_is_cores(row):
+    assert is_deny_scope(row["scope"]) is row["is_deny_scope"]
 
 
-# -- allows: the exact primitive -------------------------------------------------------
-
-ALICE = "urn:example:person:alice"
-BOB = "urn:example:person:bob"
+# -- allows (the exact primitive) and satisfies (the floor's predicate) ----------------
 
 
-def p(iri):
-    return "urn:cap:principal:" + iri
+@pytest.mark.parametrize(
+    "row", VECTORS["coverage"], ids=ids(VECTORS["coverage"], "capability", "scope")
+)
+def test_coverage_is_cores(row):
+    cap, scope = capability(row["capability"]), row["scope"]
+    assert allows(cap, scope) is row["allows"]
+    assert cap.allows(scope) is row["allows"]
+    assert satisfies(cap, scope) is row["satisfies"]
+    assert cap.satisfies(scope) is row["satisfies"]
 
 
-ALLOWS = [
-    # root_is_root_and_allows_everything
-    (ROOT, "urn:cap:anything:read", True),
-    # scoped_allows_only_its_scopes
-    (
-        scoped("urn:cap:personal:calendar:read:freebusy"),
-        "urn:cap:personal:calendar:read:freebusy",
-        True,
-    ),
-    (
-        scoped("urn:cap:personal:calendar:read:freebusy"),
-        "urn:cap:personal:calendar:read:detail",
-        False,
-    ),
-    # an_exclusion_is_never_granted_by_exact_match
-    (scoped("urn:cap:fs:read:/root", "urn:cap:secret:read:-x"), "urn:cap:fs:read:/root", True),
-    (scoped("urn:cap:fs:read:/root", "urn:cap:secret:read:-x"), "urn:cap:secret:read:-x", False),
-    (scoped("urn:cap:fs:read:/root", "urn:cap:secret:read:-x"), "urn:cap:fs:read:-/root", False),
-    (ROOT, "urn:cap:secret:read:-x", True),
-    # a_minted_principal_reads_back_and_is_granted
-    (scoped("urn:cap:fs:read:/r", p(ALICE)), p(ALICE), True),
-    (scoped("urn:cap:fs:read:/r", p(ALICE)), p(BOB), False),
-    (scoped("urn:cap:fs:read:/r", p(ALICE)), "urn:cap:fs:read:/r", True),
-    # several_principals_are_none: only the names are void
-    (scoped(p(ALICE), p(BOB), "urn:cap:x"), p(ALICE), False),
-    (scoped(p(ALICE), p(BOB), "urn:cap:x"), p(BOB), False),
-    (scoped(p(ALICE), p(BOB), "urn:cap:x"), "urn:cap:x", True),
-    # a_wildcard_is_never_an_identity
-    (scoped("urn:cap:*"), p(ALICE), False),
-    (scoped("urn:cap:principal:*"), p(ALICE), False),
-    (scoped("urn:cap:principal:urn:*"), p(ALICE), False),
-    # ...nor does a wildcard beside a real principal make it ambiguous
-    (scoped("urn:cap:principal:*", p(ALICE)), p(ALICE), True),
-    # root_holds_every_principal_and_names_none
-    (ROOT, p(ALICE), True),
-    # satisfies_is_the_kernels_predicate_and_allows_stays_exact
-    (scoped("urn:cap:browse:read:ikigai-core"), "urn:cap:browse:read:*", False),
-]
-
-
-@pytest.mark.parametrize(("cap", "scope", "expected"), ALLOWS)
-def test_allows_matches_core(cap, scope, expected):
-    assert allows(cap, scope) is expected
-    assert cap.allows(scope) is expected
-
-
-def test_principal_matches_core():
-    assert principal(ROOT) is None
-    assert principal(scoped("urn:cap:fs:read:/r")) is None
-    assert principal(scoped()) is None
-    assert principal(scoped("urn:cap:fs:read:/r", p(ALICE))) == ALICE
-    assert principal(scoped(p(ALICE), p(BOB), "urn:cap:x")) is None
-    for wild in ("urn:cap:*", "urn:cap:principal:*", "urn:cap:principal:urn:*"):
-        assert principal(scoped(wild)) is None
-        assert principal(scoped(wild, p(ALICE))) == ALICE
-    # A scope under the prefix that names no carriable principal is not one
-    # (`what_cannot_be_carried_verbatim_is_refused_not_escaped`).
-    for bad in ("", "alice", "two words", "urn:x:<a>", "urn:x:*", "x:-y", "urn:-x"):
-        assert principal(scoped(p(bad))) is None, bad
-    assert principal(scoped(p("urn:x:" + "a" * 512))) is None
-    longest = "urn:x:" + "a" * (512 - 6)
-    assert principal(scoped(p(longest))) == longest
-
-
-# -- satisfies: the floor's predicate ----------------------------------------------------
-
-PER_ROOT = scoped("urn:cap:browse:read:ikigai-core")
-
-SATISFIES = [
-    # satisfies_is_the_kernels_predicate_and_allows_stays_exact
-    (PER_ROOT, "urn:cap:browse:read:*", True),
-    (PER_ROOT, "urn:cap:browse:read:ikigai-core", True),
-    (PER_ROOT, "urn:cap:browse:read:ikigai-gonk", False),
-    (PER_ROOT, "urn:cap:browse:read", False),
-    (PER_ROOT, "urn:cap:browse:write:*", False),
-    (PER_ROOT, "urn:cap:net:*", False),
-    (PER_ROOT, "urn:cap:*", True),
-    (scoped("urn:cap:fs:read:-/secret"), "urn:cap:fs:read:-/secret", False),
-    (scoped("urn:cap:fs:read:-/secret"), "urn:cap:fs:read:*", True),
-    (scoped("urn:cap:x", p(ALICE)), p(ALICE), True),
-    (ROOT, "urn:cap:net:*", True),
-    (scoped(), "urn:cap:net:*", False),
-    # a_wildcard_is_never_an_identity: the presence test is satisfied by a held wildcard
-    (scoped("urn:cap:principal:*"), "urn:cap:principal:*", True),
-    # the kernel's wildcard floor test: a host-scoped grant under the family
-    (scoped("urn:cap:net:localhost:11434"), "urn:cap:net:*", True),
-    (scoped("urn:cap:fs:read:/tmp"), "urn:cap:net:*", False),
-    # a_family_floor_refusal_names_what_satisfies_it
-    (scoped("urn:cap:script:run:close-door"), "urn:cap:script:run:open-*", False),
-    (scoped("urn:cap:script:run:open-door"), "urn:cap:script:run:open-*", True),
-    # `*` alone: any grant at all
-    (scoped("urn:cap:anything"), "*", True),
-    (scoped(), "*", False),
-]
-
-
-@pytest.mark.parametrize(("cap", "scope", "expected"), SATISFIES)
-def test_satisfies_matches_core(cap, scope, expected):
-    assert satisfies(cap, scope) is expected
-    assert cap.satisfies(scope) is expected
-
-
-def test_denial_text_is_cores_word_for_word():
-    # an_exact_floor_refusal_text_is_unchanged
-    assert DeniedError(denial_message("urn:cap:cal:read", "urn:cal")).display() == (
-        "denied: capability does not grant `urn:cap:cal:read` (declared by `urn:cal`)"
-    )
-    # a_family_floor_refusal_names_what_satisfies_it
-    assert DeniedError(
-        denial_message("urn:cap:script:run:open-*", "urn:script:open-door")
-    ).display() == (
-        "denied: capability does not grant `urn:cap:script:run:open-*` "
-        "(declared by `urn:script:open-door`; any grant under "
-        "`urn:cap:script:run:open-` satisfies it)"
-    )
-    assert denial_message("*", "urn:x") == (
-        "capability does not grant `*` (declared by `urn:x`; any grant at all satisfies it)"
-    )
+@pytest.mark.parametrize("row", VECTORS["principals"], ids=ids(VECTORS["principals"], "capability"))
+def test_principal_is_cores(row):
+    assert principal(capability(row["capability"])) == row["principal"]
 
 
 # -- required_scopes: core's Floor table, from a description ----------------------------
 
-CALENDAR = {
-    "id": "calendar",
-    "verbs": ["Source", "Sink", "Meta"],
-    "inputs": [],
-    "outputs": [],
-    "actions": [
-        {"verb": "Source", "requires": ["urn:cap:personal:calendar:read"]},
-        {"verb": "Sink", "requires": ["urn:cap:personal:calendar:write"]},
-    ],
+
+# Rows where this face and core DISAGREE, held as strict xfails so the rest of the vectors
+# land while the hub decides which side has the bug (ledger #1583). Strict: a fix on either
+# side turns the row into an XPASS, which fails, so the entry cannot outlive the disagreement.
+DISAGREES = {
+    # Core's Description::action_specs takes the FIRST action declared for a verb
+    # (`find`); `ikigai.serve.action_specs` builds a dict, so the LAST one wins.
+    "first-action-wins": "action_specs: core takes the first action for a verb, this face the last",
+    # Core deduplicates every scope of the union; `required_scopes` here checks a scope
+    # against the union only BEFORE adding a whole `requires` list, so a scope repeated
+    # inside one list is kept twice.
+    "duplicate-verbs": "required_scopes: a scope repeated within one requires list is not deduped",
 }
 
 
-def test_required_scopes_is_cores_table():
-    # Description::required_scopes's doctest.
-    assert required_scopes(CALENDAR, Verb.SINK) == ["urn:cap:personal:calendar:write"]
-    assert required_scopes(CALENDAR, Verb.EXISTS) == ["urn:cap:personal:calendar:read"]
-    assert required_scopes(CALENDAR, Verb.META) == []
-    assert len(required_scopes(CALENDAR, Verb.DELETE)) == 2
-    # An undeclared Exists with no Source needs everything declared.
-    sink_only = {"verbs": ["Sink"], "inputs": [], "outputs": [], "requires": ["urn:cap:w"]}
-    assert required_scopes(sink_only, Verb.EXISTS) == ["urn:cap:w"]
-    # A description declaring `requires` and no verb enforces it on every verb.
-    no_verb = {"verbs": [], "inputs": [], "outputs": [], "requires": ["urn:cap:a"]}
-    for verb in (Verb.SOURCE, Verb.SINK, Verb.EXISTS, Verb.DELETE):
-        assert required_scopes(no_verb, verb) == ["urn:cap:a"], verb
-    # An explicit per-verb `requires` REPLACES the flat one (ledger #5).
-    replaced = {
-        "verbs": ["Source", "Meta"],
-        "inputs": [],
-        "outputs": [],
-        "requires": ["urn:cap:flat"],
-        "actions": [{"verb": "Source", "requires": ["urn:cap:own"]}],
-    }
-    assert required_scopes(replaced, Verb.SOURCE) == ["urn:cap:own"]
+def floor_params():
+    for floor in VECTORS["floors"]:
+        reason = DISAGREES.get(floor["name"])
+        marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+        yield pytest.param(floor, id=floor["name"], marks=marks)
 
 
-def test_unsatisfied_scopes_is_cores():
-    # Description::unsatisfied_scopes's doctest.
-    fetch = {
-        "verbs": ["Source"],
-        "inputs": [],
-        "outputs": [],
-        "requires": ["urn:cap:net:*", "urn:cap:fetch:read"],
-    }
-    holder = scoped("urn:cap:net:example.com")
-    assert unsatisfied_scopes(fetch, Verb.SOURCE, holder) == ["urn:cap:fetch:read"]
-    assert unsatisfied_scopes(fetch, Verb.SOURCE, ROOT) == []
+def test_every_disagreement_names_a_row():
+    assert set(DISAGREES) <= {floor["name"] for floor in VECTORS["floors"]}
+
+
+@pytest.mark.parametrize("floor", list(floor_params()))
+def test_required_scopes_is_cores(floor):
+    for row in floor["verbs"]:
+        assert required_scopes(floor["description"], verb(row["verb"])) == row["required_scopes"], (
+            row["verb"]
+        )
+
+
+# -- denials: the kernel's text for the first unsatisfied scope -------------------------
+
+
+@pytest.mark.parametrize("row", VECTORS["denials"], ids=ids(VECTORS["denials"], "name"))
+def test_the_floor_refuses_with_cores_text(row):
+    lacking = unsatisfied_scopes(
+        row["description"], verb(row["verb"]), capability(row["capability"])
+    )
+    refused = denial_message(lacking[0], row["target"]) if lacking else None
+    assert refused == row["denied"]
+    if refused is not None:
+        # This face's typed error says it the way core's Display does.
+        assert DeniedError(refused).display() == "denied: " + refused
 
 
 # -- the served floor: Space.dispatch ---------------------------------------------------
