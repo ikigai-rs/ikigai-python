@@ -266,6 +266,15 @@ What a served endpoint gets for free, because its describe face is real:
   `tests/vectors/contract_vectors.json`: a verbatim copy of ikigai-vocab's
   `tests/vectors/contract_vectors.json`, which carries this face's doors and
   ikigai-deno's. To pick up new vectors, copy that file again, unedited.
+- **HTML escaping and URL rules**: `ikigai.html` mirrors `ikigai_fn::html`
+  (stdlib only): `html_text` and `attr` (element text and quoted attributes; a C0
+  control other than tab/LF/CR becomes U+FFFD), `url_segment` (one path segment
+  or query value, RFC 3986 unreserved kept), `safe_href` (the trimmed target, or
+  `None` unless it is `http://`, `https://` or a single-slash path) and
+  `json_attr` (htmx's `hx-vals`). `tests/test_html.py` runs every case in
+  `tests/vectors/html_vectors.json`, a verbatim copy of ikigai-fn's file at
+  commit 53d50c5; to pick up new vectors, copy that file again, unedited. The
+  tic-tac-toe example's `$h` escape goes through `html_text`.
 - **Match and contract IRIs**: `ikigai.contract` mirrors core's
   `match_iri`/`parse_match_iri` (`urn:ikigai:match:{verb}:{pattern}`, the row a
   host's `urn:kernel:actions` gives one door and verb) and
