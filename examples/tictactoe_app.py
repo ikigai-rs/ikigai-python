@@ -91,6 +91,7 @@ from ikigai import (
     UnavailableError,
     UnresolvedError,
 )
+from ikigai.html import html_text
 
 #: The game's names at the host, as the root game has them.
 GAME = "urn:iki:tutorial:ttt:"
@@ -131,9 +132,6 @@ DEFAULT_HTTP = "127.0.0.1:8072"
 # ("The template language"; its `template-cases` block is tests/ttt_template_cases.txt). What is
 # here is the language: the scan, the three splices, the arguments and `conditional`. Which
 # template a view shows is not here: that is in the templates.
-
-#: The escape ``$h`` applies (``html.escape`` differs: it writes ``&#x27;``).
-ESCAPE = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})
 
 #: What Rust's ``str::trim`` trims: Unicode ``White_Space``, which is what ``str.isspace``
 #: accepts less U+001C to U+001F (so ``str.strip()`` with no argument would strip too much).
@@ -343,7 +341,7 @@ def splice(
         raise value
     if marker.mode == "a":
         return fill(value, args, source, depth + 1)
-    return value.translate(ESCAPE) if marker.mode == "h" else value
+    return html_text(value) if marker.mode == "h" else value
 
 
 #: ``conditional``'s reading of ``if`` when there is no ``equals``.
@@ -567,7 +565,7 @@ def page(game: Game) -> str:
     game_id = game.game_id
     label = game_id or "root"
     shell = game.view(f"view:game:{label}")
-    title = (f"game {label}" if game_id else "the root game").translate(ESCAPE)
+    title = html_text(f"game {label}" if game_id else "the root game")
     base = f"/game/{game_id}/" if game_id else "/"
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
