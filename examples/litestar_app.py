@@ -12,7 +12,7 @@ Run (direct, no Rust needed)::
     IKIGAI_SOCKET=/tmp/py-examples.sock uvicorn examples.litestar_app:app
 
 Or through a Rust kernel (see examples/README.md) — the ``X-Ikigai-Cache``
-response header then reports the kernel cache's answer (HIT on repeats).
+response header then reports the kernel's verdict (MISS for mounted answers).
 """
 
 from __future__ import annotations

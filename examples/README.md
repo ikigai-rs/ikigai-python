@@ -61,15 +61,16 @@ There is no cache in this mode: the Python peer computes every request and
 ## Run mode 2: through the kernel (the same call, plus caching)
 
 Put a Rust kernel in the middle and let IT own the topology — the REST call
-then traverses **Python app → Rust kernel → mount → Python peer**, and the
-kernel caches the pure results:
+then traverses **Python app → Rust kernel → mount → Python peer**. The kernel
+never caches a mounted answer (ikigai-cli 0.1.64 onward); the peer's own cache
+still serves the pure results:
 
 ```sh
 python -m examples.endpoints /tmp/py-examples.sock &
 ikigai serve /tmp/kernel.sock --prefer urn:py:=/tmp/py-examples.sock &
 IKIGAI_SOCKET=/tmp/kernel.sock uvicorn examples.litestar_app:app
 curl -i 'localhost:8000/upper?text=roc'   # X-Ikigai-Cache: MISS
-curl -i 'localhost:8000/upper?text=roc'   # X-Ikigai-Cache: HIT — the kernel cached the peer's result
+curl -i 'localhost:8000/upper?text=roc'   # X-Ikigai-Cache: MISS — a mounting kernel does not cache
 ```
 
 Nothing in the app changed — same code, same IRIs; only `IKIGAI_SOCKET`
