@@ -396,6 +396,20 @@ def test_truncated_payload_is_a_decode_error():
         wire.decode_call(encoded[:-1])
 
 
+def test_a_duplicated_argument_key_is_refused_at_decode():
+    # Issue(Request{Source, urn:test:upper, {"in": Inline("hi"), "in": Inline("yo")}}),
+    # spelled byte by byte: variant 0, verb 0, the IRI, a map of TWO entries under one key.
+    # A map has one value per key; keeping either would answer a call nobody sent.
+    entry_hi = b"\x02in" + b"\x01\x02hi"
+    entry_yo = b"\x02in" + b"\x01\x02yo"
+    payload = b"\x00\x00" + SHARED_IRI_BYTES + b"\x02" + entry_hi + entry_yo
+    with pytest.raises(ProtocolError, match="duplicate argument key `in`"):
+        wire.decode_call(payload)
+    # The same bytes with distinct keys decode: the refusal is the repeat, nothing else.
+    ok = b"\x00\x00" + SHARED_IRI_BYTES + b"\x02" + entry_hi + b"\x03out\x01\x02yo"
+    assert wire.decode_call(ok).request.args == {"in": Inline(b"hi"), "out": Inline(b"yo")}
+
+
 def test_trailing_garbage_is_rejected():
     encoded = wire.encode_call(EntriesCall()) + b"\x00"
     with pytest.raises(Exception, match="trailing"):

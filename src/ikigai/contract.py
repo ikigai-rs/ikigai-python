@@ -52,6 +52,11 @@ CONTRACT_PREFIX = "urn:ikigai:contract:"
 # than digests that match the wrong thing.
 _CONTRACT_FORM = "ikigai:contract:v1"
 
+# The second form (ledger #1547), chosen BY CONTENT: a contract that uses any construct of
+# the ArgSpec release (see `_uses_v2`) is digested under this tag, every other under v1, so
+# no existing contract IRI moves.
+_CONTRACT_FORM_V2 = "ikigai:contract:v2"
+
 # Everything a Turtle IRIREF cannot carry literally.
 _IRIREF_FORBIDDEN = frozenset('<>"{}|^`\\')
 
@@ -486,6 +491,15 @@ def _feed_set(h, values) -> None:
         _feed_str(h, v)
 
 
+def group_segment(group: dict) -> str:
+    """``InputGroup::node_segment``: the group node's segment under its contract IRI,
+    ``group:{kind}:{m1},{m2}``, each member a NAME (:func:`encode_name`, with ``,`` encoded
+    as ``%2C`` too so the list is unambiguous), sorted and deduplicated. Also the ``path``
+    of a group violation in the shared validation vectors."""
+    members = _sorted_set(encode_name(m).replace(",", "%2C") for m in group.get("members") or ())
+    return f"group:{group['kind']}:{','.join(members)}"
+
+
 def _input_key(arg: dict) -> tuple:
     # Core's `input_key`, field for field: name, summary, required, is-binding, class,
     # default, one_of (already canonical). An Option orders None before Some.
@@ -503,6 +517,105 @@ def _input_key(arg: dict) -> tuple:
     )
 
 
+def _uses_v2(action: dict) -> bool:
+    """Core's ``uses_v2``: whether the contract uses a construct v1 cannot carry."""
+    return bool(
+        action.get("groups")
+        or action.get("arguments")
+        or action.get("output_from") is not None
+        or any(
+            arg.get("needs")
+            or arg.get("list") is not None
+            or arg.get("values")
+            or arg.get("examples")
+            or ("one_of" in arg and not arg["one_of"])
+            for arg in action.get("inputs") or ()
+        )
+    )
+
+
+def _canon_str(s: str) -> bytes:
+    b = s.encode("utf-8")
+    return struct.pack("<Q", len(b)) + b
+
+
+def _canon_option(value: str | None) -> bytes:
+    return b"\x00" if value is None else b"\x01" + _canon_str(value)
+
+
+def _canon_set(values) -> bytes:
+    items = _sorted_set(values)
+    return struct.pack("<Q", len(items)) + b"".join(_canon_str(v) for v in items)
+
+
+def _input_v2(arg: dict) -> bytes:
+    """Core's ``input_v2``: one input encoded whole, v1's fields then the additions."""
+    out = _canon_str(arg["name"]) + _canon_str(arg.get("summary", ""))
+    out += bytes([1 if arg.get("required", True) else 0])
+    out += bytes([1 if arg.get("source", "argument") == "binding" else 0])
+    out += _canon_option(arg.get("class")) + _canon_option(arg.get("default"))
+    out += _canon_set(arg.get("one_of") or ())
+    out += _canon_set(arg.get("needs") or ())
+    out += _canon_option(arg.get("list"))
+    values = arg.get("values") or {}
+    out += struct.pack("<Q", len(values))
+    for value in sorted(values):  # a BTreeMap: by UTF-8 bytes
+        note = values[value]
+        out += _canon_str(value) + _canon_str(note.get("summary", ""))
+        out += _canon_set(note.get("tags") or ()) + _canon_set(note.get("needs") or ())
+    out += bytes([1 if "one_of" in arg and not arg["one_of"] else 0])
+    out += _canon_set(arg.get("examples") or ())
+    return out
+
+
+def _group_v2(group: dict) -> bytes:
+    return (
+        _canon_str(group["kind"])
+        + _canon_set(group.get("members") or ())
+        + _canon_option(group.get("pipe"))
+    )
+
+
+def _feed_items(h, items) -> None:
+    # Core's `Canon::feed_items`: sorted and deduplicated by encoding, count-prefixed,
+    # each length-prefixed.
+    unique = sorted(set(items))
+    _feed_u64(h, len(unique))
+    for item in unique:
+        _feed_u64(h, len(item))
+        h.update(item)
+
+
+def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
+    h = blake3.blake3()
+    _feed_str(h, _CONTRACT_FORM_V2)
+    _feed_str(h, endpoint_id)
+    _feed_str(h, _verb_segment(verb))
+    _feed_str(h, action.get("summary", ""))
+    _feed_items(h, (_input_v2(arg) for arg in action.get("inputs") or ()))
+    _feed_set(h, action.get("outputs") or ())
+    _feed_set(h, action.get("requires") or ())
+    _feed_items(h, (_group_v2(g) for g in action.get("groups") or ()))
+    arguments = action.get("arguments")
+    if not arguments:
+        _feed_u8(h, 0)
+    elif "open" in arguments:
+        _feed_u8(h, 1)
+        _feed_str(h, arguments["open"])
+    else:
+        _feed_u8(h, 2)
+        _feed_str(h, arguments["envelope"])
+    output_from = action.get("output_from")
+    if output_from is None:
+        _feed_u8(h, 0)
+    elif output_from == "origin":
+        _feed_u8(h, 2)
+    else:
+        _feed_u8(h, 1)
+        _feed_str(h, output_from["input"])
+    return "b3:" + h.hexdigest()
+
+
 def contract_id(endpoint_id: str, action: dict) -> str:
     """One verb's contract, content-addressed: ``b3:{hex}`` (core's
     ``ActionSpec::contract_id``).
@@ -516,8 +629,16 @@ def contract_id(endpoint_id: str, action: dict) -> str:
     scopes, each sorted and deduplicated. Every variable-length field is
     length-prefixed (u64, little-endian). So declaration ORDER never changes the
     identity, and two contracts that would render differently never share one.
+
+    A contract that uses any construct of the ArgSpec release (an input's ``needs``,
+    ``list``, ``values``, ``examples`` or an empty ``one_of``; an action's ``groups``,
+    open or envelope ``arguments``, ``output_from``) is digested under
+    ``ikigai:contract:v2`` instead (:func:`_contract_id_v2`; byte layout in core's
+    ``tests/vectors/README.md``), so every contract that uses none keeps its v1 digest.
     """
     verb = Verb[action["verb"].upper()]
+    if _uses_v2(action):
+        return _contract_id_v2(endpoint_id, action, verb)
     h = blake3.blake3()
     _feed_str(h, _CONTRACT_FORM)
     _feed_str(h, endpoint_id)

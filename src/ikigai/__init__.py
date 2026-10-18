@@ -12,7 +12,7 @@ from .client import (
     connect,
     default_socket_path,
 )
-from .serve import ArgSpec, EndpointDef, Family, Server, endpoint, family, serve
+from .serve import ArgSpec, EndpointDef, Family, InputGroup, Server, endpoint, family, serve
 from .template import TemplateError, UriTemplate
 from .wire import (
     MIN_PROTOCOL_VERSION,
@@ -50,6 +50,7 @@ __all__ = [
     "ConnectionLost",
     "EndpointDef",
     "Family",
+    "InputGroup",
     "Server",
     "connect",
     "default_socket_path",
