@@ -54,6 +54,19 @@ def test_the_vectors_are_for_the_canonical_form_this_face_computes():
     assert VECTORS["form"] == ikigai.contract._CONTRACT_FORM
 
 
+def test_the_vectors_name_the_v2_form_this_face_computes():
+    assert VECTORS["form_v2"] == ikigai.contract._CONTRACT_FORM_V2
+
+
+def test_a_contract_is_digested_under_the_form_its_content_chooses():
+    # The v2 rows are the proof: each uses a construct v1 cannot carry. And the one v1
+    # row beside them (`to-upper`) proves a contract that uses none is untouched.
+    v2 = [c for c in CONTRACTS if c["name"].startswith("v2/")]
+    assert len(v2) >= 12
+    assert all(ikigai.contract._uses_v2(c["action"]) for c in v2)
+    assert not ikigai.contract._uses_v2(CONTRACT["to-upper (the renamed builtin id)"]["action"])
+
+
 def test_the_vectors_carry_every_door_this_face_builds():
     carried = {d["name"][len(PYTHON) :] for d in DOORS if d["name"].startswith(PYTHON)}
     assert carried == set(doors())

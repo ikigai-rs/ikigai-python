@@ -210,6 +210,17 @@ def hello(who: str, greeting: str = "Hello") -> str:
 serve([hello], "/tmp/py.sock")   # blocks; speaks the wire protocol
 ```
 
+**The contract shape of core 0.1.105.** `ArgSpec` also takes `needs=[…]` (inputs that must
+be given with this one), `list="comma"` (one argument carrying a list; repeats are joined,
+`one_of` applies per item), `values={…}` (value notes), `examples=[…]` and `one_of=[]` (an
+enumeration that accepts nothing). `endpoint(...)` and each family verb take
+`groups=[InputGroup.exactly_one("a", "b", pipe="a")]`, `arguments={"open": "…"}` or
+`{"envelope": "content"}`, and `output_from="origin"` or an input name. A served call breaks
+a group, a dependency or an envelope rule and is refused with `InvalidArgument` before the
+handler runs; `ikigai.check.check` is the whole pre-flight, pinned to core's
+`validation_vectors.json`. A contract using any of these is digested under
+`ikigai:contract:v2`; every other keeps its v1 digest.
+
 **The signature is the contract.** With no `args=` list the ArgSpecs are
 derived from the function signature:
 

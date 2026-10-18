@@ -834,6 +834,10 @@ def _get_request(r: Reader) -> Request:
     args: dict[str, ArgRef] = {}
     for _ in range(r.varint()):
         name = r.string()
+        if name in args:
+            # A map holds one value per key, and a decoder that keeps the last (or the
+            # first) answers a different call than the peer that sent it meant. Refuse it.
+            raise DecodeError(f"duplicate argument key `{name}`")
         args[name] = _get_arg_ref(r)
     return Request(verb, target, args)
 

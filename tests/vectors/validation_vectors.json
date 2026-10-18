@@ -1,0 +1,1632 @@
+{
+  "about": "Validation vectors computed by ikigai-core's ActionSpec::check from tests/vectors/validation_cases.json (crates/ikigai-vocab/tests/validation_vectors.rs, which fails if this file differs from what it computes). `action` is the serde shape of ikigai_core::ActionSpec; `args` are the proposed (name, value) pairs in order, repeats kept; `violations` are in the checker's order, each a `kind` word and a `path` (`input:{name}`, `group:{kind}:{members}` or `input:{name}:value:{value}`, null for an undeclared name).",
+  "cases": [
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "start",
+          "2026-07-10T10:00:00"
+        ],
+        [
+          "mode",
+          "add"
+        ]
+      ],
+      "conforms": true,
+      "name": "closed/conforms",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "start",
+          "2026-07-10"
+        ]
+      ],
+      "conforms": true,
+      "name": "closed/binding-is-never-missing",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "mode",
+          "destroy"
+        ],
+        [
+          "when",
+          "now"
+        ]
+      ],
+      "conforms": false,
+      "name": "closed/missing-not-one-of-unknown",
+      "violations": [
+        {
+          "kind": "missing",
+          "path": "input:start"
+        },
+        {
+          "kind": "not-one-of",
+          "path": "input:mode"
+        },
+        {
+          "kind": "unknown",
+          "path": null
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "start",
+          "whenever"
+        ]
+      ],
+      "conforms": false,
+      "name": "closed/implausible-datetime",
+      "violations": [
+        {
+          "kind": "implausible",
+          "path": "input:start"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "start",
+          "2026-07-10"
+        ],
+        [
+          "start",
+          "2026-07-11"
+        ]
+      ],
+      "conforms": false,
+      "name": "closed/given-twice",
+      "violations": [
+        {
+          "kind": "given-twice",
+          "path": "input:start"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#dateTime",
+            "name": "start",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "add",
+              "move"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "id",
+            "required": false,
+            "source": "binding",
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "start",
+          "2026-07-10"
+        ],
+        [
+          "x",
+          "1"
+        ],
+        [
+          "x",
+          "2"
+        ]
+      ],
+      "conforms": false,
+      "name": "closed/unknown-given-twice-is-reported-once",
+      "violations": [
+        {
+          "kind": "unknown",
+          "path": null
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "name": "n",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#boolean",
+            "name": "flag",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "n",
+          "-5"
+        ],
+        [
+          "flag",
+          "false"
+        ]
+      ],
+      "conforms": true,
+      "name": "typed/plausible",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "name": "n",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#boolean",
+            "name": "flag",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "n",
+          "five"
+        ],
+        [
+          "flag",
+          "yes"
+        ]
+      ],
+      "conforms": false,
+      "name": "typed/implausible",
+      "violations": [
+        {
+          "kind": "implausible",
+          "path": "input:n"
+        },
+        {
+          "kind": "implausible",
+          "path": "input:flag"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "list": "comma",
+            "name": "proposals",
+            "one_of": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "list": "comma-or-whitespace",
+            "name": "graph",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "query",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "proposals",
+          "minor,bogus"
+        ]
+      ],
+      "conforms": false,
+      "name": "list/each-item-is-checked",
+      "violations": [
+        {
+          "kind": "not-one-of",
+          "path": "input:proposals"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "list": "comma",
+            "name": "proposals",
+            "one_of": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "list": "comma-or-whitespace",
+            "name": "graph",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "query",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "proposals",
+          " minor, info,,"
+        ]
+      ],
+      "conforms": true,
+      "name": "list/items-trimmed-and-empties-dropped",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "list": "comma",
+            "name": "proposals",
+            "one_of": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "list": "comma-or-whitespace",
+            "name": "graph",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "query",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "graph",
+          "1"
+        ],
+        [
+          "graph",
+          "2 3"
+        ]
+      ],
+      "conforms": true,
+      "name": "list/repeats-are-joined",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "list": "comma",
+            "name": "proposals",
+            "one_of": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "list": "comma-or-whitespace",
+            "name": "graph",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "query",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "graph",
+          "1,x"
+        ]
+      ],
+      "conforms": false,
+      "name": "list/each-item-against-the-class",
+      "violations": [
+        {
+          "kind": "implausible",
+          "path": "input:graph"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "list": "comma",
+            "name": "proposals",
+            "one_of": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "list": "comma-or-whitespace",
+            "name": "graph",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "query",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "query",
+          "a"
+        ],
+        [
+          "query",
+          "b"
+        ]
+      ],
+      "conforms": false,
+      "name": "list/a-non-list-repeat-is-given-twice",
+      "violations": [
+        {
+          "kind": "given-twice",
+          "path": "input:query"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [],
+      "conforms": false,
+      "name": "exactly-one/none",
+      "violations": [
+        {
+          "kind": "exactly-one",
+          "path": "group:exactly-one:content,thread"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "thread",
+          "urn:x"
+        ]
+      ],
+      "conforms": true,
+      "name": "exactly-one/one",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "content",
+          "urn:x"
+        ]
+      ],
+      "conforms": true,
+      "name": "exactly-one/the-other",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "thread",
+          "urn:x"
+        ],
+        [
+          "content",
+          "urn:y"
+        ]
+      ],
+      "conforms": false,
+      "name": "exactly-one/both",
+      "violations": [
+        {
+          "kind": "exactly-one",
+          "path": "group:exactly-one:content,thread"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "thread",
+          "urn:x"
+        ],
+        [
+          "content",
+          ""
+        ]
+      ],
+      "conforms": true,
+      "name": "exactly-one/a-blank-member-is-not-given",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "thread",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "content",
+          " "
+        ]
+      ],
+      "conforms": false,
+      "name": "exactly-one/only-blank",
+      "violations": [
+        {
+          "kind": "exactly-one",
+          "path": "group:exactly-one:content,thread"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "at-least-one",
+            "members": [
+              "org",
+              "who"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "who",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "org",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [],
+      "conforms": false,
+      "name": "at-least-one/none",
+      "violations": [
+        {
+          "kind": "at-least-one",
+          "path": "group:at-least-one:org,who"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "at-least-one",
+            "members": [
+              "org",
+              "who"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "who",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "org",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "who",
+          "w"
+        ],
+        [
+          "org",
+          "o"
+        ]
+      ],
+      "conforms": true,
+      "name": "at-least-one/both",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "at-most-one",
+            "members": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "a",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "b",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [],
+      "conforms": true,
+      "name": "at-most-one/none",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "at-most-one",
+            "members": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "a",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "b",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "a",
+          "1"
+        ],
+        [
+          "b",
+          "2"
+        ]
+      ],
+      "conforms": false,
+      "name": "at-most-one/both",
+      "violations": [
+        {
+          "kind": "at-most-one",
+          "path": "group:at-most-one:a,b"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "action",
+              "endpoint"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "action",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "endpoint",
+            "needs": [
+              "verb"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "verb",
+            "one_of": [
+              "source",
+              "sink",
+              "exists",
+              "delete"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "args",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "endpoint",
+          "urn:x"
+        ],
+        [
+          "verb",
+          "source"
+        ]
+      ],
+      "conforms": true,
+      "name": "needs/met",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "action",
+              "endpoint"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "action",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "endpoint",
+            "needs": [
+              "verb"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "verb",
+            "one_of": [
+              "source",
+              "sink",
+              "exists",
+              "delete"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "args",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "endpoint",
+          "urn:x"
+        ]
+      ],
+      "conforms": false,
+      "name": "needs/unmet",
+      "violations": [
+        {
+          "kind": "needs",
+          "path": "input:endpoint"
+        }
+      ]
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "action",
+              "endpoint"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "action",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "endpoint",
+            "needs": [
+              "verb"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "verb",
+            "one_of": [
+              "source",
+              "sink",
+              "exists",
+              "delete"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "args",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "action",
+          "urn:a"
+        ],
+        [
+          "verb",
+          "source"
+        ]
+      ],
+      "conforms": true,
+      "name": "needs/is-one-way",
+      "violations": []
+    },
+    {
+      "action": {
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "action",
+              "endpoint"
+            ]
+          }
+        ],
+        "inputs": [
+          {
+            "name": "action",
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "endpoint",
+            "needs": [
+              "verb"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "verb",
+            "one_of": [
+              "source",
+              "sink",
+              "exists",
+              "delete"
+            ],
+            "required": false,
+            "summary": ""
+          },
+          {
+            "name": "args",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "args",
+          "a=1"
+        ]
+      ],
+      "conforms": false,
+      "name": "needs/and-the-group",
+      "violations": [
+        {
+          "kind": "exactly-one",
+          "path": "group:exactly-one:action,endpoint"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "decision",
+            "one_of": [
+              "publish",
+              "retract"
+            ],
+            "required": true,
+            "summary": "",
+            "values": {
+              "retract": {
+                "needs": [
+                  "revises"
+                ],
+                "summary": "withdraw a published decision",
+                "tags": [
+                  "revision"
+                ]
+              }
+            }
+          },
+          {
+            "name": "revises",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "decision",
+          "publish"
+        ]
+      ],
+      "conforms": true,
+      "name": "value-note/no-needs",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "decision",
+            "one_of": [
+              "publish",
+              "retract"
+            ],
+            "required": true,
+            "summary": "",
+            "values": {
+              "retract": {
+                "needs": [
+                  "revises"
+                ],
+                "summary": "withdraw a published decision",
+                "tags": [
+                  "revision"
+                ]
+              }
+            }
+          },
+          {
+            "name": "revises",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "decision",
+          "retract"
+        ]
+      ],
+      "conforms": false,
+      "name": "value-note/needs-unmet",
+      "violations": [
+        {
+          "kind": "needs",
+          "path": "input:decision:value:retract"
+        }
+      ]
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "decision",
+            "one_of": [
+              "publish",
+              "retract"
+            ],
+            "required": true,
+            "summary": "",
+            "values": {
+              "retract": {
+                "needs": [
+                  "revises"
+                ],
+                "summary": "withdraw a published decision",
+                "tags": [
+                  "revision"
+                ]
+              }
+            }
+          },
+          {
+            "name": "revises",
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "decision",
+          "retract"
+        ],
+        [
+          "revises",
+          "urn:d:1"
+        ]
+      ],
+      "conforms": true,
+      "name": "value-note/needs-met",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "provider",
+            "one_of": [],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [],
+      "conforms": true,
+      "name": "enumerated-empty/absent",
+      "violations": []
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "provider",
+            "one_of": [],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "provider",
+          "ollama"
+        ]
+      ],
+      "conforms": false,
+      "name": "enumerated-empty/any-value-is-refused",
+      "violations": [
+        {
+          "kind": "not-one-of",
+          "path": "input:provider"
+        }
+      ]
+    },
+    {
+      "action": {
+        "arguments": {
+          "open": "each fills a {name} marker in the body"
+        },
+        "inputs": [
+          {
+            "name": "src",
+            "required": true,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "src",
+          "urn:x"
+        ],
+        [
+          "title",
+          "y"
+        ]
+      ],
+      "conforms": true,
+      "name": "open/admits-any-name",
+      "violations": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "open": "each fills a {name} marker in the body"
+        },
+        "inputs": [
+          {
+            "name": "src",
+            "required": true,
+            "summary": ""
+          }
+        ],
+        "verb": "Source"
+      },
+      "args": [
+        [
+          "src",
+          "a"
+        ],
+        [
+          "src",
+          "b"
+        ]
+      ],
+      "conforms": false,
+      "name": "open/still-refuses-a-repeat",
+      "violations": [
+        {
+          "kind": "given-twice",
+          "path": "input:src"
+        }
+      ]
+    },
+    {
+      "action": {
+        "arguments": {
+          "envelope": "content"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "email",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "topic",
+            "one_of": [
+              "a",
+              "b"
+            ],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "content",
+          "email=x"
+        ]
+      ],
+      "conforms": true,
+      "name": "envelope/carrier-only",
+      "violations": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "envelope": "content"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "email",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "topic",
+            "one_of": [
+              "a",
+              "b"
+            ],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "email",
+          "x"
+        ],
+        [
+          "topic",
+          "a"
+        ]
+      ],
+      "conforms": true,
+      "name": "envelope/fields-only",
+      "violations": []
+    },
+    {
+      "action": {
+        "arguments": {
+          "envelope": "content"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "email",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "topic",
+            "one_of": [
+              "a",
+              "b"
+            ],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "topic",
+          "a"
+        ]
+      ],
+      "conforms": false,
+      "name": "envelope/a-field-missing",
+      "violations": [
+        {
+          "kind": "missing",
+          "path": "input:email"
+        }
+      ]
+    },
+    {
+      "action": {
+        "arguments": {
+          "envelope": "content"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "email",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "topic",
+            "one_of": [
+              "a",
+              "b"
+            ],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [],
+      "conforms": false,
+      "name": "envelope/neither",
+      "violations": [
+        {
+          "kind": "missing",
+          "path": "input:content"
+        }
+      ]
+    },
+    {
+      "action": {
+        "arguments": {
+          "envelope": "content"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "email",
+            "required": true,
+            "summary": ""
+          },
+          {
+            "name": "topic",
+            "one_of": [
+              "a",
+              "b"
+            ],
+            "required": false,
+            "summary": ""
+          }
+        ],
+        "verb": "Sink"
+      },
+      "args": [
+        [
+          "content",
+          "x"
+        ],
+        [
+          "email",
+          "y"
+        ]
+      ],
+      "conforms": false,
+      "name": "envelope/both",
+      "violations": [
+        {
+          "kind": "envelope",
+          "path": "input:content"
+        }
+      ]
+    }
+  ]
+}

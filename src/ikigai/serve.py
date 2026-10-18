@@ -111,6 +111,7 @@ import types
 import typing
 from pathlib import Path
 
+from . import check as preflight
 from . import contract, wire
 from .capability import denial_message
 from .capability import satisfies as capability_satisfies
@@ -163,10 +164,20 @@ class ArgSpec:
         default: str | None = None,
         one_of: list[str] | None = None,
         source: str = "argument",
+        needs: list[str] | None = None,
+        list: str | None = None,
+        values: dict[str, dict] | None = None,
+        examples: list[str] | None = None,
     ):
         """``name`` is the wire argument name. ``default`` forces ``required`` False (as
         in Rust); ``cls`` is an XSD class IRI; ``one_of`` an enforced value set;
-        ``source`` is ``"argument"`` or ``"binding"``. The ``py_*`` attributes are
+        ``source`` is ``"argument"`` or ``"binding"``. ``one_of=[]`` is an ENUMERATION
+        THAT ACCEPTS NO VALUE (``one_of=None`` is open-valued). ``needs`` names inputs
+        that must be given when this one is; ``list`` is the separator word (``comma``,
+        ``whitespace``, ``comma-or-whitespace``, ``newline``) of a list-valued argument,
+        which may be given more than once; ``values`` describes particular ``one_of``
+        values (``{"retract": {"summary": …, "tags": […], "needs": […]}}``);
+        ``examples`` are values the contract accepts. The ``py_*`` attributes are
         routing state, set later, never serialized."""
         if source not in ("argument", "binding"):
             raise ValueError(f"ArgSpec source must be `argument` or `binding` (got {source!r})")
@@ -176,7 +187,17 @@ class ArgSpec:
         self.required = required if default is None else False
         self.cls = cls
         self.default = default
-        self.one_of = list(one_of or [])
+        if list is not None and list not in preflight.LIST_SEPARATORS:
+            raise ValueError(
+                f"ArgSpec list must be one of {', '.join(sorted(preflight.LIST_SEPARATORS))}"
+            )
+        self.one_of = [*(one_of or ())]
+        #: Whether an enumeration was declared at all, so an EMPTY one accepts no value.
+        self.enumerated = one_of is not None
+        self.needs = [*(needs or ())]
+        self.list = list
+        self.values = {value: dict(note) for value, note in (values or {}).items()}
+        self.examples = [*(examples or ())]
         #: ``"argument"`` (a by-value input, the default) or ``"binding"`` (a
         #: variable captured from the IRI by the endpoint's template).
         self.source = source
@@ -208,6 +229,10 @@ class ArgSpec:
                 default=spec.get("default"),
                 one_of=spec.get("one_of"),
                 source=spec.get("source", "argument"),
+                needs=spec.get("needs"),
+                list=spec.get("list"),
+                values=spec.get("values"),
+                examples=spec.get("examples"),
             )
         raise TypeError(f"not an ArgSpec: {spec!r}")
 
@@ -224,9 +249,96 @@ class ArgSpec:
             out["class"] = self.cls
         if self.default is not None:
             out["default"] = self.default
-        if self.one_of:
+        if self.one_of or self.enumerated:
             out["one_of"] = self.one_of
+        if self.examples:
+            out["examples"] = self.examples
+        if self.needs:
+            out["needs"] = self.needs
+        if self.list is not None:
+            out["list"] = self.list
+        if self.values:
+            out["values"] = self.values
         return out
+
+
+class InputGroup:
+    """How a set of inputs relate, mirroring ``ikigai_core::InputGroup``: exactly one,
+    at least one or at most one of ``members`` is GIVEN (a member counts only with a
+    non-blank value). ``pipe`` names the member a pipe, a positional value or a batch's
+    stdin fills when none is named (``content``, or absent, on a Sink or Delete)."""
+
+    def __init__(self, kind: str, members, pipe: str | None = None):
+        """``kind`` is ``exactly-one``, ``at-least-one`` or ``at-most-one``; ``members`` are
+        input names (kept as a sorted set)."""
+        if kind not in ("exactly-one", "at-least-one", "at-most-one"):
+            raise ValueError(
+                f"InputGroup kind must be exactly-one, at-least-one or at-most-one: {kind!r}"
+            )
+        self.kind = kind
+        self.members = sorted(set(members))  # a set, as core's builders keep it
+        self.pipe = pipe
+
+    @classmethod
+    def exactly_one(cls, *members: str, pipe: str | None = None) -> InputGroup:
+        """Exactly one of ``members`` is given."""
+        return cls("exactly-one", members, pipe)
+
+    @classmethod
+    def at_least_one(cls, *members: str, pipe: str | None = None) -> InputGroup:
+        """At least one of ``members`` is given."""
+        return cls("at-least-one", members, pipe)
+
+    @classmethod
+    def at_most_one(cls, *members: str, pipe: str | None = None) -> InputGroup:
+        """At most one of ``members`` is given."""
+        return cls("at-most-one", members, pipe)
+
+    @classmethod
+    def of(cls, spec) -> InputGroup:
+        """An :class:`InputGroup` from ``spec``: itself or a dict in the serde shape."""
+        if isinstance(spec, InputGroup):
+            return spec
+        if isinstance(spec, dict):
+            return cls(spec["kind"], spec.get("members", ()), spec.get("pipe"))
+        raise TypeError(f"not an InputGroup: {spec!r}")
+
+    def to_json(self) -> dict:
+        """The serde shape of ``ikigai_core::InputGroup`` (``pipe`` omitted when absent)."""
+        out: dict = {"kind": self.kind, "members": self.members}
+        if self.pipe is not None:
+            out["pipe"] = self.pipe
+        return out
+
+
+def _arguments_json(arguments) -> dict | None:
+    """The serde shape of ``Arguments`` (``{"open": summary}`` / ``{"envelope": carrier}``),
+    ``None`` for the default closed set."""
+    if not arguments:
+        return None
+    if not (
+        isinstance(arguments, dict)
+        and len(arguments) == 1
+        and isinstance(next(iter(arguments.values())), str)
+        and next(iter(arguments)) in ("open", "envelope")
+    ):
+        raise ValueError(
+            f'arguments must be {{"open": summary}} or {{"envelope": carrier}}: {arguments!r}'
+        )
+    return dict(arguments)
+
+
+def _output_from_json(output_from):
+    """The serde shape of ``OutputFrom``: ``"origin"`` or ``{"input": name}``, or ``None``."""
+    if output_from is None or output_from == "origin":
+        return output_from
+    if isinstance(output_from, str):
+        return {"input": output_from}  # a bare name is the input the output comes from
+    if isinstance(output_from, dict) and set(output_from) == {"input"}:
+        return dict(output_from)
+    raise ValueError(
+        f'output_from must be "origin", an input name or {{"input": name}}: {output_from!r}'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -329,7 +441,7 @@ def derive_args(fn) -> list[ArgSpec]:
             required=not (has_default or optional),
             cls=_XSD.get(base),
             default=default,
-            one_of=one_of,
+            one_of=one_of or None,
         )
         spec.py_type = base
         specs.append(spec)
@@ -458,10 +570,16 @@ class Action:
         output: str = TEXT_PLAIN,
         cacheable: bool = False,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from=None,
     ):
         """``verb`` and ``handler`` are the action; ``template`` supplies the bindings
         (each variable is an input, first in order). ``cacheable`` is refused for a
-        mutating verb; ``args=None`` derives the contract from the signature."""
+        mutating verb; ``args=None`` derives the contract from the signature.
+        ``groups`` (:class:`InputGroup`), ``arguments`` (``{"open": summary}`` or
+        ``{"envelope": carrier}``) and ``output_from`` (``"origin"`` or an input name)
+        declare the rest of the contract shape."""
         if cacheable and _is_mutating(verb):
             raise ValueError(f"{where}: a {verb.wire_name} answer is never cacheable")
         self.verb = verb
@@ -503,6 +621,32 @@ class Action:
         self.output = output
         self.cacheable = cacheable
         self.requires = list(requires or [])
+        self.groups = [InputGroup.of(g) for g in groups or ()]
+        self.arguments = _arguments_json(arguments)
+        self.output_from = _output_from_json(output_from)
+        names = {spec.name for spec in self.args}
+        for ref in self._references():
+            if ref not in names:
+                raise ValueError(f"{where}: the contract names `{ref}`, which is not an input")
+
+    def _references(self):
+        """Every input name the contract's shape refers to."""
+        for spec in self.args:
+            yield from spec.needs
+            for value, note in spec.values.items():
+                if spec.one_of and value not in spec.one_of:
+                    raise ValueError(
+                        f"input `{spec.name}` describes `{value}`, not one of its one_of"
+                    )
+                yield from note.get("needs", ())
+        for group in self.groups:
+            yield from group.members
+            if group.pipe is not None:
+                yield group.pipe
+        if self.arguments and "envelope" in self.arguments:
+            yield self.arguments["envelope"]
+        if isinstance(self.output_from, dict):
+            yield self.output_from["input"]
 
     def spec_json(self) -> dict:
         """The serde shape of ``ikigai_core::ActionSpec`` (empty fields
@@ -515,6 +659,12 @@ class Action:
         out["outputs"] = [self.output]
         if self.requires:
             out["requires"] = self.requires
+        if self.groups:
+            out["groups"] = [g.to_json() for g in self.groups]
+        if self.arguments:
+            out["arguments"] = self.arguments
+        if self.output_from is not None:
+            out["output_from"] = self.output_from
         return out
 
 
@@ -605,6 +755,12 @@ class _Door:
         }
         if self._flat_requires():
             out["requires"] = self._flat_requires()
+        if self.flat:
+            # The flat form's shape fields are the Source action's, read through.
+            source = self.actions[Verb.SOURCE].spec_json()
+            out.update(
+                {k: source[k] for k in ("groups", "arguments", "output_from") if k in source}
+            )
         if not self.flat:
             out["actions"] = [self.actions[v].spec_json() for v in self.verbs if v in self.actions]
         return out
@@ -620,6 +776,10 @@ class _Door:
         for arg in self._flat_inputs():
             opt = "" if arg.required else " (optional)"
             s += f"  input {arg.name} [{arg.source}]{opt}: {arg.summary}\n"
+        if self.flat:
+            for group in self.actions[Verb.SOURCE].groups:
+                pipe = f" (a pipe fills {group.pipe})" if group.pipe is not None else ""
+                s += f"  {group.kind} of: {', '.join(group.members)}{pipe}\n"
         if self._flat_outputs():
             s += f"outputs: {', '.join(self._flat_outputs())}\n"
         return s
@@ -662,6 +822,11 @@ def action_specs(description: dict) -> list[dict]:
                 "inputs": description["inputs"],
                 "outputs": description["outputs"],
                 "requires": description.get("requires", []),
+                **{
+                    key: description[key]
+                    for key in ("groups", "arguments", "output_from")
+                    if key in description
+                },
             }
         )
     return specs
@@ -797,7 +962,7 @@ def to_turtle(description: dict) -> str:
             return iri_term(scope)
         return lit(scope)
 
-    def input_predicates(arg: dict) -> str:
+    def input_predicates(owner: str, arg: dict) -> str:
         node = (
             f"ik:inputName {lit(arg['name'])} ;\n"
             f"    ik:source {lit(arg['source'])} ;\n"
@@ -811,7 +976,72 @@ def to_turtle(description: dict) -> str:
             node += f" ;\n    ik:default {lit(arg['default'])}"
         for value in arg.get("one_of", []):
             node += f" ;\n    ik:oneOf {lit(value)}"
+        if "one_of" in arg and not arg["one_of"]:
+            node += " ;\n    ik:enumerated true"
+        for example in arg.get("examples", []):
+            node += f" ;\n    ik:example {lit(example)}"
+        if arg.get("list") is not None:
+            node += f" ;\n    ik:listSeparator {lit(arg['list'])}"
+        for needed in arg.get("needs", []):
+            node += f" ;\n    ik:needs <{owner}:input:{name_fragment(needed)}>"
+        for value in sorted(arg.get("values", {})):
+            node += f" ;\n    ik:valueNote <{value_node_iri(owner, arg['name'], value)}>"
         return node
+
+    def value_node_iri(owner: str, name: str, value: str) -> str:
+        return f"{owner}:input:{name_fragment(name)}:value:{name_fragment(value)}"
+
+    def value_nodes(owner: str, arg: dict) -> list[str]:
+        skos = "http://www.w3.org/2004/02/skos/core#"
+        nodes = []
+        for value in sorted(arg.get("values", {})):
+            note = arg["values"][value]
+            preds = [f"a <{skos}Concept>", f"<{skos}notation> {lit(value)}"]
+            if note.get("summary"):
+                preds.append(f"<{skos}definition> {lit(note['summary'])}")
+            for tag in note.get("tags", []):
+                preds.append(f"ik:tag {lit(tag)}")
+            for needed in note.get("needs", []):
+                preds.append(f"ik:needs <{owner}:input:{name_fragment(needed)}>")
+            iri = value_node_iri(owner, arg["name"], value)
+            nodes.append(f"<{iri}> " + " ;\n    ".join(preds) + " .")
+        return nodes
+
+    def output_from_predicate(owner: str, source) -> str | None:
+        if source is None:
+            return None
+        if source == "origin":
+            return "ik:outputFrom ik:Origin"
+        return f"ik:outputFrom <{owner}:input:{name_fragment(source['input'])}>"
+
+    def arguments_predicate(owner: str, arguments) -> str | None:
+        if not arguments:
+            return None
+        if "open" in arguments:
+            return f"ik:openArguments {lit(arguments['open'])}"
+        return f"ik:envelope <{owner}:input:{name_fragment(arguments['envelope'])}>"
+
+    def group_node(owner: str, group: dict) -> tuple[str, str]:
+        iri = f"{owner}:{contract.group_segment(group)}"
+        preds = ["a ik:InputGroup", f"ik:groupKind {lit(group['kind'])}"]
+        for member in group.get("members", []):
+            preds.append(f"ik:member <{owner}:input:{name_fragment(member)}>")
+        if group.get("pipe") is not None:
+            preds.append(f"ik:pipe <{owner}:input:{name_fragment(group['pipe'])}>")
+        return iri, f"<{iri}> " + " ;\n    ".join(preds) + " ."
+
+    def add_shape(owner: str, source: dict, preds: list[str]) -> None:
+        # The argument set, the output origin and the groups, in the order core writes them.
+        for predicate in (
+            arguments_predicate(owner, source.get("arguments")),
+            output_from_predicate(owner, source.get("output_from")),
+        ):
+            if predicate is not None:
+                preds.append(predicate)
+        for group in source.get("groups", []):
+            iri, statement = group_node(owner, group)
+            preds.append(f"ik:group <{iri}>")
+            extra_nodes.append(statement)
 
     endpoint_iri = f"urn:ikigai:endpoint:{name_fragment(description['id'])}"
     preds = ["a ik:Endpoint", f"ik:id {lit(description['id'])}"]
@@ -829,7 +1059,9 @@ def to_turtle(description: dict) -> str:
     for arg in description["inputs"]:
         node_iri = f"{endpoint_iri}:input:{name_fragment(arg['name'])}"
         preds.append(f"ik:input <{node_iri}>")
-        extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
+        extra_nodes.append(f"<{node_iri}> {input_predicates(endpoint_iri, arg)} .")
+        extra_nodes.extend(value_nodes(endpoint_iri, arg))
+    add_shape(endpoint_iri, description, preds)
 
     # The per-verb ACTION view — the unit of selection — one content-addressed
     # contract node per non-Meta verb, its inputs under its own IRI.
@@ -845,8 +1077,10 @@ def to_turtle(description: dict) -> str:
             action_preds.append(f"ik:requires {cap_term(cap)}")
         for arg in spec.get("inputs", []):
             node_iri = f"{action_iri}:input:{name_fragment(arg['name'])}"
-            extra_nodes.append(f"<{node_iri}> {input_predicates(arg)} .")
+            extra_nodes.append(f"<{node_iri}> {input_predicates(action_iri, arg)} .")
+            extra_nodes.extend(value_nodes(action_iri, arg))
             action_preds.append(f"ik:input <{node_iri}>")
+        add_shape(action_iri, spec, action_preds)
         extra_nodes.append(f"<{action_iri}> " + " ;\n    ".join(action_preds) + " .")
 
     ttl = f"@prefix ik: <{VOCAB_NS}> .\n\n<{endpoint_iri}> " + " ;\n    ".join(preds) + " .\n"
@@ -874,6 +1108,9 @@ class EndpointDef(_Door):
         output: str = TEXT_PLAIN,
         cacheable: bool = False,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from: str | dict | None = None,
     ):
         """Wrap ``handler`` as the Source action of ``iri``. ``id`` defaults to the
         handler's name; ``summary`` to the handler docstring's first line."""
@@ -892,6 +1129,9 @@ class EndpointDef(_Door):
             output=output,
             cacheable=cacheable,
             requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
         )
 
     # The flat form's contract, read through (the names predate actions).
@@ -937,6 +1177,9 @@ def endpoint(
     output: str = TEXT_PLAIN,
     cacheable: bool = False,
     requires: list[str] | None = None,
+    groups: list | None = None,
+    arguments: dict | None = None,
+    output_from: str | dict | None = None,
 ):
     """Declare a function as a single-verb Source endpoint.
 
@@ -971,6 +1214,9 @@ def endpoint(
             output=output,
             cacheable=cacheable,
             requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
         )
         return fn
 
@@ -1062,10 +1308,20 @@ class Family(_Door):
         output: str = TEXT_PLAIN,
         cacheable: bool = False,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from: str | dict | None = None,
     ):
         """Declare the Source verb (bare ``@f.source`` or ``@f.source(...)``)."""
         contract = dict(
-            summary=summary, args=args, output=output, cacheable=cacheable, requires=requires
+            summary=summary,
+            args=args,
+            output=output,
+            cacheable=cacheable,
+            requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
         )
         return self._decorator(Verb.SOURCE, fn, contract)
 
@@ -1077,9 +1333,20 @@ class Family(_Door):
         args: list | None = None,
         output: str = TEXT_PLAIN,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from: str | dict | None = None,
     ):
         """Declare the Sink verb; the body arrives as ``content``."""
-        contract = dict(summary=summary, args=args, output=output, requires=requires)
+        contract = dict(
+            summary=summary,
+            args=args,
+            output=output,
+            requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
+        )
         return self._decorator(Verb.SINK, fn, contract)
 
     def delete(
@@ -1090,9 +1357,20 @@ class Family(_Door):
         args: list | None = None,
         output: str = TEXT_PLAIN,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from: str | dict | None = None,
     ):
         """Declare the Delete verb."""
-        contract = dict(summary=summary, args=args, output=output, requires=requires)
+        contract = dict(
+            summary=summary,
+            args=args,
+            output=output,
+            requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
+        )
         return self._decorator(Verb.DELETE, fn, contract)
 
     def exists(
@@ -1103,9 +1381,20 @@ class Family(_Door):
         args: list | None = None,
         cacheable: bool = False,
         requires: list[str] | None = None,
+        groups: list | None = None,
+        arguments: dict | None = None,
+        output_from: str | dict | None = None,
     ):
         """Declare the Exists verb, replacing the "Source would succeed" default."""
-        contract = dict(summary=summary, args=args, cacheable=cacheable, requires=requires)
+        contract = dict(
+            summary=summary,
+            args=args,
+            cacheable=cacheable,
+            requires=requires,
+            groups=groups,
+            arguments=arguments,
+            output_from=output_from,
+        )
         return self._decorator(Verb.EXISTS, fn, contract)
 
 
@@ -1146,7 +1435,7 @@ def _coerce_derived(spec: ArgSpec, value: str | bytes):
     the handler declared a type. Explicit args= endpoints keep receiving the
     wire text untouched (backward compatible). Failure details are bare of
     the argument name — the typed InvalidArgument carrier states it."""
-    if spec.one_of:
+    if spec.one_of and spec.list is None:  # a list's items are checked by the pre-flight
         if not (isinstance(value, str) and value in spec.one_of):
             raise ValueError(f"must be one of {', '.join(spec.one_of)} (got {value!r})")
     base = spec.py_type
@@ -1391,6 +1680,9 @@ class Space:
                     kwargs[arg.py_name] = None
             elif arg.default is not None:
                 kwargs[arg.py_name] = arg.default
+        refused = self._preflight(action, bindings, request)
+        if refused is not None:
+            return refused
         try:
             result = action.handler(**kwargs)
         except EndpointError as e:
@@ -1402,6 +1694,32 @@ class Space:
         except Exception as e:  # a handler bug crosses as an endpoint error
             return ErrorTypedReply(EndpointError(str(e)))
         return Resolved(*self._representation(action, result))
+
+    # The rules of core's one checker that a call can break beyond a missing input and a
+    # value outside `one_of` (which `_invoke` enforces as it reads each argument): a group,
+    # a dependency, an envelope given as both carrier and fields, and a list item outside
+    # `one_of`. `unknown` and `implausible` are not enforced here, as a Rust kernel's
+    # engine does not either: they are what validation REPORTS.
+    _ENFORCED = frozenset(
+        {"exactly-one", "at-least-one", "at-most-one", "needs", "envelope", "not-one-of"}
+    )
+
+    def _preflight(self, action: Action, bindings: dict, request: Request) -> Reply | None:
+        """``ikigai.check.check`` of the action's contract over the call, bindings
+        included (a binding is given by the name); the first enforced violation refuses
+        it before the handler runs, as ``InvalidArgument`` naming what it is about."""
+        pairs = [(a.name, bindings[a.name]) for a in action.args if a.source == "binding"]
+        pairs += [
+            (name, arg.data.decode("utf-8", "replace"))
+            for name, arg in request.args.items()
+            if isinstance(arg, Inline)
+        ]
+        for violation in preflight.check(action.spec_json(), pairs):
+            if violation.kind in self._ENFORCED:
+                path = violation.path or ""
+                subject = path.split(":")[1] if path.startswith("input:") else path.split(":", 2)[2]
+                return ErrorTypedReply(InvalidArgumentError(subject, violation.message))
+        return None
 
     def _representation(self, action: Action, result) -> tuple[Representation, CacheStatus]:
         media_type = action.output
