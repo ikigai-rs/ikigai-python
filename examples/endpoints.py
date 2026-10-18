@@ -1,9 +1,10 @@
 """The endpoint set the example apps resolve: hello / upper / reverse.
 
 All three are pure functions of their inputs, so they declare
-``cacheable=True`` — served directly that only marks the representation
-(``Expiry::Never``); served through a Rust kernel mount the kernel actually
-caches them, and the apps' ``X-Ikigai-Cache`` header flips to ``HIT``.
+``cacheable=True`` — that marks the representation (``Expiry::Never``) so
+this peer's own cache can keep it. A Rust kernel mounting the peer never
+caches a mounted answer (ikigai-cli 0.1.64 onward), so the apps'
+``X-Ikigai-Cache`` header stays ``MISS`` through a mount.
 
 Serve them on a socket::
 
