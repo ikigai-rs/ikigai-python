@@ -100,9 +100,13 @@ class EndpointError(WireError):
     the error as ``ikigai_core::Error``'s ``Display`` spells it, for a person.
     ``transient`` is True only for Timeout/Unavailable: re-issuing might
     succeed, which is what retry/failover logic gates on (mirrors
-    ``ikigai_core::Error::is_transient``)."""
+    ``ikigai_core::Error::is_transient``); :meth:`failure_class` is the finer
+    rule (``ikigai_core::Error::class``): ``RetryAfterError`` is NOT transient."""
 
     transient = False
+
+    # ``ikigai_core::Error::kind``: the variant's stable word.
+    kind = "endpoint"
 
     # What ``ikigai_core::Error``'s Display puts before ``message`` for this
     # variant. Empty for the three variants whose ``message`` is already built
@@ -129,16 +133,34 @@ class EndpointError(WireError):
         """
         return self._display_prefix + self.message
 
+    def failure_class(self) -> str:
+        """Who may repeat this failure, and when (``ikigai_core::Error::class``): one
+        of ``transient``, ``retry-after``, ``over-budget``, ``denied``, ``refused``,
+        ``permanent``, ``unknown``. A pure function of the variant. (Not ``class``:
+        that is a keyword here.)
+
+        >>> EndpointError("boom").failure_class(), DeniedError("x").failure_class()
+        ('unknown', 'denied')
+        >>> TimeoutError("slow").failure_class(), NotFoundError("x").failure_class()
+        ('transient', 'permanent')
+        """
+        return self._failure_class
+
+    _failure_class = "unknown"
+
     # Structural equality (type + args), so replies carrying errors compare
     # by value like every other wire type — exceptions default to identity,
     # which would make ErrorTypedReply round-trip comparisons meaningless.
+    def _identity(self) -> tuple:
+        return self.args
+
     def __eq__(self, other) -> bool:
         """Same variant and same args — value equality, as :meth:`__hash__` matches."""
-        return type(self) is type(other) and self.args == other.args
+        return type(self) is type(other) and self._identity() == other._identity()
 
     def __hash__(self) -> int:
         """Hash of the variant and its args, so an error is usable as a dict key."""
-        return hash((type(self), self.args))
+        return hash((type(self), self._identity()))
 
 
 class UnresolvedError(EndpointError):
@@ -153,6 +175,8 @@ class UnresolvedError(EndpointError):
         self.iri = iri
 
     _display_prefix = ""
+    kind = "unresolved"
+    _failure_class = "permanent"
 
 
 class MissingArgumentError(EndpointError):
@@ -165,6 +189,8 @@ class MissingArgumentError(EndpointError):
         self.name = name
 
     _display_prefix = ""
+    kind = "missing-argument"
+    _failure_class = "permanent"
 
 
 class InvalidArgumentError(EndpointError):
@@ -179,6 +205,8 @@ class InvalidArgumentError(EndpointError):
         self.detail = detail
 
     _display_prefix = ""
+    kind = "invalid-argument"
+    _failure_class = "permanent"
 
 
 class DeniedError(EndpointError):
@@ -187,6 +215,8 @@ class DeniedError(EndpointError):
     403)."""
 
     _display_prefix = "denied: "
+    kind = "denied"
+    _failure_class = "denied"
 
 
 class NotFoundError(EndpointError):
@@ -194,6 +224,8 @@ class NotFoundError(EndpointError):
     absent — a permanent 404-equivalent."""
 
     _display_prefix = "not found: "
+    kind = "not-found"
+    _failure_class = "permanent"
 
 
 class TimeoutError(EndpointError, builtins.TimeoutError):
@@ -205,6 +237,8 @@ class TimeoutError(EndpointError, builtins.TimeoutError):
 
     transient = True
     _display_prefix = "timeout: "
+    kind = "timeout"
+    _failure_class = "transient"
 
 
 class UnavailableError(EndpointError):
@@ -213,6 +247,8 @@ class UnavailableError(EndpointError):
 
     transient = True
     _display_prefix = "unavailable: "
+    kind = "unavailable"
+    _failure_class = "transient"
 
 
 class ConflictError(EndpointError):
@@ -227,6 +263,113 @@ class ConflictError(EndpointError):
     ``EndpointError("conflict: {message}")`` instead."""
 
     _display_prefix = "conflict: "
+    kind = "conflict"
+    _failure_class = "permanent"
+
+
+class DepthExceededError(EndpointError):
+    """``WireError::DepthExceeded`` (wire v9, tag 9): a sub-request was refused
+    because it would nest deeper than the kernel's budget. PERMANENT (the same
+    request takes the same path). ``depth`` is the nesting depth the refused
+    request would have run at, ``target`` the name it asked for; ``message`` is
+    the ``nesting budget exceeded: …`` sentence core's ``Display`` writes."""
+
+    kind = "depth-exceeded"
+    _failure_class = "permanent"
+    _display_prefix = ""
+
+    def __init__(self, depth: int, target: str):
+        """``depth`` and ``target`` are kept as attributes; ``message`` is core's sentence."""
+        super().__init__(
+            f"nesting budget exceeded: sub-request for {target} would run at depth {depth}"
+        )
+        self.depth = depth
+        self.target = target
+
+    def _identity(self) -> tuple:
+        return (self.depth, self.target)
+
+
+class RetryAfterError(EndpointError):
+    """``WireError::RetryAfter`` (wire v9, tag 10): the same request may succeed, but
+    NOT before a stated time (a rate limit, a saturated store, an open circuit).
+    ``delay_ms`` is how long to wait in whole milliseconds, rounded up, or ``None``
+    for "not now" without a time; ``detail`` says why. Class ``retry-after``, and
+    deliberately NOT :attr:`transient`: code that gates on ``transient`` treats it as
+    permanent, the safe reading of a rate limit. An HTTP edge answers 429 with
+    ``Retry-After`` (:meth:`retry_after_seconds`)."""
+
+    kind = "retry-after"
+    _failure_class = "retry-after"
+
+    def __init__(self, delay_ms: int | None, detail: str):
+        """``delay_ms`` (whole milliseconds, or ``None``) and ``detail``, kept as attributes."""
+        super().__init__(detail)
+        self.delay_ms = delay_ms
+        self.detail = detail
+
+    def retry_after_seconds(self) -> int | None:
+        """The ``Retry-After`` header's delay-seconds: rounded up and never 0; ``None``
+        without a delay (no header is sent).
+
+        >>> [RetryAfterError(ms, "x").retry_after_seconds() for ms in (None, 0, 2, 1500, 30000)]
+        [None, 1, 1, 2, 30]
+        """
+        if self.delay_ms is None:
+            return None
+        return max(1, -(-self.delay_ms // 1000))
+
+    def display(self) -> str:
+        """``retry later: {detail}`` without a delay, else ``retry after {ms} ms: {detail}``."""
+        if self.delay_ms is None:
+            return f"retry later: {self.detail}"
+        return f"retry after {self.delay_ms} ms: {self.detail}"
+
+    def _identity(self) -> tuple:
+        return (self.delay_ms, self.detail)
+
+
+class OverBudgetError(EndpointError):
+    """``WireError::OverBudget`` (wire v9, tag 11): the work ran past a budget the caller
+    set (a deadline, a quota). Class ``over-budget``: repeating it with the same budget
+    meets the same wall; an HTTP edge says 422."""
+
+    kind = "over-budget"
+    _failure_class = "over-budget"
+    _display_prefix = "over budget: "
+
+    def __init__(self, detail: str):
+        """``detail`` is the message, kept as :attr:`detail` too."""
+        super().__init__(detail)
+        self.detail = detail
+
+
+class RefusedError(EndpointError):
+    """``WireError::Refused`` (wire v9, tag 12): an upstream understood the request and
+    declined it (an origin that answered 401). Class ``refused``; an HTTP edge says 502."""
+
+    kind = "refused"
+    _failure_class = "refused"
+    _display_prefix = "refused: "
+
+
+class UnsupportedError(EndpointError):
+    """``WireError::Unsupported`` (wire v9, tag 13): the target does not answer ``verb``
+    (or, with ``verb`` ``None``, the host lacks a facility). Permanent; an HTTP edge says
+    405 with a verb and 501 without."""
+
+    kind = "unsupported"
+    _failure_class = "permanent"
+    _display_prefix = "unsupported: "
+
+    def __init__(self, detail: str, verb: Verb | None = None):
+        """``detail`` says what is unsupported; ``verb`` is the verb, ``None`` for a facility."""
+        super().__init__(detail)
+        self.detail = detail
+        self.verb = verb
+
+    def _identity(self) -> tuple:
+        return (self.detail, self.verb)
 
 
 # ---------------------------------------------------------------------------
@@ -689,6 +832,11 @@ def _put_wire_error(out: bytearray, error: EndpointError) -> None:
     elif isinstance(error, ConflictError):
         out += encode_varint(8)
         _put_string(out, error.message)
+    elif isinstance(error, _V9_ERRORS):
+        # Wire v9 is receive-only here: a variant this side cannot yet send crosses as
+        # `Endpoint(display)`, the form a v8 peer has always received for it.
+        out += encode_varint(3)
+        _put_string(out, error.display())
     elif isinstance(error, EndpointError):
         out += encode_varint(3)  # WireError::Endpoint
         _put_string(out, error.message)
@@ -745,6 +893,9 @@ def encode_call(call: Call) -> bytes:
     return bytes(out)
 
 
+_V9_ERRORS = (DepthExceededError, RetryAfterError, OverBudgetError, RefusedError, UnsupportedError)
+
+
 def downgrade_error(error: EndpointError, peer_version: int) -> EndpointError:
     """``error`` as a peer speaking ``peer_version`` can receive it. A v7
     peer has no ``Conflict`` variant, so it gets ``Endpoint("conflict:
@@ -752,6 +903,9 @@ def downgrade_error(error: EndpointError, peer_version: int) -> EndpointError:
     what crossed untyped before v8. Every other variant is unchanged."""
     if isinstance(error, ConflictError) and peer_version < CONFLICT_SINCE:
         return EndpointError(f"conflict: {error.message}")
+    if isinstance(error, _V9_ERRORS):
+        # This side speaks wire v8, which has no tags 9-13 to send.
+        return EndpointError(error.display())
     return error
 
 
@@ -908,6 +1062,24 @@ def _get_wire_error(r: Reader) -> EndpointError:
         return UnavailableError(r.string())
     if variant == 8:
         return ConflictError(r.string())
+    # Wire v9 tags (RECEIVE only; the layouts follow core's field order).
+    if variant == 9:
+        return DepthExceededError(r.varint(32), r.string())
+    if variant == 10:
+        delay_ms = r.varint(64) if r.option() else None
+        return RetryAfterError(delay_ms, r.string())
+    if variant == 11:
+        return OverBudgetError(r.string())
+    if variant == 12:
+        return RefusedError(r.string())
+    if variant == 13:
+        verb = None
+        if r.option():
+            try:
+                verb = Verb(r.varint(32))
+            except ValueError as e:
+                raise DecodeError(f"unknown verb in Unsupported: {e}") from e
+        return UnsupportedError(r.string(), verb)
     # A NEWER peer's taxonomy addition (the enum is append-only, and additions
     # are wire-version events, so the hello should have refused this peer —
     # belt and braces). The payload layout is unknowable, so consume the rest

@@ -23,9 +23,11 @@ Every app serves the same surface:
   `examples.error_status`): `DeniedError` → **403**, `NotFoundError` →
   **404**, `ConflictError` (wire v8: the thing's current state refuses the
   request) → **409**, `MissingArgumentError`/`InvalidArgumentError` → **400**,
-  transient (`TimeoutError`/`UnavailableError`) → **503**, anything else
-  (`UnresolvedError`, a handler fault) → **502** — each carrying the
-  endpoint's own message; a `ConnectionLost` → **503** ("is the peer
+  `UnavailableError` → **503**, `TimeoutError` → **504**, `RetryAfterError` →
+  **429** with `Retry-After` (seconds, rounded up, never 0), `OverBudgetError` →
+  **422**, `RefusedError` → **502**, `UnsupportedError` → **405** (names a verb)
+  or **501**, `UnresolvedError` → **404**, anything else (a handler fault,
+  `DepthExceededError`) → **500** — each carrying the endpoint's own message; a `ConnectionLost` → **503** ("is the peer
   running?")
 
 `examples/endpoints.py` is the endpoint set they resolve: three

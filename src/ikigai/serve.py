@@ -824,7 +824,7 @@ def action_specs(description: dict) -> list[dict]:
                 "requires": description.get("requires", []),
                 **{
                     key: description[key]
-                    for key in ("groups", "arguments", "output_from")
+                    for key in ("failures", "groups", "arguments", "output_from")
                     if key in description
                 },
             }
@@ -962,6 +962,10 @@ def to_turtle(description: dict) -> str:
             return iri_term(scope)
         return lit(scope)
 
+    def failure_term(word: str) -> str:
+        # Core's `failure_class_term`: `ik:{Word}Failure`, the class word in UpperCamelCase.
+        return "ik:" + "".join(part.capitalize() for part in word.split("-")) + "Failure"
+
     def input_predicates(owner: str, arg: dict) -> str:
         node = (
             f"ik:inputName {lit(arg['name'])} ;\n"
@@ -1054,6 +1058,8 @@ def to_turtle(description: dict) -> str:
         preds.append("ik:output " + ", ".join(lit(o) for o in description["outputs"]))
     if description.get("requires"):
         preds.append("ik:requires " + ", ".join(cap_term(c) for c in description["requires"]))
+    if description.get("failures"):
+        preds.append("ik:mayFail " + ", ".join(failure_term(c) for c in description["failures"]))
 
     extra_nodes: list[str] = []
     for arg in description["inputs"]:
@@ -1075,6 +1081,8 @@ def to_turtle(description: dict) -> str:
             action_preds.append(f"ik:output {lit(output)}")
         for cap in spec.get("requires", []):
             action_preds.append(f"ik:requires {cap_term(cap)}")
+        for cls in spec.get("failures", []):
+            action_preds.append(f"ik:mayFail {failure_term(cls)}")
         for arg in spec.get("inputs", []):
             node_iri = f"{action_iri}:input:{name_fragment(arg['name'])}"
             extra_nodes.append(f"<{node_iri}> {input_predicates(action_iri, arg)} .")

@@ -520,7 +520,8 @@ def _input_key(arg: dict) -> tuple:
 def _uses_v2(action: dict) -> bool:
     """Core's ``uses_v2``: whether the contract uses a construct v1 cannot carry."""
     return bool(
-        action.get("groups")
+        action.get("failures") is not None
+        or action.get("groups")
         or action.get("arguments")
         or action.get("output_from") is not None
         or any(
@@ -613,6 +614,12 @@ def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
     else:
         _feed_u8(h, 1)
         _feed_str(h, output_from["input"])
+    # Stated failure classes (ledger #1546) go LAST and only when stated: an empty list
+    # ("only the implied ones") is stated, an absent key feeds nothing.
+    failures = action.get("failures")
+    if failures is not None:
+        _feed_u8(h, 1)
+        _feed_items(h, (_canon_str(word) for word in failures))
     return "b3:" + h.hexdigest()
 
 
@@ -632,9 +639,10 @@ def contract_id(endpoint_id: str, action: dict) -> str:
 
     A contract that uses any construct of the ArgSpec release (an input's ``needs``,
     ``list``, ``values``, ``examples`` or an empty ``one_of``; an action's ``groups``,
-    open or envelope ``arguments``, ``output_from``) is digested under
-    ``ikigai:contract:v2`` instead (:func:`_contract_id_v2`; byte layout in core's
-    ``tests/vectors/README.md``), so every contract that uses none keeps its v1 digest.
+    open or envelope ``arguments``, ``output_from``, or stated ``failures``, even an empty
+    list) is digested under ``ikigai:contract:v2`` instead (:func:`_contract_id_v2`; byte
+    layout in core's ``tests/vectors/README.md``), so every contract that uses none
+    keeps its v1 digest.
     """
     verb = Verb[action["verb"].upper()]
     if _uses_v2(action):

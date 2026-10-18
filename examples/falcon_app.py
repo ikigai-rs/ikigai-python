@@ -4,7 +4,7 @@ The pattern to notice: Falcon adds almost nothing between HTTP and the wire —
 a resource class per route, ``req.get_param(..., required=True)`` as the whole
 input contract (Falcon 400s a missing param), and the responder body is one
 ``kernel.source(...)``. Lifecycle is ASGI lifespan via middleware; error
-mapping is ``add_error_handler`` (wire errors become 502/503).
+mapping is ``add_error_handler`` (wire errors become the status of `examples.error_status`).
 
 Run (direct, no Rust needed)::
 
@@ -20,7 +20,7 @@ import os
 import falcon
 import falcon.asgi
 
-from examples import error_status
+from examples import error_status, retry_after_header
 from ikigai import ConnectionLost, EndpointError, aio, default_socket_path
 
 
@@ -83,8 +83,12 @@ class CatalogResource:
 
 async def endpoint_error(req, resp, exc: EndpointError, params):
     # The typed taxonomy picks the status (wire v8): Denied→403, NotFound→404,
-    # Conflict→409, bad input→400, transient→503, anything else→502.
-    raise falcon.HTTPError(falcon.util.code_to_http_status(error_status(exc)), description=str(exc))
+    # the rest per `examples.error_status` (Timeout→504, RetryAfter→429, Endpoint→500, …).
+    raise falcon.HTTPError(
+        falcon.util.code_to_http_status(error_status(exc)),
+        description=str(exc),
+        headers=retry_after_header(exc) or None,
+    )
 
 
 async def connection_lost(req, resp, exc: ConnectionLost, params):

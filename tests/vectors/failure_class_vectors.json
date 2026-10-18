@@ -1,0 +1,365 @@
+{
+  "about": "Failure-class vectors (ledger #1546) computed from tests/vectors/failure_class_cases.json by crates/ikigai-vocab/tests/failure_class_vectors.rs, which fails if this file differs from what it computes. Per case, ikigai-core computes `kind` (Error::kind), `class` (Error::class, a FailureClass word), `transient` (Error::is_transient), `display` (the Display form a v8 peer receives inside Endpoint) and `retry_after_ms` (Error::retry_after_millis: the delay in whole milliseconds rounded UP, the wire form). The rest is the DECIDED table this file pins for the faces (decision 4 of ledger #1546): `wire_tag` is the wire v9 discriminant (0-8 as today, 9-13 appended; ikigai-wire owns the encoding), and `http` is the edge's answer: `status`, and `retry_after`, the Retry-After header in delay-seconds rounded up and never 0, null when no header is sent. `classes` lists every class with its vocabulary individual.",
+  "cases": [
+    {
+      "class": "permanent",
+      "display": "no endpoint resolved for urn:x:missing",
+      "error": {
+        "iri": "urn:x:missing",
+        "kind": "unresolved"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 404
+      },
+      "kind": "unresolved",
+      "name": "unresolved",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 0
+    },
+    {
+      "class": "permanent",
+      "display": "missing required argument `in`",
+      "error": {
+        "kind": "missing-argument",
+        "name": "in"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 400
+      },
+      "kind": "missing-argument",
+      "name": "missing-argument",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 1
+    },
+    {
+      "class": "permanent",
+      "display": "invalid argument `mode`: not one of added, removed",
+      "error": {
+        "detail": "not one of added, removed",
+        "kind": "invalid-argument",
+        "name": "mode"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 400
+      },
+      "kind": "invalid-argument",
+      "name": "invalid-argument",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 2
+    },
+    {
+      "class": "unknown",
+      "display": "endpoint error: the parser failed",
+      "error": {
+        "kind": "endpoint",
+        "message": "the parser failed"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 500
+      },
+      "kind": "endpoint",
+      "name": "endpoint",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 3
+    },
+    {
+      "class": "denied",
+      "display": "denied: `urn:cap:fs:read` is required",
+      "error": {
+        "kind": "denied",
+        "message": "`urn:cap:fs:read` is required"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 403
+      },
+      "kind": "denied",
+      "name": "denied",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 4
+    },
+    {
+      "class": "permanent",
+      "display": "not found: no such item",
+      "error": {
+        "kind": "not-found",
+        "message": "no such item"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 404
+      },
+      "kind": "not-found",
+      "name": "not-found",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 5
+    },
+    {
+      "class": "permanent",
+      "display": "conflict: 1,1 is taken",
+      "error": {
+        "kind": "conflict",
+        "message": "1,1 is taken"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 409
+      },
+      "kind": "conflict",
+      "name": "conflict",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 8
+    },
+    {
+      "class": "transient",
+      "display": "timeout: the origin did not answer in 30 s",
+      "error": {
+        "kind": "timeout",
+        "message": "the origin did not answer in 30 s"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 504
+      },
+      "kind": "timeout",
+      "name": "timeout",
+      "retry_after_ms": null,
+      "transient": true,
+      "wire_tag": 6
+    },
+    {
+      "class": "transient",
+      "display": "unavailable: connection refused",
+      "error": {
+        "kind": "unavailable",
+        "message": "connection refused"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 503
+      },
+      "kind": "unavailable",
+      "name": "unavailable",
+      "retry_after_ms": null,
+      "transient": true,
+      "wire_tag": 7
+    },
+    {
+      "class": "permanent",
+      "display": "nesting budget exceeded: sub-request for urn:x:self would run at depth 65",
+      "error": {
+        "depth": 65,
+        "kind": "depth-exceeded",
+        "target": "urn:x:self"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 500
+      },
+      "kind": "depth-exceeded",
+      "name": "depth-exceeded",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 9
+    },
+    {
+      "class": "retry-after",
+      "display": "retry after 30000 ms: rate-limited: 5 requests per minute",
+      "error": {
+        "delay_us": 30000000,
+        "detail": "rate-limited: 5 requests per minute",
+        "kind": "retry-after"
+      },
+      "http": {
+        "retry_after": 30,
+        "status": 429
+      },
+      "kind": "retry-after",
+      "name": "retry-after/seconds",
+      "retry_after_ms": 30000,
+      "transient": false,
+      "wire_tag": 10
+    },
+    {
+      "class": "retry-after",
+      "display": "retry after 1500 ms: the store is saturated",
+      "error": {
+        "delay_us": 1500000,
+        "detail": "the store is saturated",
+        "kind": "retry-after"
+      },
+      "http": {
+        "retry_after": 2,
+        "status": 429
+      },
+      "kind": "retry-after",
+      "name": "retry-after/a-fraction-of-a-second-rounds-up",
+      "retry_after_ms": 1500,
+      "transient": false,
+      "wire_tag": 10
+    },
+    {
+      "class": "retry-after",
+      "display": "retry after 2 ms: held off",
+      "error": {
+        "delay_us": 1200,
+        "detail": "held off",
+        "kind": "retry-after"
+      },
+      "http": {
+        "retry_after": 1,
+        "status": 429
+      },
+      "kind": "retry-after",
+      "name": "retry-after/a-fraction-of-a-millisecond-rounds-up",
+      "retry_after_ms": 2,
+      "transient": false,
+      "wire_tag": 10
+    },
+    {
+      "class": "retry-after",
+      "display": "retry after 0 ms: come back now",
+      "error": {
+        "delay_us": 0,
+        "detail": "come back now",
+        "kind": "retry-after"
+      },
+      "http": {
+        "retry_after": 1,
+        "status": 429
+      },
+      "kind": "retry-after",
+      "name": "retry-after/zero-is-never-a-zero-header",
+      "retry_after_ms": 0,
+      "transient": false,
+      "wire_tag": 10
+    },
+    {
+      "class": "retry-after",
+      "display": "retry later: not now",
+      "error": {
+        "detail": "not now",
+        "kind": "retry-after"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 429
+      },
+      "kind": "retry-after",
+      "name": "retry-after/no-delay",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 10
+    },
+    {
+      "class": "over-budget",
+      "display": "over budget: the query ran past its 5000 ms budget",
+      "error": {
+        "detail": "the query ran past its 5000 ms budget",
+        "kind": "over-budget"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 422
+      },
+      "kind": "over-budget",
+      "name": "over-budget",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 11
+    },
+    {
+      "class": "refused",
+      "display": "refused: api.example.com answered 401",
+      "error": {
+        "kind": "refused",
+        "message": "api.example.com answered 401"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 502
+      },
+      "kind": "refused",
+      "name": "refused",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 12
+    },
+    {
+      "class": "permanent",
+      "display": "unsupported: the log is append-only",
+      "error": {
+        "detail": "the log is append-only",
+        "kind": "unsupported",
+        "verb": "Sink"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 405
+      },
+      "kind": "unsupported",
+      "name": "unsupported/a-verb",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 13
+    },
+    {
+      "class": "permanent",
+      "display": "unsupported: the host configured no clock",
+      "error": {
+        "detail": "the host configured no clock",
+        "kind": "unsupported"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 501
+      },
+      "kind": "unsupported",
+      "name": "unsupported/a-host-facility",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 13
+    }
+  ],
+  "classes": [
+    {
+      "iri": "https://ikigai-rs.dev/ns#TransientFailure",
+      "word": "transient"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#RetryAfterFailure",
+      "word": "retry-after"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#OverBudgetFailure",
+      "word": "over-budget"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#DeniedFailure",
+      "word": "denied"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#RefusedFailure",
+      "word": "refused"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#PermanentFailure",
+      "word": "permanent"
+    },
+    {
+      "iri": "https://ikigai-rs.dev/ns#UnknownFailure",
+      "word": "unknown"
+    }
+  ]
+}
