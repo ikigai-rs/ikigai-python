@@ -530,6 +530,73 @@
       "contract": "urn:ikigai:contract:httpGet:source:b3:06a5c67c1c98c42ea18ca8512bc854f6c108f1f6e232d4403c2624f7aade86d2",
       "id": "httpGet",
       "name": "v2/output-from-origin"
+    },
+    {
+      "action": {
+        "failures": [
+          "retry-after",
+          "transient",
+          "refused"
+        ],
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:httpGet:source:b3:4b88783164ed50c3f461b8897b3273989d85b7400fc06e833f136c98b4beba91",
+      "id": "httpGet",
+      "name": "failures/stated"
+    },
+    {
+      "action": {
+        "failures": [
+          "refused",
+          "transient",
+          "retry-after"
+        ],
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:httpGet:source:b3:4b88783164ed50c3f461b8897b3273989d85b7400fc06e833f136c98b4beba91",
+      "id": "httpGet",
+      "name": "failures/stated-in-another-order"
+    },
+    {
+      "action": {
+        "failures": [],
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:httpGet:source:b3:cfb18606b6f2c7507c9671901d2f75ed52d13f574f0d7c28348687d35b467894",
+      "id": "httpGet",
+      "name": "failures/only-the-implied"
+    },
+    {
+      "action": {
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:httpGet:source:b3:e5d8e2f517cf3efd3b7635d9cdfab8a571f34fb932d822f666a12862989f2621",
+      "id": "httpGet",
+      "name": "failures/unstated"
     }
   ],
   "doors": [
@@ -1769,6 +1836,56 @@
       "name": "core/argspec-shape",
       "pattern": "urn:core:argspec-shape",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:argspec-shape> a ik:Endpoint ;\n    ik:id \"argspec-shape\" ;\n    ik:summary \"every construct the ArgSpec release added\" ;\n    ik:verb \"Source\", \"Sink\", \"Delete\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:input <urn:ikigai:endpoint:argspec-shape:input:content> ;\n    ik:input <urn:ikigai:endpoint:argspec-shape:input:in> ;\n    ik:input <urn:ikigai:endpoint:argspec-shape:input:proposals> ;\n    ik:input <urn:ikigai:endpoint:argspec-shape:input:provider> ;\n    ik:input <urn:ikigai:endpoint:argspec-shape:input:endpoint> ;\n    ik:outputFrom <urn:ikigai:endpoint:argspec-shape:input:in> ;\n    ik:group <urn:ikigai:endpoint:argspec-shape:group:exactly-one:content,in> ;\n    ik:action <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc> ;\n    ik:action <urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707> ;\n    ik:action <urn:ikigai:contract:argspec-shape:delete:b3:ccae82fd3d6a54362ba182cbc7e26e16ac81043479ecf62582c544dcadfeb0dc> .\n\n<urn:ikigai:endpoint:argspec-shape:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required false .\n\n<urn:ikigai:endpoint:argspec-shape:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required false .\n\n<urn:ikigai:endpoint:argspec-shape:input:proposals> ik:inputName \"proposals\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:oneOf \"minor\" ;\n    ik:oneOf \"info\" ;\n    ik:example \"minor,info\" ;\n    ik:listSeparator \"comma\" ;\n    ik:valueNote <urn:ikigai:endpoint:argspec-shape:input:proposals:value:info> .\n\n<urn:ikigai:endpoint:argspec-shape:input:proposals:value:info> a <http://www.w3.org/2004/02/skos/core#Concept> ;\n    <http://www.w3.org/2004/02/skos/core#notation> \"info\" ;\n    <http://www.w3.org/2004/02/skos/core#definition> \"informational only\" ;\n    ik:tag \"quiet\" .\n\n<urn:ikigai:endpoint:argspec-shape:input:provider> ik:inputName \"provider\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:enumerated true .\n\n<urn:ikigai:endpoint:argspec-shape:input:endpoint> ik:inputName \"endpoint\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:needs <urn:ikigai:endpoint:argspec-shape:input:in> .\n\n<urn:ikigai:endpoint:argspec-shape:group:exactly-one:content,in> a ik:InputGroup ;\n    ik:groupKind \"exactly-one\" ;\n    ik:member <urn:ikigai:endpoint:argspec-shape:input:content> ;\n    ik:member <urn:ikigai:endpoint:argspec-shape:input:in> ;\n    ik:pipe <urn:ikigai:endpoint:argspec-shape:input:content> .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required false .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:in> ik:inputName \"in\" ;\n    ik:source \"argument\" ;\n    ik:required false .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:proposals> ik:inputName \"proposals\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:oneOf \"minor\" ;\n    ik:oneOf \"info\" ;\n    ik:example \"minor,info\" ;\n    ik:listSeparator \"comma\" ;\n    ik:valueNote <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:proposals:value:info> .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:proposals:value:info> a <http://www.w3.org/2004/02/skos/core#Concept> ;\n    <http://www.w3.org/2004/02/skos/core#notation> \"info\" ;\n    <http://www.w3.org/2004/02/skos/core#definition> \"informational only\" ;\n    ik:tag \"quiet\" .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:provider> ik:inputName \"provider\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:enumerated true .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:endpoint> ik:inputName \"endpoint\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:needs <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:in> .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:group:exactly-one:content,in> a ik:InputGroup ;\n    ik:groupKind \"exactly-one\" ;\n    ik:member <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:content> ;\n    ik:member <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:in> ;\n    ik:pipe <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:content> .\n\n<urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:input <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:content> ;\n    ik:input <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:in> ;\n    ik:input <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:proposals> ;\n    ik:input <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:provider> ;\n    ik:input <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:endpoint> ;\n    ik:outputFrom <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:input:in> ;\n    ik:group <urn:ikigai:contract:argspec-shape:source:b3:64440707da23251e588f32224defcf2a744d9b1b313e17724d5da3b346c6ddfc:group:exactly-one:content,in> .\n\n<urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707:input:email> ik:inputName \"email\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:input <urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707:input:content> ;\n    ik:input <urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707:input:email> ;\n    ik:envelope <urn:ikigai:contract:argspec-shape:sink:b3:d047f91c72be589e936b412a5b4ff6c206ef12ee4cddc4fb35e9b15b72ff8707:input:content> .\n\n<urn:ikigai:contract:argspec-shape:delete:b3:ccae82fd3d6a54362ba182cbc7e26e16ac81043479ecf62582c544dcadfeb0dc:input:key> ik:inputName \"key\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:argspec-shape:delete:b3:ccae82fd3d6a54362ba182cbc7e26e16ac81043479ecf62582c544dcadfeb0dc> a ik:Action ;\n    ik:verb \"Delete\" ;\n    ik:input <urn:ikigai:contract:argspec-shape:delete:b3:ccae82fd3d6a54362ba182cbc7e26e16ac81043479ecf62582c544dcadfeb0dc:input:key> ;\n    ik:openArguments \"anything else is a label\" ;\n    ik:outputFrom ik:Origin .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:failure-classes:source:b3:e3ffe603e3a3b77c8eb170b6ed9e1ad803e57d55a3888c18f4e7e5b8fa211906",
+          "match": "urn:ikigai:match:source:urn:core:failure-classes",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:failure-classes:sink:b3:523308d6b076036e1a9c026e637488ec468db8a4d5ec2af9af04a9571dd9c80f",
+          "match": "urn:ikigai:match:sink:urn:core:failure-classes",
+          "verb": "Sink"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "failures": [
+              "refused",
+              "over-budget"
+            ],
+            "requires": [
+              "urn:cap:net:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "id": "failure-classes",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "summary": "declared failure classes, flat and per verb (ledger #1546)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "core/failure-classes",
+      "pattern": "urn:core:failure-classes",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:failure-classes> a ik:Endpoint ;\n    ik:id \"failure-classes\" ;\n    ik:summary \"declared failure classes, flat and per verb (ledger #1546)\" ;\n    ik:verb \"Source\", \"Sink\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:net:*> ;\n    ik:mayFail ik:RetryAfterFailure, ik:TransientFailure ;\n    ik:action <urn:ikigai:contract:failure-classes:source:b3:e3ffe603e3a3b77c8eb170b6ed9e1ad803e57d55a3888c18f4e7e5b8fa211906> ;\n    ik:action <urn:ikigai:contract:failure-classes:sink:b3:523308d6b076036e1a9c026e637488ec468db8a4d5ec2af9af04a9571dd9c80f> .\n\n<urn:ikigai:contract:failure-classes:source:b3:e3ffe603e3a3b77c8eb170b6ed9e1ad803e57d55a3888c18f4e7e5b8fa211906> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:net:*> ;\n    ik:mayFail ik:RetryAfterFailure ;\n    ik:mayFail ik:TransientFailure .\n\n<urn:ikigai:contract:failure-classes:sink:b3:523308d6b076036e1a9c026e637488ec468db8a4d5ec2af9af04a9571dd9c80f> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:requires <urn:cap:net:write> ;\n    ik:mayFail ik:RefusedFailure ;\n    ik:mayFail ik:OverBudgetFailure .\n"
     }
   ],
   "form": "ikigai:contract:v1",

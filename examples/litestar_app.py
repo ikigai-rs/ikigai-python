@@ -25,7 +25,7 @@ from litestar import Litestar, Request, Response, get
 from litestar.datastructures import State
 from litestar.params import FromPath, FromQuery
 
-from examples import error_status
+from examples import error_status, retry_after_header
 from ikigai import ConnectionLost, EndpointError, aio, default_socket_path
 
 if TYPE_CHECKING:
@@ -84,9 +84,14 @@ async def catalog(state: State) -> list[dict]:
 def endpoint_error(request: Request, exc: EndpointError) -> Response[str]:
     """The peer's failure, with its taxonomy intact (wire v8): the typed
     exception picks the status — Denied→403, NotFound→404, Conflict→409, bad
-    input→400, transient→503, anything else→502 — carrying the endpoint's
-    message."""
-    return Response(str(exc), status_code=error_status(exc), media_type="text/plain")
+    input→400, Timeout→504, RetryAfter→429, Endpoint→500, … (`examples.error_status`) —
+    carrying the endpoint's message."""
+    return Response(
+        str(exc),
+        status_code=error_status(exc),
+        media_type="text/plain",
+        headers=retry_after_header(exc),
+    )
 
 
 def connection_lost(request: Request, exc: ConnectionLost) -> Response[str]:

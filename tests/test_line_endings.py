@@ -19,6 +19,7 @@ SHARED = [
     "tests/vectors/capability_vectors.json",
     "tests/vectors/html_vectors.json",
     "tests/vectors/auth_vectors.json",
+    "tests/vectors/failure_class_vectors.json",
     "tests/ttt_template_cases.txt",
     "tests/test_wire.py",
 ]

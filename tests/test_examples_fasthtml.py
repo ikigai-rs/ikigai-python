@@ -42,10 +42,10 @@ def test_catalog_page_lists_the_space(examples_peer):
             assert pattern in page
 
 
-def test_endpoint_error_maps_to_502(partial_peer):
+def test_unresolved_maps_to_404(partial_peer):
     with TestClient(app) as client:
         response = client.get("/upper", params={"text": "abc"})
-        assert response.status_code == 502
+        assert response.status_code == 404
         assert "no endpoint resolved for urn:py:upper" in response.text
 
 
@@ -64,7 +64,8 @@ def test_peer_gone_maps_to_503(dying_peer):
         (ikigai.ConflictError("square taken"), 409),
         (ikigai.MissingArgumentError("who"), 400),
         (ikigai.InvalidArgumentError("who", "not a name"), 400),
-        (ikigai.TimeoutError("5s elapsed"), 503),
+        (ikigai.TimeoutError("5s elapsed"), 504),
+        (ikigai.EndpointError("handler fault"), 500),
         (ikigai.UnavailableError("upstream down"), 503),
     ],
     ids=lambda v: type(v).__name__ if isinstance(v, Exception) else str(v),

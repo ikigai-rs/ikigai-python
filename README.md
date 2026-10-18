@@ -480,8 +480,9 @@ thin face over `kernel.source(...)`, with a browsable catalog and the wire's
 typed errors mapped onto HTTP statuses: `DeniedError`→403,
 `NotFoundError`→404, `ConflictError`→409,
 `MissingArgumentError`/`InvalidArgumentError`→400,
-transient (`TimeoutError`/`UnavailableError`)→503, anything else→502, and
-`ConnectionLost`→503. They run pure-Python against
+`UnavailableError`→503, `TimeoutError`→504, `RetryAfterError`→429,
+`OverBudgetError`→422, `RefusedError`→502, `UnsupportedError`→405/501, anything
+else→500, and `ConnectionLost`→503. They run pure-Python against
 `python -m examples.endpoints`, or through a Rust kernel to pick up its
 caching unchanged. See `examples/README.md`; install with
 `pip install -e '.[dev,examples]'`.
@@ -572,6 +573,36 @@ record the layout. Highlights that a public ABI document should state:
   provenance never crosses the wire; `expiry` does, and drives host caching.
 - Map/set order is Rust `BTreeMap`/`BTreeSet` order: lexicographic over
   UTF-8 bytes.
+
+## Release notes: the core 0.1.108 failure classes (ledger #1896, #1546)
+
+Each of these is a behavior change; the shared vectors
+(`tests/vectors/failure_class_vectors.json`, `contract_vectors.json`, verbatim copies
+of ikigai-vocab 0.1.108's) pin them.
+
+- **New error types**, all `EndpointError` subclasses: `DepthExceededError(depth,
+  target)`, `RetryAfterError(delay_ms, detail)` (`delay_ms` may be `None`;
+  `retry_after_seconds()` is the header value, rounded up, never 0), `OverBudgetError`,
+  `RefusedError` and `UnsupportedError(detail, verb=None)`. Each has a `kind` word.
+- **`failure_class()`** on every error returns one of the seven classes: `transient`,
+  `retry-after`, `over-budget`, `denied`, `refused`, `permanent`, `unknown`.
+  `transient` keeps its meaning (Timeout, Unavailable); **`RetryAfterError` is NOT
+  transient**, so code gated on `transient` treats a rate limit as permanent.
+- **Wire, receive side only.** Error tags 9-13 (depth-exceeded, retry-after,
+  over-budget, refused, unsupported) now decode to the types above instead of the
+  generic `unknown wire error variant` `EndpointError`; an unknown tag still decodes to
+  `EndpointError`. This face does not send them yet: it still speaks wire v8, and one
+  of these reaches a peer as `Endpoint(display)`. The `IssueWith` retry and deadline
+  fields wait for the cli's wire v9.
+  The tag 9-13 payload layouts follow core's field order and are not pinned by the
+  vectors (only the tags are).
+- **Example edge statuses** (`examples.error_status`): Timeout 503 -> **504**; plain
+  `EndpointError` **502 -> 500**; `UnresolvedError` 502 -> **404**; new: RetryAfter 429
+  with `Retry-After`, OverBudget 422, Refused 502, DepthExceeded 500, Unsupported 405
+  with a verb and 501 without.
+- **Contract digests.** An action's stated `failures` (class words) put it in the
+  `ikigai:contract:v2` form, fed last and only when stated (an empty list is stated).
+  No existing contract IRI moves. `to_turtle` writes `ik:mayFail`, flat and per verb.
 
 ## License
 

@@ -341,7 +341,10 @@ def test_display_covers_every_typed_error():
             yield sub
             yield from typed(sub)
 
-    assert {type(e) for e, _ in DISPLAYED} == {EndpointError, *typed(EndpointError)}
+    # The wire v9 variants are receive-only (they cannot round-trip through this face's
+    # encoder); tests/test_failure_classes.py pins their display against the vectors.
+    v9 = set(wire._V9_ERRORS)
+    assert {type(e) for e, _ in DISPLAYED} == {EndpointError, *typed(EndpointError)} - v9
 
 
 def test_a_v7_conflict_displays_as_rust_shows_the_downgrade():

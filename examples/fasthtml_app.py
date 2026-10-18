@@ -38,7 +38,7 @@ from fasthtml.common import (
 )
 from starlette.responses import PlainTextResponse
 
-from examples import error_status
+from examples import error_status, retry_after_header
 from ikigai import ConnectionLost, EndpointError, aio, default_socket_path
 
 
@@ -65,8 +65,10 @@ async def kernel_connection(app):
 
 def endpoint_error(request, exc: EndpointError):
     # The typed taxonomy picks the status (wire v8): Denied→403, NotFound→404,
-    # Conflict→409, bad input→400, transient→503, anything else→502.
-    return PlainTextResponse(str(exc), status_code=error_status(exc))
+    # the rest per `examples.error_status` (Timeout→504, RetryAfter→429, Endpoint→500, …).
+    return PlainTextResponse(
+        str(exc), status_code=error_status(exc), headers=retry_after_header(exc)
+    )
 
 
 def connection_lost(request, exc: ConnectionLost):
