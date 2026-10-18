@@ -1,0 +1,218 @@
+{
+  "about": "Shared Authorization-header and base64 vectors (ledger #1857). Hand-written from the RFCs named in each case's source, never computed from an implementation. Every face (Rust ikigai-http, Python, Deno) runs every case; the Python and Deno copies are byte-identical. Kept ASCII with \\u escapes, and eol=lf.",
+  "version": 1,
+  "basic": [
+    {
+      "name": "rfc7617-aladdin",
+      "source": "RFC 7617 section 2",
+      "user": "Aladdin",
+      "password": "open sesame",
+      "expect": "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
+    },
+    {
+      "name": "rfc7617-utf8-pound-sign",
+      "source": "RFC 7617 section 2.1 (password 123 then U+00A3 POUND SIGN, encoded as UTF-8)",
+      "user": "test",
+      "password": "123\u00a3",
+      "expect": "Basic dGVzdDoxMjPCow=="
+    },
+    {
+      "name": "empty-password",
+      "source": "RFC 7617 section 2 (password = *TEXT); hand-derived with the RFC 4648 section 4 table",
+      "user": "Aladdin",
+      "password": "",
+      "expect": "Basic QWxhZGRpbjo="
+    },
+    {
+      "name": "empty-user-and-password",
+      "source": "RFC 7617 section 2 (user-id = *TEXT); hand-derived with the RFC 4648 section 4 table",
+      "user": "",
+      "password": "",
+      "expect": "Basic Og=="
+    },
+    {
+      "name": "colon-in-password-is-legal",
+      "source": "RFC 7617 section 2 (text after the first colon is part of the password); hand-derived",
+      "user": "a",
+      "password": "b:c",
+      "expect": "Basic YTpiOmM="
+    }
+  ],
+  "basic_refusals": [
+    {
+      "name": "colon-in-user-id",
+      "source": "RFC 7617 section 2",
+      "user": "Ala:ddin",
+      "password": "open sesame",
+      "error": "basic-user-id-colon"
+    },
+    {
+      "name": "nul-in-user-id",
+      "source": "RFC 7617 section 2 (CTL, RFC 5234 B.1)",
+      "user": "Alad\u0000din",
+      "password": "open sesame",
+      "error": "basic-user-id-control"
+    },
+    {
+      "name": "del-in-user-id",
+      "source": "RFC 7617 section 2 (CTL includes %x7F)",
+      "user": "Aladdin\u007f",
+      "password": "open sesame",
+      "error": "basic-user-id-control"
+    },
+    {
+      "name": "line-feed-in-password",
+      "source": "RFC 7617 section 2 (CTL)",
+      "user": "Aladdin",
+      "password": "open\nsesame",
+      "error": "basic-password-control"
+    },
+    {
+      "name": "tab-in-password",
+      "source": "RFC 7617 section 2 (CTL includes HTAB, %x09)",
+      "user": "Aladdin",
+      "password": "open\tsesame",
+      "error": "basic-password-control"
+    },
+    {
+      "name": "c1-control-in-password",
+      "source": "RFC 7617 section 2.1 -> RFC 7613 OpaqueString (FreeformClass disallows Cc, so U+0085 too)",
+      "user": "Aladdin",
+      "password": "open\u0085sesame",
+      "error": "basic-password-control"
+    },
+    {
+      "name": "order-colon-before-control",
+      "source": "ikigai order rule: user-id colon, then user-id control, then password control",
+      "user": "Ala:d\u0000din",
+      "password": "open\nsesame",
+      "error": "basic-user-id-colon"
+    },
+    {
+      "name": "order-user-before-password",
+      "source": "ikigai order rule: user-id colon, then user-id control, then password control",
+      "user": "\u0001",
+      "password": "\u0001",
+      "error": "basic-user-id-control"
+    }
+  ],
+  "bearer": [
+    {
+      "name": "rfc6750-example",
+      "source": "RFC 6750 section 2.1",
+      "token": "mF_9.B5f-4.1JqM",
+      "expect": "Bearer mF_9.B5f-4.1JqM"
+    },
+    {
+      "name": "every-b64token-character",
+      "source": "RFC 6750 section 2.1 (b64token)",
+      "token": "AZaz09-._~+/",
+      "expect": "Bearer AZaz09-._~+/"
+    },
+    {
+      "name": "trailing-equals",
+      "source": "RFC 6750 section 2.1 (b64token ends *\"=\")",
+      "token": "abc==",
+      "expect": "Bearer abc=="
+    },
+    {
+      "name": "one-character",
+      "source": "RFC 6750 section 2.1 (1*)",
+      "token": "a",
+      "expect": "Bearer a"
+    }
+  ],
+  "bearer_refusals": [
+    { "name": "empty", "source": "RFC 6750 section 2.1 (1*)", "token": "", "error": "bearer-token-syntax" },
+    { "name": "only-equals", "source": "RFC 6750 section 2.1 (1* before the =)", "token": "==", "error": "bearer-token-syntax" },
+    { "name": "leading-equals", "source": "RFC 6750 section 2.1", "token": "=abc", "error": "bearer-token-syntax" },
+    { "name": "inner-equals", "source": "RFC 6750 section 2.1", "token": "a=b", "error": "bearer-token-syntax" },
+    { "name": "space", "source": "RFC 6750 section 2.1", "token": "a b", "error": "bearer-token-syntax" },
+    { "name": "leading-space", "source": "RFC 6750 section 2.1", "token": " abc", "error": "bearer-token-syntax" },
+    { "name": "trailing-space", "source": "RFC 6750 section 2.1", "token": "abc ", "error": "bearer-token-syntax" },
+    { "name": "tab", "source": "RFC 6750 section 2.1", "token": "a\tb", "error": "bearer-token-syntax" },
+    { "name": "double-quote", "source": "RFC 6750 section 2.1", "token": "tok\"en", "error": "bearer-token-syntax" },
+    { "name": "comma", "source": "RFC 6750 section 2.1", "token": "tok,en", "error": "bearer-token-syntax" },
+    { "name": "non-ascii", "source": "RFC 6750 section 2.1", "token": "t\u00f6k", "error": "bearer-token-syntax" },
+    { "name": "line-feed", "source": "RFC 6750 section 2.1", "token": "abc\n", "error": "bearer-token-syntax" }
+  ],
+  "scheme": [
+    {
+      "name": "basic",
+      "source": "RFC 7617 section 2",
+      "value": "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+      "expect": { "scheme": "basic", "name": "Basic", "credentials": "QWxhZGRpbjpvcGVuIHNlc2FtZQ==" }
+    },
+    {
+      "name": "basic-lowercase",
+      "source": "RFC 9110 section 11.1 (scheme names are case-insensitive)",
+      "value": "basic QWxh",
+      "expect": { "scheme": "basic", "name": "Basic", "credentials": "QWxh" }
+    },
+    {
+      "name": "bearer-uppercase",
+      "source": "RFC 9110 section 11.1",
+      "value": "BEARER mF_9.B5f-4.1JqM",
+      "expect": { "scheme": "bearer", "name": "Bearer", "credentials": "mF_9.B5f-4.1JqM" }
+    },
+    {
+      "name": "bearer-extra-spaces",
+      "source": "RFC 9110 section 11.4 (1*SP) and section 5.5 (field-value OWS is trimmed)",
+      "value": "Bearer   mF_9.B5f-4.1JqM  ",
+      "expect": { "scheme": "bearer", "name": "Bearer", "credentials": "mF_9.B5f-4.1JqM" }
+    },
+    {
+      "name": "bearer-tabs",
+      "source": "RFC 9110 section 5.5 (OWS includes HTAB); ikigai accepts HTAB between scheme and credentials",
+      "value": "\tBearer\tabc",
+      "expect": { "scheme": "bearer", "name": "Bearer", "credentials": "abc" }
+    },
+    {
+      "name": "bearer-without-token",
+      "source": "RFC 9110 section 11.4 (the credentials are optional in the grammar)",
+      "value": "Bearer",
+      "expect": { "scheme": "bearer", "name": "Bearer", "credentials": "" }
+    },
+    {
+      "name": "digest-is-other",
+      "source": "RFC 9110 section 11.4 (auth-param form)",
+      "value": "Digest username=\"Mufasa\", realm=\"http-auth@example.org\"",
+      "expect": { "scheme": "other", "name": "Digest", "credentials": "username=\"Mufasa\", realm=\"http-auth@example.org\"" }
+    },
+    {
+      "name": "other-keeps-its-spelling",
+      "source": "RFC 9110 section 11.1",
+      "value": "negotiate YIIB",
+      "expect": { "scheme": "other", "name": "negotiate", "credentials": "YIIB" }
+    },
+    { "name": "empty", "source": "RFC 9110 section 11.4 (auth-scheme = token, 1*tchar)", "value": "", "expect": null },
+    { "name": "whitespace-only", "source": "RFC 9110 section 11.4", "value": "  \t ", "expect": null },
+    { "name": "at-sign-in-scheme", "source": "RFC 9110 section 5.6.2 (@ is not a tchar)", "value": "B@sic x", "expect": null },
+    { "name": "quoted-scheme", "source": "RFC 9110 section 5.6.2 (DQUOTE is not a tchar)", "value": "\"Basic\" x", "expect": null },
+    { "name": "comma-after-scheme", "source": "RFC 9110 section 5.6.2 (, is not a tchar)", "value": "Basic, x", "expect": null }
+  ],
+  "base64": [
+    { "name": "rfc4648-empty", "source": "RFC 4648 section 10", "text": "", "encoded": "" },
+    { "name": "rfc4648-f", "source": "RFC 4648 section 10", "text": "f", "encoded": "Zg==" },
+    { "name": "rfc4648-fo", "source": "RFC 4648 section 10", "text": "fo", "encoded": "Zm8=" },
+    { "name": "rfc4648-foo", "source": "RFC 4648 section 10", "text": "foo", "encoded": "Zm9v" },
+    { "name": "rfc4648-foob", "source": "RFC 4648 section 10", "text": "foob", "encoded": "Zm9vYg==" },
+    { "name": "rfc4648-fooba", "source": "RFC 4648 section 10", "text": "fooba", "encoded": "Zm9vYmE=" },
+    { "name": "rfc4648-foobar", "source": "RFC 4648 section 10", "text": "foobar", "encoded": "Zm9vYmFy" },
+    { "name": "alphabet-62-and-63", "source": "RFC 4648 section 4 table (62 is +, 63 is /); hand-derived", "hex": "fbff", "encoded": "+/8=" },
+    { "name": "alphabet-63-63", "source": "RFC 4648 section 4 table; hand-derived", "hex": "fffe", "encoded": "//4=" },
+    { "name": "zero-byte", "source": "RFC 4648 section 4 table; hand-derived", "hex": "00", "encoded": "AA==" },
+    { "name": "all-ones", "source": "RFC 4648 section 4 table; hand-derived", "hex": "ffffff", "encoded": "////" }
+  ],
+  "base64_refusals": [
+    { "name": "unpadded", "source": "RFC 4648 section 3.2 (padding required here)", "encoded": "Zg", "error": "base64-invalid" },
+    { "name": "short-padding", "source": "RFC 4648 section 3.2", "encoded": "Zg=", "error": "base64-invalid" },
+    { "name": "one-character", "source": "RFC 4648 section 4 (no encoding has length 1 mod 4)", "encoded": "A", "error": "base64-invalid" },
+    { "name": "space", "source": "RFC 4648 section 3.3 (MUST reject non-alphabet characters)", "encoded": "Zm9v Yg==", "error": "base64-invalid" },
+    { "name": "line-break", "source": "RFC 4648 section 3.1 and 3.3", "encoded": "Zm9vYg==\n", "error": "base64-invalid" },
+    { "name": "non-alphabet", "source": "RFC 4648 section 3.3", "encoded": "Zm9v!g==", "error": "base64-invalid" },
+    { "name": "url-safe-alphabet", "source": "RFC 4648 section 5 characters are not in the section 4 alphabet", "encoded": "-_8=", "error": "base64-invalid" },
+    { "name": "padding-mid-stream", "source": "RFC 4648 section 3.3 (= only at the end)", "encoded": "Zm8=Zm8=", "error": "base64-invalid" },
+    { "name": "nonzero-pad-bits", "source": "RFC 4648 section 3.5 (canonical: pad bits MUST be zero)", "encoded": "Zh==", "error": "base64-invalid" }
+  ]
+}

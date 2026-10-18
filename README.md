@@ -275,6 +275,16 @@ What a served endpoint gets for free, because its describe face is real:
   `tests/vectors/html_vectors.json`, a verbatim copy of ikigai-fn's file at
   commit 53d50c5; to pick up new vectors, copy that file again, unedited. The
   tic-tac-toe example's `$h` escape goes through `html_text`.
+- **Authorization headers and base64**: `ikigai.auth` mirrors `ikigai_http::auth`
+  (stdlib only): `basic` (RFC 7617), `bearer` (RFC 6750) and `scheme` (RFC 9110),
+  with the stable refusal codes `basic-user-id-colon`, `basic-user-id-control`,
+  `basic-password-control` and `bearer-token-syntax` on `AuthError.code`. An
+  `Authorization` shows only its scheme in `repr`; the value is `as_str()`. No
+  credential is in a repr or exception text. `ikigai.base64` is the one base64
+  (standard alphabet, padding required, canonical pad bits, no whitespace; code
+  `base64-invalid`). `tests/test_auth.py` runs every case in
+  `tests/vectors/auth_vectors.json`, a verbatim copy of ikigai-http's file at
+  commit ffadc89; to pick up new vectors, copy that file again, unedited.
 - **Match and contract IRIs**: `ikigai.contract` mirrors core's
   `match_iri`/`parse_match_iri` (`urn:ikigai:match:{verb}:{pattern}`, the row a
   host's `urn:kernel:actions` gives one door and verb) and
