@@ -85,6 +85,11 @@ rely on the peer refusing what the contract no longer admits.
   exactly as the Rust IPC door does (its ``Issue`` is ``issue_as(root)``): the
   socket admits only the owner, whose entitlement is root, so the carried
   capability needs no clamp.
+- **Wire v9** (``IssueWith``): a call may carry the run's retry pool and the
+  TIME LEFT in whole milliseconds. The server builds its :class:`RunContext` at
+  its OWN now (``deadline = monotonic() + time_left``; an instant never
+  crosses) and a served handler reads it with :func:`current_run`. A peer that
+  sends none gets ``current_run().retries is None`` and no deadline.
 - What a verb requires is core's table (:func:`required_scopes`): a declared
   verb, its own ``requires`` (an explicit per-verb ``requires`` REPLACES the
   flat one); an undeclared ``Exists``, what ``Source`` requires; any other
@@ -100,6 +105,8 @@ rely on the peer refusing what the contract no longer admits.
 
 from __future__ import annotations
 
+import contextvars
+import dataclasses
 import inspect
 import json
 import socket
@@ -132,6 +139,7 @@ from .wire import (
     Issue,
     IssueAs,
     IssueTraced,
+    IssueWithCall,
     MissingArgumentError,
     NotFoundError,
     Reply,
@@ -1492,6 +1500,36 @@ def _yes_no(value: bool, *, cacheable: bool) -> Resolved:
     return Resolved(rep, CacheStatus.MISS if cacheable else CacheStatus.UNCACHEABLE)
 
 
+@dataclasses.dataclass(frozen=True)
+class RunContext:
+    """What the calling run carried to this endpoint (wire v9 ``IssueWith``): the retry
+    pool remaining (``retries``, ``None`` when the peer sent none) and the ``deadline``
+    as a ``time.monotonic()`` instant on THIS host's clock (``None`` for no deadline).
+    The peer sent time left, not an instant; the deadline is that plus our own now."""
+
+    retries: int | None = None
+    deadline: float | None = None
+
+    def time_left(self) -> float | None:
+        """Seconds until the deadline (``0.0`` once past), or ``None`` without one."""
+        if self.deadline is None:
+            return None
+        return max(0.0, self.deadline - time.monotonic())
+
+    def expired(self) -> bool:
+        """Whether a deadline was carried and has passed."""
+        return self.deadline is not None and time.monotonic() >= self.deadline
+
+
+_RUN: contextvars.ContextVar[RunContext | None] = contextvars.ContextVar("ikigai_run", default=None)
+
+
+def current_run() -> RunContext:
+    """The :class:`RunContext` of the call a handler is serving: empty (no retry pool, no
+    deadline) outside a served call or when the peer sent none."""
+    return _RUN.get() or RunContext()
+
+
 def _refuse(d, verb: Verb) -> ErrorTypedReply:
     """An undeclared verb: an Endpoint failure naming what IS answered."""
     answered = ", ".join(v.wire_name for v in d.answered_verbs())
@@ -1583,26 +1621,44 @@ class Space:
             # The carried capability, enforced. The owner's ceiling is root, so
             # resolving under the carried capability IS the clamp.
             return self._resolve(call.request, alias_first, call.capability)
-        if isinstance(call, IssueTraced):
-            started = int(time.time() * 1000)
-            reply = self._resolve(call.request, alias_first, call.capability)
-            ended = int(time.time() * 1000)
-            if not isinstance(reply, Resolved):
-                return reply  # a typed error crosses untraced
-            capability = call.capability
-            event = TraceEvent(
-                target=call.request.target,
-                thread=threading.current_thread().name,
-                started=started,
-                ended=ended,
-                cache_hit=False,
-                span=0,
-                parent=None,
-                capability=(None if capability.is_root else tuple(sorted(capability.scopes or ()))),
+        if isinstance(call, IssueWithCall):
+            context = call.context
+            run = RunContext(
+                context.retries,
+                None
+                if context.time_left_ms is None
+                else time.monotonic() + context.time_left_ms / 1000,
             )
-            assert isinstance(reply, Resolved)
-            return ResolvedTraced(reply.representation, reply.cache_status, (event,))
+            token = _RUN.set(run)
+            try:
+                if context.trace is None:
+                    return self._resolve(call.request, alias_first, call.capability)
+                return self._traced(call.request, call.capability, alias_first)
+            finally:
+                _RUN.reset(token)
+        if isinstance(call, IssueTraced):
+            return self._traced(call.request, call.capability, alias_first)
         return ErrorTypedReply(EndpointError(f"unsupported call {type(call).__name__}"))
+
+    def _traced(self, request: Request, capability: Capability, alias_first: bool) -> Reply:
+        """Resolve and record the one span (``IssueTraced``, or ``IssueWith`` with a trace)."""
+        started = int(time.time() * 1000)
+        reply = self._resolve(request, alias_first, capability)
+        ended = int(time.time() * 1000)
+        if not isinstance(reply, Resolved):
+            return reply  # a typed error crosses untraced
+        event = TraceEvent(
+            target=request.target,
+            thread=threading.current_thread().name,
+            started=started,
+            ended=ended,
+            cache_hit=False,
+            span=0,
+            parent=None,
+            capability=(None if capability.is_root else tuple(sorted(capability.scopes or ()))),
+        )
+        assert isinstance(reply, Resolved)
+        return ResolvedTraced(reply.representation, reply.cache_status, (event,))
 
     def _resolve(
         self,

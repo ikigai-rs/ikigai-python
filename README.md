@@ -539,7 +539,7 @@ record the layout. Highlights that a public ABI document should state:
   the pre-v6 diagnosis (no legacy reconnect) — while a server that is merely
   *silent* is reported as hung or overloaded, never misdiagnosed as ancient
   — and a first frame without the magic is refused by the server. This
-  package speaks v8 (`ikigai.PROTOCOL_VERSION`) and still raises
+  package speaks v9 (`ikigai.PROTOCOL_VERSION`) and still raises
   `ProtocolError` naming its version on any undecodable message.
 - **Backward compatibility (since v8).** A v8 side accepts a hello of v7 or
   v8 (`MIN_PROTOCOL_VERSION`..=`PROTOCOL_VERSION`); anything else is refused
@@ -574,6 +574,28 @@ record the layout. Highlights that a public ABI document should state:
 - Map/set order is Rust `BTreeMap`/`BTreeSet` order: lexicographic over
   UTF-8 bytes.
 
+## Release notes: wire v9, `IssueWith` (ledger #1914, #1546)
+
+`ikigai.PROTOCOL_VERSION` is **9** (`MIN_PROTOCOL_VERSION` stays 7; negotiation is
+unchanged, so v7 and v8 peers still work).
+
+- **`Call::IssueWith`** (variant 5): Request, Capability, then `IssueWith{trace,
+  retries, time_left_ms}`, each optional, exactly where `IssueTraced` puts its
+  `TraceContext`. Vectors: `{None,None,None}` = `00 00 00`; `{None,2,1500}` =
+  `00 01 02 01 dc 0b`; `{{7,None},2,1500}` = `01 07 00 01 02 01 dc 0b`.
+- **The time-left rule.** The deadline crosses as TIME LEFT in whole milliseconds, never
+  an absolute instant: a server adds it to its OWN now (`time.monotonic()`), so the two
+  clocks never meet. A server exposes the retry pool and the deadline to a served
+  endpoint as `ikigai.current_run()` (`RunContext.retries`, `.deadline`,
+  `.time_left()`, `.expired()`); a peer that sends none gets `retries=None`, no deadline.
+- **Client.** `Client.retries` and `Client.deadline` (a `time.monotonic()` instant; also
+  on the async and QUIC clients) say what the run carries. `IssueWith` is sent only to a
+  peer that negotiated 9, and only when one of them is set; otherwise the bytes are
+  exactly the pre-v9 `Issue`/`IssueAs`/`IssueTraced`. A QUIC redial onto an older door
+  downgrades an `IssueWith` before it is encoded.
+- **Errors.** Tags 9-13 are sent to a v9 peer; to a v7/v8 peer the five new errors
+  downgrade to `Endpoint(display)`.
+
 ## Release notes: the core 0.1.108 failure classes (ledger #1896, #1546)
 
 Each of these is a behavior change; the shared vectors
@@ -588,14 +610,11 @@ of ikigai-vocab 0.1.108's) pin them.
   `retry-after`, `over-budget`, `denied`, `refused`, `permanent`, `unknown`.
   `transient` keeps its meaning (Timeout, Unavailable); **`RetryAfterError` is NOT
   transient**, so code gated on `transient` treats a rate limit as permanent.
-- **Wire, receive side only.** Error tags 9-13 (depth-exceeded, retry-after,
-  over-budget, refused, unsupported) now decode to the types above instead of the
-  generic `unknown wire error variant` `EndpointError`; an unknown tag still decodes to
-  `EndpointError`. This face does not send them yet: it still speaks wire v8, and one
-  of these reaches a peer as `Endpoint(display)`. The `IssueWith` retry and deadline
-  fields wait for the cli's wire v9.
-  The tag 9-13 payload layouts follow core's field order and are not pinned by the
-  vectors (only the tags are).
+- **Wire.** Error tags 9-13 (depth-exceeded, retry-after, over-budget, refused,
+  unsupported) decode to the types above instead of the generic `unknown wire error
+  variant` `EndpointError`; an unknown tag still decodes to `EndpointError`. Since
+  wire v9 (below) this face also sends them, to a v9 peer; a v7/v8 peer still receives
+  `Endpoint(display)`, byte-identical to before.
 - **Example edge statuses** (`examples.error_status`): Timeout 503 -> **504**; plain
   `EndpointError` **502 -> 500**; `UnresolvedError` 502 -> **404**; new: RetryAfter 429
   with `Retry-After`, OverBudget 422, Refused 502, DepthExceeded 500, Unsupported 405

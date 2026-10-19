@@ -86,8 +86,8 @@ def certs(tmp, server, client_id):
 
 
 def test_alpn_ids_are_the_rust_ones_newest_first():
-    assert ALPNS == ("ikigai/8", "ikigai/7")
-    assert wire.PROTOCOL_VERSION == 8 and wire.MIN_PROTOCOL_VERSION == 7
+    assert ALPNS == ("ikigai/9", "ikigai/8", "ikigai/7")
+    assert wire.PROTOCOL_VERSION == 9 and wire.MIN_PROTOCOL_VERSION == 7
 
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: type(c).__name__)
@@ -161,7 +161,7 @@ def test_round_trip_over_a_stream(door, certs):
     d = door(lambda call: answer())
     with connect(d.url, certs) as k:
         assert isinstance(k, QuicClient)
-        assert k.server_version == 8
+        assert k.server_version == 9
         assert k.source("urn:test:upper", **{"in": "hi"}).text == "HI"
     assert d.calls == [wire.Issue(upper())]
 
@@ -189,7 +189,7 @@ def test_a_v7_door_negotiates_7(door, certs):
 
 def test_a_door_outside_the_range_is_refused_naming_versions(door, certs):
     d = door(lambda call: answer(), alpns=["ikigai/6"])
-    with pytest.raises(ProtocolError, match="v7..=v8"):
+    with pytest.raises(ProtocolError, match="v7..=v9"):
         connect(d.url, certs)
 
 
