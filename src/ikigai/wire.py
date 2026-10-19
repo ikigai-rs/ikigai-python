@@ -1,6 +1,6 @@
 """The ikigai IPC wire protocol: types, postcard codec, and framing.
 
-Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 8. The codec is
+Mirrors ``ikigai-wire`` (Rust) at ``PROTOCOL_VERSION`` 9. The codec is
 non-self-describing, so every type here restates a Rust layout
 field-for-field; the Rust declaration is the normative source
 (``ikigai-wire/src/lib.rs`` and the ``ikigai-core`` types it serializes).
@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import builtins
 import struct
+import time
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import BinaryIO
@@ -51,7 +52,7 @@ from .postcard import DecodeError, Reader, encode_varint
 # tolerances (hello required; no legacy fallback either direction).
 # v8 appends WireError::Conflict (variant 8) and is backward compatible with v7:
 # see MIN_PROTOCOL_VERSION.
-PROTOCOL_VERSION = 8
+PROTOCOL_VERSION = 9
 
 # The oldest peer this side still speaks to. A hello of MIN..=PROTOCOL_VERSION
 # is accepted and the connection proceeds at the PEER's version (answered with
@@ -650,7 +651,31 @@ class IssueTraced:
     context: TraceContext
 
 
-Call = Issue | IsCached | EntriesCall | IssueAs | IssueTraced
+@dataclass(frozen=True)
+class IssueWith:
+    """``ikigai_wire::IssueWith`` (wire v9): what a run carries across a hop, three
+    optional fields. ``time_left_ms`` is TIME LEFT in whole milliseconds, never an
+    absolute instant: the server adds it to its OWN now, so the two clocks never meet."""
+
+    trace: TraceContext | None = None
+    retries: int | None = None  # the retry pool remaining (a u32)
+    time_left_ms: int | None = None
+
+
+@dataclass(frozen=True)
+class IssueWithCall:
+    """``Call::IssueWith`` (variant 5, wire v9): where ``IssueTraced`` puts its
+    ``TraceContext``, this puts an :class:`IssueWith`."""
+
+    request: Request
+    capability: Capability
+    context: IssueWith
+
+
+Call = Issue | IsCached | EntriesCall | IssueAs | IssueTraced | IssueWithCall
+
+#: The first wire version that has ``Call::IssueWith`` and error tags 9-13.
+ISSUE_WITH_SINCE = 9
 
 
 @dataclass(frozen=True)
@@ -832,11 +857,24 @@ def _put_wire_error(out: bytearray, error: EndpointError) -> None:
     elif isinstance(error, ConflictError):
         out += encode_varint(8)
         _put_string(out, error.message)
-    elif isinstance(error, _V9_ERRORS):
-        # Wire v9 is receive-only here: a variant this side cannot yet send crosses as
-        # `Endpoint(display)`, the form a v8 peer has always received for it.
-        out += encode_varint(3)
-        _put_string(out, error.display())
+    elif isinstance(error, DepthExceededError):
+        out += encode_varint(9)
+        out += encode_varint(error.depth)
+        _put_string(out, error.target)
+    elif isinstance(error, RetryAfterError):
+        out += encode_varint(10)
+        _put_option_varint(out, error.delay_ms)
+        _put_string(out, error.detail)
+    elif isinstance(error, OverBudgetError):
+        out += encode_varint(11)
+        _put_string(out, error.detail)
+    elif isinstance(error, RefusedError):
+        out += encode_varint(12)
+        _put_string(out, error.message)
+    elif isinstance(error, UnsupportedError):
+        out += encode_varint(13)
+        _put_option_varint(out, None if error.verb is None else int(error.verb))
+        _put_string(out, error.detail)
     elif isinstance(error, EndpointError):
         out += encode_varint(3)  # WireError::Endpoint
         _put_string(out, error.message)
@@ -865,6 +903,24 @@ def _put_trace_event(out: bytearray, event: TraceEvent) -> None:
         _put_string(out, value)
 
 
+def _put_issue_with(out: bytearray, context: IssueWith) -> None:
+    if context.trace is None:
+        out.append(0)
+    else:
+        out.append(1)
+        out += encode_varint(context.trace.trace_id)
+        _put_option_varint(out, context.trace.parent_span)
+    _put_option_varint(out, context.retries)
+    _put_option_varint(out, context.time_left_ms)
+
+
+def encode_issue_with(context: IssueWith) -> bytes:
+    """The ``IssueWith`` struct alone, postcard-encoded (the cross-language vectors)."""
+    out = bytearray()
+    _put_issue_with(out, context)
+    return bytes(out)
+
+
 def encode_call(call: Call) -> bytes:
     """A Call as one postcard payload: the variant's index, then its fields in Rust
     declaration order (maps and sets in ``BTreeMap``/``BTreeSet`` key order). Raises
@@ -888,6 +944,11 @@ def encode_call(call: Call) -> bytes:
         _put_capability(out, call.capability)
         out += encode_varint(call.context.trace_id)
         _put_option_varint(out, call.context.parent_span)
+    elif isinstance(call, IssueWithCall):
+        out += encode_varint(5)
+        _put_request(out, call.request)
+        _put_capability(out, call.capability)
+        _put_issue_with(out, call.context)
     else:
         raise TypeError(f"not a Call: {call!r}")
     return bytes(out)
@@ -903,8 +964,8 @@ def downgrade_error(error: EndpointError, peer_version: int) -> EndpointError:
     what crossed untyped before v8. Every other variant is unchanged."""
     if isinstance(error, ConflictError) and peer_version < CONFLICT_SINCE:
         return EndpointError(f"conflict: {error.message}")
-    if isinstance(error, _V9_ERRORS):
-        # This side speaks wire v8, which has no tags 9-13 to send.
+    if isinstance(error, _V9_ERRORS) and peer_version < ISSUE_WITH_SINCE:
+        # A v7/v8 peer has no tags 9-13: it gets what it has always received for them.
         return EndpointError(error.display())
     return error
 
@@ -1106,6 +1167,66 @@ def _get_trace_event(r: Reader) -> TraceEvent:
     return TraceEvent(target, thread, started, ended, cache_hit, span, parent, capability, notes)
 
 
+def _get_issue_with(r: Reader) -> IssueWith:
+    trace = None
+    if r.option():
+        trace_id = r.varint()
+        trace = TraceContext(trace_id, r.varint() if r.option() else None)
+    retries = r.varint(32) if r.option() else None
+    time_left_ms = r.varint() if r.option() else None
+    return IssueWith(trace, retries, time_left_ms)
+
+
+def decode_issue_with(payload: bytes) -> IssueWith:
+    """Decode the ``IssueWith`` struct alone, asserting it is consumed exactly."""
+    try:
+        r = Reader(payload)
+        context = _get_issue_with(r)
+        r.finish()
+        return context
+    except DecodeError as e:
+        raise ProtocolError(f"undecodable IssueWith: {e}") from e
+
+
+def build_issue_call(
+    request: Request,
+    capability: Capability | None,
+    *,
+    server_version: int | None,
+    retries: int | None = None,
+    deadline: float | None = None,
+    trace: TraceContext | None = None,
+) -> Call:
+    """The Call a client sends for ``request``. ``IssueWith`` goes only to a peer that
+    negotiated v9 AND only when the run carries a retry pool or a ``deadline`` (a
+    ``time.monotonic()`` instant); otherwise the exact pre-v9 ``Issue``/``IssueAs``
+    (or ``IssueTraced`` when ``trace`` is given). The deadline crosses as TIME LEFT
+    in whole ms, computed now."""
+    if (
+        (retries is not None or deadline is not None)
+        and server_version is not None
+        and server_version >= ISSUE_WITH_SINCE
+    ):
+        time_left = None if deadline is None else max(0, int((deadline - time.monotonic()) * 1000))
+        return IssueWithCall(
+            request, capability or Capability.root(), IssueWith(trace, retries, time_left)
+        )
+    if trace is not None:
+        return IssueTraced(request, capability or Capability.root(), trace)
+    return Issue(request) if capability is None else IssueAs(request, capability)
+
+
+def downgrade_call(call: Call, peer_version: int | None) -> Call:
+    """``call`` as a peer speaking ``peer_version`` can decode it: an ``IssueWith`` for a
+    pre-v9 (or unknown) peer becomes the ``IssueTraced``/``IssueAs`` it extends, dropping
+    the retry pool and the time left, which that peer has no field for."""
+    if isinstance(call, IssueWithCall) and (peer_version or 0) < ISSUE_WITH_SINCE:
+        if call.context.trace is not None:
+            return IssueTraced(call.request, call.capability, call.context.trace)
+        return IssueAs(call.request, call.capability)
+    return call
+
+
 def decode_call(payload: bytes) -> Call:
     """Decode one postcard Call payload, asserting it is consumed exactly. A truncated
     or unknown-variant payload raises :class:`ProtocolError` (never ``DecodeError``), so
@@ -1128,6 +1249,10 @@ def decode_call(payload: bytes) -> Call:
             trace_id = r.varint()
             parent_span = r.varint() if r.option() else None
             call = IssueTraced(request, capability, TraceContext(trace_id, parent_span))
+        elif variant == 5:
+            request = _get_request(r)
+            capability = _get_capability(r)
+            call = IssueWithCall(request, capability, _get_issue_with(r))
         else:
             raise _version_mismatch("Call", variant)
         r.finish()

@@ -12,7 +12,18 @@ from .client import (
     connect,
     default_socket_path,
 )
-from .serve import ArgSpec, EndpointDef, Family, InputGroup, Server, endpoint, family, serve
+from .serve import (
+    ArgSpec,
+    EndpointDef,
+    Family,
+    InputGroup,
+    RunContext,
+    Server,
+    current_run,
+    endpoint,
+    family,
+    serve,
+)
 from .template import TemplateError, UriTemplate
 from .wire import (
     MIN_PROTOCOL_VERSION,
@@ -56,7 +67,9 @@ __all__ = [
     "EndpointDef",
     "Family",
     "InputGroup",
+    "RunContext",
     "Server",
+    "current_run",
     "connect",
     "default_socket_path",
     "endpoint",

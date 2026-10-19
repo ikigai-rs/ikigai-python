@@ -164,11 +164,23 @@ def test_a_malformed_v9_payload_is_a_protocol_error():
 
 
 @pytest.mark.parametrize("case", [c for c in CASES if c["wire_tag"] >= 9], ids=lambda c: c["name"])
-def test_this_face_does_not_send_v9_tags_yet(case):
-    # RECEIVE only: a variant wire v8 has no tag for crosses as Endpoint(display), what a
-    # v8 peer has always received for it (the vectors' own `display` note).
-    sent = wire.decode_reply(wire.encode_reply(wire.ErrorTypedReply(the_error(case)))).error
-    assert sent == ikigai.EndpointError(case["display"])
+def test_a_v8_peer_gets_endpoint_display_for_a_v9_tag(case):
+    # A variant a v8 peer has no tag for crosses as Endpoint(display), what it has always
+    # received for it (the vectors' own `display` note).
+    error = the_error(case)
+    for peer in (7, 8):
+        sent = wire.decode_reply(
+            wire.encode_reply(wire.ErrorTypedReply(error), peer_version=peer)
+        ).error
+        assert sent == ikigai.EndpointError(case["display"])
+
+
+@pytest.mark.parametrize("case", [c for c in CASES if c["wire_tag"] >= 9], ids=lambda c: c["name"])
+def test_a_v9_peer_gets_the_typed_tag_and_it_round_trips(case):
+    error = the_error(case)
+    raw = wire.encode_reply(wire.ErrorTypedReply(error), peer_version=9)
+    assert raw[:2] == b"\x05" + bytes([case["wire_tag"]])
+    assert wire.decode_reply(raw).error == error
 
 
 def test_errors_with_different_payloads_are_not_equal():

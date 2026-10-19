@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -63,7 +64,8 @@ def client_set(directory: Path, door_set: Path, *, client_from: Path, pin_from: 
 def test_the_five_verbs_and_typed_errors_cross_the_rust_door(door, door_set):
     d = door()
     with quic.connect(d.url, door_set) as k:
-        assert k.server_version == 8
+        # ikigai-cli 0.1.65 (pinned in CI) speaks 8; 0.1.66, which defines wire v9, negotiates 9.
+        assert k.server_version in (8, 9)
         upper = k.source("urn:iki:fn:toUpper", **{"in": "hi"})
         assert upper.text == "HI" and upper.media_type.startswith("text/plain")
         with pytest.raises(ikigai.UnresolvedError) as missing:
@@ -126,3 +128,14 @@ def test_an_enrolled_certificate_is_served_under_its_grant(door, door_set, tmp):
     d = door(home)
     with quic.connect(d.url, door_set) as k:
         assert k.source("urn:iki:fn:toUpper", **{"in": "ok"}).text == "OK"
+
+
+def test_issue_with_crosses_a_v9_rust_door(door, door_set):
+    # Wire v9 is ikigai-cli 0.1.66; CI pins 0.1.65 until that is published, and this
+    # skips against a door that negotiated less.
+    d = door()
+    with quic.connect(d.url, door_set) as k:
+        if k.server_version < 9:
+            pytest.skip(f"the Rust door negotiated v{k.server_version}, not v9")
+        k.retries, k.deadline = 2, time.monotonic() + 30
+        assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"

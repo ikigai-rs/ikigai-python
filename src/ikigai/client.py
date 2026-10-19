@@ -36,9 +36,6 @@ from .wire import (
     ErrorTypedReply,
     Inline,
     IsCached,
-    Issue,
-    IssueAs,
-    IssueTraced,
     ProtocolError,
     Reply,
     Representation,
@@ -139,6 +136,11 @@ class Client:
         #: raises in ``connect()`` instead; ``None`` only marks a
         #: hand-constructed client whose server version is genuinely unknown.
         self.server_version = server_version
+        #: The run's retry pool remaining and ``time.monotonic()`` deadline; when either
+        #: is set and the peer negotiated wire v9, requests go as ``Call::IssueWith``
+        #: (the deadline as TIME LEFT in whole ms). Both ``None``: the pre-v9 bytes.
+        self.retries: int | None = None
+        self.deadline: float | None = None
 
     # -- transport ---------------------------------------------------------
 
@@ -153,8 +155,18 @@ class Client:
         except (BrokenPipeError, ConnectionError, EOFError) as e:
             raise ConnectionLost(f"the kernel server is unreachable: {e}") from e
 
+    def _call_for(self, request: Request, trace: TraceContext | None = None) -> wire.Call:
+        return wire.build_issue_call(
+            request,
+            self.capability,
+            server_version=self.server_version,
+            retries=self.retries,
+            deadline=self.deadline,
+            trace=trace,
+        )
+
     def _issue(self, request: Request) -> Representation:
-        call = Issue(request) if self.capability is None else IssueAs(request, self.capability)
+        call = self._call_for(request)
         reply = self._round_trip(call)
         if isinstance(reply, Resolved):
             representation = reply.representation
@@ -233,10 +245,8 @@ class Client:
         """Source a resource AND record the resolution: returns the
         representation plus the server's trace spans (the execution tree —
         ``(span, parent)`` edges, per-node cache outcome and authority)."""
-        call = IssueTraced(
-            build_request(Verb.SOURCE, iri, args),
-            self.capability or Capability.root(),
-            TraceContext(trace_id=1, parent_span=None),
+        call = self._call_for(
+            build_request(Verb.SOURCE, iri, args), TraceContext(trace_id=1, parent_span=None)
         )
         reply = self._round_trip(call)
         if isinstance(reply, ResolvedTraced):

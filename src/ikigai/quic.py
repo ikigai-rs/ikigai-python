@@ -72,6 +72,7 @@ from .wire import (
     Issue,
     IssueAs,
     IssueTraced,
+    IssueWithCall,
     ProtocolError,
     Reply,
     Verb,
@@ -301,7 +302,7 @@ def is_describe(call: Call) -> bool:
     which runs under :data:`DEFAULT_DESCRIBE_TIMEOUT` (the Rust ``is_describe``)."""
     if isinstance(call, EntriesCall):
         return True
-    if isinstance(call, Issue | IssueAs | IssueTraced):
+    if isinstance(call, Issue | IssueAs | IssueTraced | IssueWithCall):
         return call.request.verb == Verb.META
     return False
 
@@ -640,21 +641,26 @@ class _Wire:
     async def round_trip(self, call: Call) -> Reply:
         """Send ``call`` on a fresh stream and decode the reply, healing onto a new
         connection when the old one has ended."""
-        payload = wire.encode_call(call)
         deadline = self.describe_timeout if is_describe(call) else self.timeout
         async with self._lock:
             if self.protocol is None or self.protocol.ended or self._stale:
                 await self._heal()
             try:
-                return await self._attempt(payload, deadline, call)
+                return await self._attempt(self._payload(call), deadline, call)
             except _Sent as sent:
                 if not replayable(call):
                     raise sent.error from None
                 await self._heal(sent.error)
                 try:
-                    return await self._attempt(payload, deadline, call)
+                    return await self._attempt(self._payload(call), deadline, call)
                 except _Sent as again:
                     raise again.error from None
+
+    def _payload(self, call: Call) -> bytes:
+        """``call`` encoded for the door this connection reached: a redial may land on an
+        older door than the one the call was built for, which never sees ``IssueWith``."""
+        version = self.protocol.version if self.protocol else None
+        return wire.encode_call(wire.downgrade_call(call, version))
 
     async def _heal(self, cause: Exception | None = None) -> None:
         if self.protocol is not None and isinstance(self.protocol.failure, TrustError):
@@ -724,7 +730,9 @@ class AsyncQuicClient(aio.AsyncClient):
         """Adopt an OPEN connection state; prefer :func:`connect_async`."""
         self._wire = wire_state
         self.capability = capability
-        #: The wire version the ALPN negotiation settled on (7 or 8).
+        self.retries: int | None = None
+        self.deadline: float | None = None
+        #: The wire version the ALPN negotiation settled on (7, 8 or 9).
         self.server_version = wire_state.protocol.version if wire_state.protocol else None
         #: This client's certificate fingerprint, as the door enrolls it.
         self.fingerprint = wire_state.loaded.fingerprint
@@ -803,8 +811,26 @@ class QuicClient(Client):
         self._inner.capability = value
 
     @property
+    def retries(self) -> int | None:
+        """The run's retry pool remaining; with :attr:`deadline`, sent as ``IssueWith`` to v9."""
+        return self._inner.retries
+
+    @retries.setter
+    def retries(self, value: int | None) -> None:
+        self._inner.retries = value
+
+    @property
+    def deadline(self) -> float | None:
+        """The run's ``time.monotonic()`` deadline, sent as TIME LEFT in whole ms to a v9 door."""
+        return self._inner.deadline
+
+    @deadline.setter
+    def deadline(self, value: float | None) -> None:
+        self._inner.deadline = value
+
+    @property
     def server_version(self) -> int | None:
-        """The wire version the ALPN negotiation settled on (7 or 8)."""
+        """The wire version the ALPN negotiation settled on (7, 8 or 9)."""
         return self._inner.server_version
 
     @property

@@ -140,11 +140,12 @@ def test_a_conflict_to_a_v7_peer_is_downgraded_to_the_v7_bytes():
 
 
 def test_accepted_versions_are_the_floor_through_ours():
-    assert (wire.MIN_PROTOCOL_VERSION, wire.PROTOCOL_VERSION) == (7, 8)
+    assert (wire.MIN_PROTOCOL_VERSION, wire.PROTOCOL_VERSION) == (7, 9)
+    assert wire.accepted_version(9) == 9
     assert wire.accepted_version(8) == 8
     assert wire.accepted_version(7) == 7  # served AT the peer's version
     assert wire.accepted_version(6) is None  # below the floor: refused as before
-    assert wire.accepted_version(9) is None  # a newer peer redials at ours
+    assert wire.accepted_version(10) is None  # a newer peer redials at ours
 
 
 def test_a_dialer_redials_only_down_and_only_within_reach():
@@ -275,12 +276,12 @@ def test_args_encode_in_btreemap_key_order():
 
 
 def test_unknown_call_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"v8"):
+    with pytest.raises(ProtocolError, match=r"v9"):
         wire.decode_call(b"\x09")
 
 
 def test_unknown_reply_variant_names_the_protocol_version():
-    with pytest.raises(ProtocolError, match=r"protocol v8"):
+    with pytest.raises(ProtocolError, match=r"protocol v9"):
         wire.decode_reply(b"\x2a")
 
 
@@ -341,8 +342,8 @@ def test_display_covers_every_typed_error():
             yield sub
             yield from typed(sub)
 
-    # The wire v9 variants are receive-only (they cannot round-trip through this face's
-    # encoder); tests/test_failure_classes.py pins their display against the vectors.
+    # The wire v9 variants' display is pinned against the shared vectors in
+    # tests/test_failure_classes.py.
     v9 = set(wire._V9_ERRORS)
     assert {type(e) for e, _ in DISPLAYED} == {EndpointError, *typed(EndpointError)} - v9
 

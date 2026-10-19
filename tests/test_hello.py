@@ -43,21 +43,21 @@ def hi(who: str) -> str:
 
 
 def test_a_version_mismatch_names_both_versions(socket_dir):
-    # A future v9 server: answers the hello with its own version, closes.
+    # A future v10 server: answers the hello with its own version, closes.
     path = socket_dir / "hello.sock"
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listener.bind(str(path))
     listener.listen(1)
 
-    def v9_server():
+    def v10_server():
         conn, _ = listener.accept()
         with conn, conn.makefile("rwb") as f:
             wire.read_frame(f)
-            wire.write_frame(f, encode_hello(Hello(9)))
+            wire.write_frame(f, encode_hello(Hello(10)))
 
-    t = threading.Thread(target=v9_server, daemon=True)
+    t = threading.Thread(target=v10_server, daemon=True)
     t.start()
-    with pytest.raises(wire.ProtocolError, match=r"v9.*v8|v8.*v9"):
+    with pytest.raises(wire.ProtocolError, match=r"v10.*v9|v9.*v10"):
         ikigai.connect(path)
     t.join(timeout=5)
     listener.close()
@@ -202,15 +202,15 @@ def test_a_v8_peer_receives_the_typed_conflict(socket_dir):
             raw = _issue(f, "urn:py:claim", square="b2")
         assert raw[:2] == b"\x05\x08"  # ErrorTyped, WireError::Conflict
         with ikigai.connect(path) as k:
-            assert k.server_version == 8
+            assert k.server_version == 9
             with pytest.raises(ikigai.ConflictError, match="b2 is taken") as e:
                 k.source("urn:py:claim", square="b2")
             assert e.value.transient is False
 
 
-@pytest.mark.parametrize("version", [6, 9])
+@pytest.mark.parametrize("version", [6, 10])
 def test_a_hello_out_of_reach_is_refused(socket_dir, version):
-    # Below the floor (a v6 client) or above ours (a v9 client): answered with
+    # Below the floor (a v6 client) or above ours (a v10 client): answered with
     # OUR version so the peer can name both (or, if it negotiates, redial at
     # ours), then closed without serving a single Call.
     path = socket_dir / "hello.sock"
@@ -261,14 +261,14 @@ class V7OnlyServer:
         self._listener.close()
 
 
-def test_a_v8_client_redials_a_v7_server_at_v7(socket_dir):
+def test_a_v9_client_redials_a_v7_server_at_v7(socket_dir):
     path = socket_dir / "v7.sock"
     server = V7OnlyServer(path)
     try:
         with ikigai.connect(path) as k:
             assert k.server_version == 7
             assert [e.endpoint for e in k.entries()] == ["toUpper"]
-        assert server.offers == [8, 7]  # offered ours, stepped down ONCE
+        assert server.offers == [9, 7]  # offered ours, stepped down ONCE
     finally:
         server.close()
 
@@ -284,7 +284,7 @@ def test_the_async_client_redials_a_v7_server_at_v7(socket_dir):
 
     try:
         asyncio.run(scenario())
-        assert server.offers == [8, 7]
+        assert server.offers == [9, 7]
     finally:
         server.close()
 
@@ -304,7 +304,7 @@ def test_a_v6_server_is_refused_naming_both_versions(socket_dir):
 
     t = threading.Thread(target=v6_server, daemon=True)
     t.start()
-    with pytest.raises(wire.ProtocolError, match=r"speaks wire v6.*v8"):
+    with pytest.raises(wire.ProtocolError, match=r"speaks wire v6.*v9"):
         ikigai.connect(path)
     t.join(timeout=5)
     listener.close()
