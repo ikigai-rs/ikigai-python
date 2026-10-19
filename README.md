@@ -446,9 +446,12 @@ same board itself on port 8070; the Deno face's app uses 8071, this one
 The app's fragments are byte-for-byte the host's own `view:board` and
 `view:status`: `tests/test_tictactoe_app.py` plays one game through the app
 and a twin game through the Rust views and compares every board, status and
-reply, through a won game, refusals and a draw — and the page and its three
+reply, through a won game, refusals and a draw — and the page and its four
 static files against `ttt-host`'s own HTTP face (it skips when `ttt-host` is
-not installed). Every other request to a view is answered as `ttt-host`
+not installed). A move the rules refuse as a `Conflict` (a taken square, a finished
+game, the wrong mark) is a 409 with the text/plain body `conflict: {message}`, as
+`ttt-host` answers it; the page's `conflict.js` swaps it into the status region, and
+the next successful play restores the status. Every other request to a view is answered as `ttt-host`
 answers it, status and body: a trailing slash, an unknown game, a wrong
 method, a coordinate spelled `01` or `+1`, a malformed percent-escape. The test asks both of them the
 same table of edge requests (ikigai-deno's rows, with this face's added) and
