@@ -33,7 +33,7 @@ jobs:
     # covering nothing.
     runs-on: ubuntu-latest
     env:
-      IKIGAI_CLI_VERSION: "0.1.65"
+      IKIGAI_CLI_VERSION: "0.1.62"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
