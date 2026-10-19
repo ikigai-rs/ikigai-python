@@ -10,6 +10,7 @@ If they differ, the Python filler is wrong, not the template.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import re
@@ -40,6 +41,9 @@ DIGESTS = {
     "htmx-2.0.4.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
     # The book's css/ttt.css, the one stylesheet for the markup.
     "ttt.css": "f93bde4b6dacb82b085d88c8cf33c899eb3dd435dd64acd5e1e19c63be04f09b",
+    # ttt-host's static/conflict.js (ikigai-tutorial 2721fc6, PR #138): swaps a 409 into the
+    # status region as text.
+    "conflict.js": "b6612b44e91a4f118919cc45e4ecb4b135503526e77a3af7a7a87f70f5e91e54",
     # ttt-host's static/host.css: the color variables ttt.css reads.
     "host.css": "79437443cd22e56d183ebf5b4a6de625e72354d38e8a39e54894bf0dc19f27ac",
 }
@@ -262,6 +266,8 @@ class FakeHost:
         self.sunk.append(name)
         if name == "move:0:0":
             raise ikigai.InvalidArgumentError("x, y", "0,0 is taken — X played there")
+        if name == "move:2:2":
+            raise ikigai.ConflictError("2,2 is taken — X played there")
         return SimpleNamespace(text="X plays 1,0")
 
 
@@ -316,6 +322,13 @@ def test_a_reply_says_what_the_write_said_or_its_refusal():
     assert game.view("view:reply", message="it's <b>") == "it&#39;s &lt;b&gt;. O to play."
 
 
+def test_a_conflict_is_not_answered_but_raised():
+    game = FakeGame({}, turn="O")
+    with pytest.raises(ikigai.ConflictError, match="2,2 is taken"):
+        app.reply(game, "move:2:2")
+    assert game.kernel.sunk == ["move:2:2"]
+
+
 def test_a_view_without_its_argument_fails():
     with pytest.raises(ikigai.MissingArgumentError):
         FakeGame({}).view("view:reply")
@@ -324,7 +337,6 @@ def test_a_view_without_its_argument_fails():
 @pytest.mark.parametrize(
     ("error", "shown"),
     [
-        (ikigai.ConflictError("1,1 is taken"), "conflict: 1,1 is taken"),
         (ikigai.DeniedError("no"), "denied: no"),
         (ikigai.EndpointError("boom"), "endpoint error: boom"),
         (ikigai.MissingArgumentError("content"), "missing required argument `content`"),
@@ -340,6 +352,55 @@ def test_a_refusal_is_said_as_the_rust_kernel_displays_it(error, shown):
 
     game.kernel.sink = refuse
     assert app.reply(game, "move:1:1") == f"{shown}. X to play."
+
+
+# -- a refused move is a 409 ---------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_host(monkeypatch, serve_app, socket_dir):
+    """The app over a :class:`FakeHost` (the root game; ``2,2`` is taken, ``1,0`` free)."""
+    host = FakeHost({(1, 0): "-", (2, 2): "X"}, "-", "O")
+
+    @contextlib.contextmanager
+    def connect(_socket):
+        yield host
+
+    monkeypatch.setattr(app.ikigai, "connect", connect)
+    return serve_app(socket_dir / "fake.sock"), host
+
+
+def test_a_refused_move_is_a_409_with_the_conflict_as_text_and_the_next_play_is_a_200(fake_host):
+    base, host = fake_host
+    play = f"{base}/iki/tutorial/ttt/view/play"
+    code, headers, body = fetch(f"{play}/2/2", "POST")
+    assert (code, body) == (409, "conflict: 2,2 is taken — X played there".encode())
+    assert headers["Content-Type"].startswith("text/plain")
+    # The refusal changed nothing, and the next move is answered with the status again.
+    code, headers, body = fetch(f"{play}/1/0", "POST")
+    assert (code, body) == (200, b"X plays 1,0. O to play.")
+    assert headers["Content-Type"] == "text/html;charset=utf-8"
+    assert host.sunk == ["move:2:2", "move:1:0"]
+
+
+def test_a_bad_argument_is_still_answered_as_a_page_not_a_409(fake_host):
+    base, host = fake_host
+    # (0,0) is the fake's InvalidArgument square; give it a cell
+    host.resources["cell:0:0"] = "X"
+    code, _, body = fetch(f"{base}/iki/tutorial/ttt/view/play/0/0", "POST")
+    assert (code, body) == (
+        200,
+        b"invalid argument `x, y`: 0,0 is taken \xe2\x80\x94 X played there. O to play.",
+    )
+
+
+def test_the_page_loads_the_script_that_swaps_a_409_into_the_status_region():
+    game = FakeGame({}, game="a")
+    game.kernel.entries = list
+    page = app.page(game)
+    assert '<script src="/static/conflict.js" defer></script>\n</head>' in page
+    script = (app.STATIC / "conflict.js").read_text()
+    assert "status === 409" in script and "textContent = detail.xhr.responseText" in script
 
 
 # -- the edge: ttt-host's HTTP rules -----------------------------------------------------
@@ -602,6 +663,7 @@ class Twins:
         self.host_http = host_http
         self.checked = 0
         self.replies = 0
+        self.refusals = 0
 
     def rust(self, game: str, name: str, verb: str = "source") -> str:
         prefix = "urn:iki:tutorial:ttt:" if game == "" else f"urn:game:{game}:iki:tutorial:ttt:"
@@ -622,8 +684,22 @@ class Twins:
 
     def play(self, x: int, y: int) -> str:
         """Play ``(x, y)`` in both games; the replies must match, and so must the boards."""
+        try:
+            theirs = self.rust("rs", f"view:play:{x}:{y}", "sink")
+        except ikigai.ConflictError as refused:
+            # The host's view lets a Conflict through: a 409 with `conflict: {message}` as text.
+            code, headers, body = fetch(
+                f"{self.base}/game/py/iki/tutorial/ttt/view/play/{x}/{y}", "POST"
+            )
+            host_code, host_headers, host_body = fetch(
+                f"{self.host_http}/game/rs/iki/tutorial/ttt/view/play/{x}/{y}", "POST"
+            )
+            assert (code, body) == (host_code, host_body) == (409, refused.display().encode())
+            assert headers["Content-Type"] == host_headers["Content-Type"]
+            self.refusals += 1
+            self.same_views("py")
+            return body.decode("utf-8")
         ours = self.python("py", f"view/play/{x}/{y}", "POST")
-        theirs = self.rust("rs", f"view:play:{x}:{y}", "sink")
         assert ours == theirs
         self.replies += 1
         self.same_views("py")
@@ -650,20 +726,20 @@ def twins(host, serve_app):
 def test_parity_through_a_won_game_a_refusal_and_a_draw(twins):
     twins.same_views("py")  # empty
     assert twins.play(1, 1) == "X plays 1,1. O to play."
-    assert twins.play(1, 1) == "invalid argument `x, y`: 1,1 is taken — X played there. O to play."
+    assert twins.play(1, 1) == "conflict: 1,1 is taken — X played there"
     assert twins.play(3, 1) == (
-        "invalid argument `x, y`: 3,1 is off the board — no line passes through it. O to play."
+        "invalid argument `x`: 3,1 is off the board — no line passes through it. O to play."
     )
     for x, y in [(0, 0), (2, 0), (1, 0), (0, 2)]:  # X takes the 2,0-1,1-0,2 diagonal
         twins.play(x, y)
     assert twins.python("py", "view/status") == "X has won."
     assert 'aria-label="1,2: empty, the game is over"' in twins.python("py", "view/board")
-    assert twins.play(1, 2) == ("invalid argument `x, y`: the game is over — X has won. X has won.")
+    assert twins.play(1, 2) == "conflict: the game is over — X has won"
     assert twins.reset() == "The board is clear. X to play."
     for x, y in [(0, 0), (1, 0), (2, 0), (1, 1), (0, 1), (2, 1), (1, 2), (0, 2), (2, 2)]:
         twins.play(x, y)
     assert twins.python("py", "view/status") == "A draw."
-    assert twins.play(0, 0) == "invalid argument `x, y`: the game is over — a draw. A draw."
+    assert twins.play(0, 0) == "conflict: the game is over — a draw"
     assert twins.checked == 2 * (1 + 8 + 1 + 10)
     print(f"parity: {twins.checked} views and {twins.replies} replies the same as ttt-host's")
 
@@ -686,6 +762,7 @@ def test_parity_in_the_root_game(twins):
         "/game/root/",
         "/static/htmx-2.0.4.min.js",
         "/static/ttt.css",
+        "/static/conflict.js",
         "/static/host.css",
     ],
 )

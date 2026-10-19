@@ -118,7 +118,8 @@ host's own views, which are ikigai-fn templates the app fills itself, and
 runs the template language's cases from `tests/ttt_template_cases.txt` — the
 tutorial README's `template-cases` block, verbatim, compared byte for byte with
 the Rust and Deno copies (copy a new block over it; never edit it by hand).
-`static/` holds the vendored htmx 2.0.4 (0BSD) and the stylesheets, as
+`static/` holds the vendored htmx 2.0.4 (0BSD), `conflict.js` (tutorial commit
+`2721fc6`: it swaps a refused move, a 409, into the status region) and the stylesheets, as
 ikigai-tutorial commit `89677bc` (the `ttt-host` build the parity tests ran
 against; unchanged since `4d9440a`) has them; the test pins their digests. Re-vendor
 with `git show <commit>:<path>` from the commit a new host is built from,

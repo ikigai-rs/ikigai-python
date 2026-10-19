@@ -33,8 +33,10 @@ again; the page's ``<base>`` is that prefix, so the markup's relative paths arri
   ``/static/htmx-2.0.4.min.js``, ``/static/host.css`` and ``/static/ttt.css``.
 * ``GET …/iki/tutorial/ttt/view/board`` and ``…/view/status`` — composed here.
 * ``POST …/iki/tutorial/ttt/view/play/{x}/{y}`` and ``…/view/reset`` — a ``Sink`` of the
-  host's ``move:{x}:{y}`` / ``reset``, answered with ``view:reply``. A refused move
-  is answered, not failed, in the error's own words — the text the Rust view shows.
+  host's ``move:{x}:{y}`` / ``reset``, answered with ``view:reply``. A move refused as a
+  ``Conflict`` (a taken square, a finished game, the wrong mark) is a 409 with the text/plain
+  body ``conflict: {message}``, as ``ttt-host`` answers it, and ``static/conflict.js`` swaps
+  it into the status region; any other refusal is answered, in the error's own words.
 
 Every other request to a view is answered as ``ttt-host`` answers it, status and body: the
 host's HTTP face is ikigai-web's generic edge, and :func:`target` and :func:`respond` are its
@@ -99,10 +101,10 @@ GAME = "urn:iki:tutorial:ttt:"
 #: Where a game other than the root has its names, at the host's edge: ``urn:game:{id}:…``.
 EDGE_GAMES = "urn:game:"
 
-#: The vendored htmx and stylesheets, next to this file, as ikigai-tutorial commit ``89677bc``
-#: has them (unchanged since ``4d9440a``) — the commit the ``ttt-host`` this app is checked
-#: against was built from, which
-#: serves the same three files. The digests are pinned by a test: htmx is the book's
+#: The vendored htmx, conflict.js and stylesheets, next to this file, as ikigai-tutorial commit
+#: ``89677bc`` has them (``conflict.js`` as ``2721fc6``, PR #138, does; the rest are unchanged
+#: since ``4d9440a``) — the commit the ``ttt-host`` this app is checked against was built from,
+#: serves the same four files. The digests are pinned by a test: htmx is the book's
 #: ``src/vendor/htmx-2.0.4.min.js`` (0BSD, https://github.com/bigskysoftware/htmx),
 #: ``ttt.css`` the book's ``css/ttt.css`` (the ONE stylesheet for this markup), ``host.css``
 #: ``ttt-host``'s ``static/host.css`` (the color variables ``ttt.css`` reads, which the
@@ -112,6 +114,10 @@ STATIC_FILES = {
     "htmx-2.0.4.min.js": (
         "text/javascript",
         "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
+    ),
+    "conflict.js": (
+        "text/javascript",
+        "b6612b44e91a4f118919cc45e4ecb4b135503526e77a3af7a7a87f70f5e91e54",
     ),
     "ttt.css": ("text/css", "f93bde4b6dacb82b085d88c8cf33c899eb3dd435dd64acd5e1e19c63be04f09b"),
     "host.css": ("text/css", "79437443cd22e56d183ebf5b4a6de625e72354d38e8a39e54894bf0dc19f27ac"),
@@ -392,9 +398,13 @@ def status(game: Game) -> str:
 
 def reply(game: Game, write: str) -> str:
     """A play's or a reset's answer: Sink ``write`` at the host, then ``view:reply`` with
-    ``message`` what the write said, or its refusal in the kernel's words."""
+    ``message`` what the write said, or its refusal in the kernel's words. A
+    :class:`~ikigai.ConflictError` is not answered: the move did not happen, so it goes up to be
+    the 409 the page swaps into the status region (``static/conflict.js``)."""
     try:
         message = game.sink(write)
+    except ConflictError:
+        raise
     except EndpointError as refused:
         message = refused.display()
     return game.view("view:reply", message=message)
@@ -575,7 +585,8 @@ def page(game: Game) -> str:
         f'<title>Tic-tac-toe: {title}</title>\n<base href="{base}">\n'
         '<link rel="stylesheet" href="/static/host.css">\n'
         '<link rel="stylesheet" href="/static/ttt.css">\n'
-        '<script src="/static/htmx-2.0.4.min.js"></script>\n</head>\n<body>\n<main>\n'
+        '<script src="/static/htmx-2.0.4.min.js"></script>\n'
+        '<script src="/static/conflict.js" defer></script>\n</head>\n<body>\n<main>\n'
         f"<h1>Tic-tac-toe: {title}</h1>\n"
         f'<div class="ttt-boards"><div class="ttt-play">\n{shell}\n</div></div>\n'
         '<nav aria-label="Games"><h2>Games on this host</h2><ul>'
