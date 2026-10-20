@@ -36,7 +36,7 @@ jobs:
     # IKIGAI_CLI_VERSION to follow the door.
     runs-on: ubuntu-latest
     env:
-      IKIGAI_CLI_VERSION: "0.1.66"
+      IKIGAI_CLI_VERSION: "0.1.67"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
