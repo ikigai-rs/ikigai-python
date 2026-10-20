@@ -529,6 +529,11 @@ READ, WRITE = ("GET", "HEAD"), ("POST", "PUT", "PATCH")
 ALLOW = {READ: "GET, HEAD, OPTIONS", WRITE: "POST, PUT, PATCH, OPTIONS"}
 
 
+#: RFC 3986's gen-delims, which a strict ``{var}`` capture in ikigai-web's route table refuses
+#: to carry: the route's shape matched, so the answer is a ``400`` naming the variable.
+GEN_DELIMS = ":/?#[]@"
+
+
 class Target(NamedTuple):
     """A view a request path names: its kind, its game (``None`` for the root), the name the
     host resolves it by (what its not-found message quotes), and a play's coordinates as
@@ -551,6 +556,11 @@ def target(path: str) -> Target | None:
         case []:
             return Target("page", None, "urn:ttt-host:page:root")
         case ["game", game]:
+            if delim := next((c for c in game if c in GEN_DELIMS), None):
+                raise ValueError(
+                    f"route variable {{id}} cannot carry '{delim}': a strict {{var}} refuses "
+                    ": / ? # [ ] @"
+                )
             return Target("page", game, f"urn:ttt-host:page:game:{game}")
         case ["static", name] if name in STATIC_FILES:
             return Target("static", None, f"urn:ttt-host:static:{name}", name)
