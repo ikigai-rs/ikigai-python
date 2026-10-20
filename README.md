@@ -264,9 +264,13 @@ What a served endpoint gets for free, because its describe face is real:
   `class` (XSD datatype or rdfs:Class IRI), `default`, `one_of`.
 - **Catalog membership**: `list` on the host shows the Python endpoints with
   their mount origin.
-- **Host-side caching**: declare `cacheable=True` on a pure function and the
-  representation crosses the wire with `Expiry::Never` — the *host* kernel
-  caches it (this peer keeps no cache; `IsCached` answers false).
+- **Cacheability, stated honestly**: declare `cacheable=True` on a pure
+  function and the representation crosses the wire with `Expiry::Never`. A
+  Rust host that MOUNTS this peer still holds every mounted read as
+  `Expiry::Always` (ikigai-cli 0.1.64 onward, `as_held_here`): this peer could change
+  an answer without the host hearing of it, so the host never answers HIT for
+  it and each read is a round trip (this peer keeps no cache; `IsCached`
+  answers false).
 - **Tracing**: a traced resolution through the mount gets a span for the
   Python invocation stitched into the host's execution tree.
 - Meta faces: `text/turtle` (default — skolemized `ik:` graph, no blank

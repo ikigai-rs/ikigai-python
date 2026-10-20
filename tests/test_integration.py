@@ -141,15 +141,21 @@ def test_rust_host_lists_python_endpoints_with_origin(python_peer):
     assert str(python_peer) in out  # the mount origin, shown per binding
 
 
-def test_rust_host_caches_a_cacheable_python_result(python_peer):
-    # Expiry::Never crosses the wire; the HOST kernel caches the peer's result.
+def test_rust_host_does_not_cache_a_mounted_python_result(python_peer):
+    # Expiry::Never crosses the wire, but since ikigai-cli 0.1.64 (ikigai-cli PR 513;
+    # checked here against 0.1.66) the mounting host holds every mounted read as
+    # Expiry::Always whatever the peer said (ikigai-resolve's `as_held_here`, ledger
+    # #92): the peer may cut a thread the host never hears about,
+    # so the host caches nothing it reads through a mount and never answers HIT for it.
+    # The cacheable bytes this side sends are unchanged; the rule is the host's.
     out = run_repl(
         "source urn:py:reverse in=abc",
         "source urn:py:reverse in=abc",
         mount=f"urn:py:={python_peer}",
     )
-    assert "cba" in out
-    assert "1 cached · 1 computed" in out
+    assert out.count("cba") == 2, out
+    assert "cached" not in out, out
+    assert "2 uncacheable" in out, out
 
 
 def test_rust_host_describes_a_python_endpoint(python_peer):
@@ -329,10 +335,11 @@ def test_a_python_conflict_reaches_the_rust_user(socket_dir, matched_host):
 
 # -- a FAMILY through the host: the tic-tac-toe store -----------------------
 #
-# ⚠ The cut test needs a host whose kernel is ikigai-core >= 0.1.73 (the
-# release where a Sink/Delete cuts its target's thread unconditionally).
-# Verified against ikigai-cli 0.1.29; an older host serves the stale `X`
-# from its cache and the test says so by printing the whole transcript.
+# ⚠ Since ikigai-cli 0.1.64 the host never caches a read it makes through a mount (it
+# holds every mounted read as Expiry::Always, ikigai-resolve's `as_held_here`, ledger
+# #92; ikigai-cli PR 513), so what this pins is that a write through the host is seen by
+# the very next read with no invalidation code on this side: each read is a round trip to
+# the store, and the only cache a Sink here can cut is the peer's own.
 
 
 @pytest.fixture
@@ -349,20 +356,19 @@ def ttt_store(socket_dir, matched_host):
     thread.join(timeout=5)
 
 
-def test_rust_host_cuts_a_cached_family_read_after_a_sink_through_the_mount(ttt_store):
-    # Source → Sink → Source through a real host: the host caches the peer's
-    # cacheable read, and the Sink it forwards cuts that read's golden thread
-    # (core >= 0.1.73) — no invalidation code on this side. The store's read
-    # counter is the proof: the cached read ran NOTHING here.
+def test_rust_host_sees_a_sink_through_the_mount_on_the_next_read(ttt_store):
+    # Source → Sink → Source through a real host. The store's read counter is the proof
+    # that the host served nothing from its own cache: every Source ran here (the
+    # 0.1.64 rule, above), and so every read after a write sees it.
     path, store = ttt_store
     cell = "urn:iki:tutorial:ttt:stored:1:1"
     argv = [IKIGAI, "--override", f"urn:iki:tutorial:ttt:stored:={path}"]
     for command in (
         f"sink {cell} X",
         f"source {cell}",
-        f"source {cell}",  # served from the host's cache
-        f"sink {cell} O",  # cuts it
-        f"source {cell}",  # so this one runs
+        f"source {cell}",  # not cached by the host: a second round trip
+        f"sink {cell} O",
+        f"source {cell}",  # sees the write
         f"delete {cell}",
         f"source {cell}",  # and after a Delete, the typed NotFound crosses back
     ):
@@ -371,8 +377,9 @@ def test_rust_host_cuts_a_cached_family_read_after_a_sink_through_the_mount(ttt_
     combined = done.stdout + done.stderr
     assert done.stdout.split() == ["ok", "X", "X", "ok", "O", "ok"], combined
     assert "not found: nothing has been played at 1,1" in done.stderr, combined
-    assert "1 cached" in done.stderr, combined
-    assert store.reads == 3, combined  # read, (cached), read, read-after-delete
+    assert "cached" not in done.stderr, combined
+    assert "6 uncacheable" in done.stderr, combined
+    assert store.reads == 4, combined  # read, read, read after the Sink, read after the Delete
     assert store.marks == {}
 
 

@@ -7,7 +7,8 @@ swaps into the page. The catalog page is the same idea pointed at
 ``kernel.entries()``: the UI is *discovered* from the running space.
 
 Every result fragment shows ``rep.cache_status`` — served direct it reads
-MISS; served through a Rust kernel mount, repeats read HIT.
+MISS; a Rust kernel mounting the peer never caches a mounted answer
+(ikigai-cli 0.1.64 onward), so repeats never read HIT through it either.
 
 Run (direct, no Rust needed)::
 

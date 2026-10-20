@@ -1,9 +1,11 @@
 """Wire v9's ``Call::IssueWith`` (variant 5): the byte vectors from ikigai-cli 0.1.66's
 hand-back, both directions; the server's run context (built at ITS OWN now from time
-left); and the client's rule: ``IssueWith`` only to a v9 peer and only when the run
-carries a pool or a deadline, otherwise the exact pre-v9 bytes."""
+left); the client's rule: ``IssueWith`` only to a v9 peer and only when the run
+carries a pool or a deadline, otherwise the exact pre-v9 bytes; and the real door
+(``ikigai serve``, 0.1.66) answering a run and relaying the new error classes."""
 
 import socket
+import subprocess
 import threading
 import time
 
@@ -25,6 +27,7 @@ from ikigai.wire import (
     decode_hello,
     encode_hello,
 )
+from tests.rust_door import require_ikigai
 
 VECTORS = [
     (IssueWith(), "000000"),
@@ -315,3 +318,118 @@ def test_a_v9_client_sends_issue_with_only_when_the_run_carries_something(socket
         assert timed.context.retries is None and 4000 <= timed.context.time_left_ms <= 5000
     finally:
         server.close()
+
+
+# -- the real Rust door -----------------------------------------------------------------------
+#
+# ``ikigai serve`` (ikigai-cli 0.1.66, the first release on wire v9) fronting a Python peer
+# with ``--prefer``: a v9 client with a run, and the five new error classes as the door
+# actually relays them. Skips without an ``ikigai`` binary, FAILS instead under
+# ``--require-interop``; skips a door that does not speak v9, which is a door too old for
+# these tests, not a defect.
+
+#: The new failure classes (wire tags 9-13), each raised by its own peer endpoint.
+DOOR_ERRORS = {
+    "depth": ikigai.DepthExceededError(65, "urn:x"),
+    "retry": ikigai.RetryAfterError(30000, "slow down"),
+    "retry-unknown": ikigai.RetryAfterError(None, "slow down"),
+    "budget": ikigai.OverBudgetError("spent"),
+    "refused": ikigai.RefusedError("no thanks"),
+    "unsupported": ikigai.UnsupportedError("not here"),
+}
+
+
+def _raiser(name, error):
+    @endpoint(f"urn:py:err:{name}", summary=f"raises {type(error).__name__}")
+    def raiser() -> str:
+        raise error
+
+    return raiser
+
+
+@pytest.fixture
+def door(request, socket_dir):
+    """A real ``ikigai serve`` on a Unix socket, preferring ``urn:py:`` from a Python peer."""
+    binary = require_ikigai(request)
+    SEEN.clear()
+    peer_path = socket_dir / "peer.sock"
+    endpoints = [probe] + [_raiser(name, error) for name, error in DOOR_ERRORS.items()]
+    with Server(endpoints, peer_path) as server:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        path = socket_dir / "door.sock"
+        process = subprocess.Popen(
+            [binary, "serve", str(path), "--prefer", f"urn:py:={peer_path}"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            deadline = time.monotonic() + 15
+            while not path.exists():
+                if process.poll() is not None:
+                    pytest.fail(f"ikigai serve exited: {process.stderr.read()}")
+                if time.monotonic() > deadline:
+                    pytest.fail("ikigai serve did not come up")
+                time.sleep(0.1)
+            with ikigai.connect(path) as k:
+                if k.server_version != 9:
+                    pytest.skip(f"the installed door speaks wire v{k.server_version}, not v9")
+            yield path
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
+
+
+def test_the_real_door_accepts_a_run_and_its_mounted_peer_answers(door):
+    with ikigai.connect(door) as k:
+        assert k.server_version == 9
+        k.retries, k.deadline = 2, time.monotonic() + 10
+        assert k.source("urn:py:probe").text == "retries=None left=none"
+        # ⚠ Observed on 0.1.66: the door takes the IssueWith but does not forward the run to
+        # the peer it mounts (it calls the peer with a plain Issue), so the peer serves with
+        # no pool and no deadline. Pinned so a door that starts forwarding says so here.
+        (run,) = SEEN
+        assert run.retries is None and run.deadline is None
+        # The same run on the door's own resources, and a typed failure, cross as before.
+        assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"
+        with pytest.raises(ikigai.UnresolvedError):
+            k.source("urn:iki:fn:nope")
+
+
+def test_the_real_door_answers_a_spent_deadline(door):
+    with ikigai.connect(door) as k:
+        k.retries, k.deadline = 0, time.monotonic() - 1
+        # The call goes as IssueWith with zero time left. ⚠ Observed on 0.1.66: the door
+        # still answers, on the peer and on its own resources; it does not enforce the
+        # carried time. Either way the connection stays usable for the next call.
+        assert k.source("urn:py:probe").text == "retries=None left=none"
+        assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"
+        k.retries, k.deadline = None, None
+        assert k.source("urn:iki:fn:toUpper", **{"in": "ok"}).text == "OK"
+
+
+@pytest.mark.parametrize("name", list(DOOR_ERRORS))
+def test_the_real_door_relays_each_new_error_byte_for_byte(door, name):
+    error = DOOR_ERRORS[name]
+    call = wire.Issue(Request(Verb.SOURCE, f"urn:py:err:{name}", {}))
+    # To a v9 client: the peer's typed error, re-encoded by the door to the same bytes this
+    # side encodes for it (the vectors above), whether the call was Issue or IssueWith.
+    sock, f = _raw(door, 9)
+    with sock, f:
+        wire.write_frame(f, wire.encode_call(call))
+        assert wire.read_frame(f) == wire.encode_reply(wire.ErrorTypedReply(error))
+        with_run = IssueWithCall(call.request, Capability.root(), IssueWith(None, 2, 1500))
+        wire.write_frame(f, wire.encode_call(with_run))
+        assert wire.read_frame(f) == wire.encode_reply(wire.ErrorTypedReply(error))
+    # To a v8 client: flattened to Endpoint(display), the form this side downgrades to.
+    sock, f = _raw(door, 8)
+    with sock, f:
+        wire.write_frame(f, wire.encode_call(call))
+        assert wire.read_frame(f) == wire.encode_reply(
+            wire.ErrorTypedReply(ikigai.EndpointError(error.display()))
+        )
+    # And the client raises the class itself.
+    with ikigai.connect(door) as k, pytest.raises(type(error)) as raised:
+        k.source(f"urn:py:err:{name}")
+    assert raised.value == error
