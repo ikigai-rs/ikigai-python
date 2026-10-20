@@ -31,10 +31,15 @@ import pytest
 
 import ikigai
 from ikigai.serve import Server, endpoint
+from tests.rust_door import require_ikigai
 
 IKIGAI = shutil.which("ikigai")
 
-pytestmark = pytest.mark.skipif(IKIGAI is None, reason="no `ikigai` binary on PATH")
+
+@pytest.fixture(autouse=True)
+def _ikigai_binary(request):
+    # Skips without the binary, FAILS under ``--require-interop`` (CI's interop job).
+    require_ikigai(request)
 
 
 @functools.lru_cache(maxsize=1)
