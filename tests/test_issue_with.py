@@ -2,7 +2,7 @@
 hand-back, both directions; the server's run context (built at ITS OWN now from time
 left); the client's rule: ``IssueWith`` only to a v9 peer and only when the run
 carries a pool or a deadline, otherwise the exact pre-v9 bytes; and the real door
-(``ikigai serve``, 0.1.66) answering a run and relaying the new error classes."""
+(``ikigai serve``, 0.1.67) answering a run and relaying the new error classes."""
 
 import socket
 import subprocess
@@ -322,9 +322,9 @@ def test_a_v9_client_sends_issue_with_only_when_the_run_carries_something(socket
 
 # -- the real Rust door -----------------------------------------------------------------------
 #
-# ``ikigai serve`` (ikigai-cli 0.1.66, the first release on wire v9) fronting a Python peer
-# with ``--prefer``: a v9 client with a run, and the five new error classes as the door
-# actually relays them. Skips without an ``ikigai`` binary, FAILS instead under
+# ``ikigai serve`` (ikigai-cli 0.1.67; 0.1.66 was the first release on wire v9) fronting a
+# Python peer with ``--prefer``: a v9 client with a run, and the five new error classes as the
+# door actually relays them. Skips without an ``ikigai`` binary, FAILS instead under
 # ``--require-interop``; skips a door that does not speak v9, which is a door too old for
 # these tests, not a defect.
 
@@ -381,16 +381,30 @@ def door(request, socket_dir):
             process.wait(timeout=10)
 
 
+def _probe_left(text):
+    """The ``left=`` the probe reported, as a float; ``retries=None`` checked on the way."""
+    retries, left = text.split(" ")
+    assert retries == "retries=None"
+    assert left.startswith("left=") and left != "left=none"
+    return float(left.removeprefix("left="))
+
+
 def test_the_real_door_accepts_a_run_and_its_mounted_peer_answers(door):
     with ikigai.connect(door) as k:
         assert k.server_version == 9
-        k.retries, k.deadline = 2, time.monotonic() + 10
-        assert k.source("urn:py:probe").text == "retries=None left=none"
-        # ⚠ Observed on 0.1.66: the door takes the IssueWith but does not forward the run to
-        # the peer it mounts (it calls the peer with a plain Issue), so the peer serves with
-        # no pool and no deadline. Pinned so a door that starts forwarding says so here.
+        before = time.monotonic()
+        k.retries, k.deadline = 2, before + 10
+        # Since ikigai-cli 0.1.67 (ikigai-cli PR 561, ledger #1942) the door forwards the run's
+        # DEADLINE to the peer it mounts, as time left; the retry pool stops at the door, by
+        # design. So the peer serves with a deadline about ten seconds out and no pool. Pinned
+        # on both halves, so a door that drops the deadline or starts forwarding the pool says
+        # so here. (On 0.1.66 the peer saw neither: ``retries=None left=none``.)
+        assert 9.0 <= _probe_left(k.source("urn:py:probe").text) <= 10.0
         (run,) = SEEN
-        assert run.retries is None and run.deadline is None
+        assert run.retries is None
+        # The peer's deadline is ITS OWN now plus the time left the door sent: never past the
+        # client's own deadline by more than the call took, never short of it by a second.
+        assert before + 9.0 <= run.deadline <= time.monotonic() + 10
         # The same run on the door's own resources, and a typed failure, cross as before.
         assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"
         with pytest.raises(ikigai.UnresolvedError):
@@ -400,10 +414,15 @@ def test_the_real_door_accepts_a_run_and_its_mounted_peer_answers(door):
 def test_the_real_door_answers_a_spent_deadline(door):
     with ikigai.connect(door) as k:
         k.retries, k.deadline = 0, time.monotonic() - 1
-        # The call goes as IssueWith with zero time left. ⚠ Observed on 0.1.66: the door
-        # still answers, on the peer and on its own resources; it does not enforce the
-        # carried time. Either way the connection stays usable for the next call.
-        assert k.source("urn:py:probe").text == "retries=None left=none"
+        # The call goes as IssueWith with zero time left. ⚠ Observed on 0.1.66 and still on
+        # 0.1.67: the door answers, on the peer and on its own resources; it does not enforce
+        # the carried time. Since 0.1.67 (ledger #1942) it forwards the spent deadline to the
+        # peer as zero time left, and still no pool. Either way the connection stays usable
+        # for the next call.
+        assert k.source("urn:py:probe").text == "retries=None left=0.0"
+        (run,) = SEEN
+        assert run.retries is None
+        assert run.deadline is not None and run.deadline <= time.monotonic()
         assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"
         k.retries, k.deadline = None, None
         assert k.source("urn:iki:fn:toUpper", **{"in": "ok"}).text == "OK"
