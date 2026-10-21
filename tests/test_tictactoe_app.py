@@ -447,6 +447,28 @@ def test_a_malformed_target_is_refused_before_anything_is_routed(raw, refusal):
 
 
 @pytest.mark.parametrize(
+    ("raw", "delim"),
+    [
+        ("/game/a:b/", ":"),
+        ("/game/a%3Ab", ":"),
+        ("/game/a%2Fb/", "/"),
+        ("/game/a%3Fb", "?"),
+        ("/game/a%23b", "#"),
+        ("/game/a[b", "["),
+        ("/game/a%5Db", "]"),
+        ("/game/a@b/", "@"),
+        ("/game/x@y:z", "@"),  # the first one in the value
+    ],
+)
+def test_a_game_id_holding_a_gen_delim_is_refused_as_the_strict_route_variable_is(raw, delim):
+    refusal = (
+        f"route variable {{id}} cannot carry '{delim}': a strict {{var}} refuses : / ? # [ ] @"
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(refusal)}$"):
+        target(raw)
+
+
+@pytest.mark.parametrize(
     ("path", "view"),
     [
         ("/", Target("page", None, "urn:ttt-host:page:root")),
