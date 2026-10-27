@@ -597,6 +597,103 @@
       "contract": "urn:ikigai:contract:httpGet:source:b3:e5d8e2f517cf3efd3b7635d9cdfab8a571f34fb932d822f666a12862989f2621",
       "id": "httpGet",
       "name": "failures/unstated"
+    },
+    {
+      "action": {
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:936ecec4a198d624d378f7dfc24f06ef8d641d462a336bcc79d2009f739ec231",
+      "id": "vaultGet",
+      "name": "sensitive/unflagged"
+    },
+    {
+      "action": {
+        "existence_sensitive": false,
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:936ecec4a198d624d378f7dfc24f06ef8d641d462a336bcc79d2009f739ec231",
+      "id": "vaultGet",
+      "name": "sensitive/false-is-absent (same digest as sensitive/unflagged)"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:670fc847ce4dfd00a7dc383091122cd4e1165291a9c239ff40759c540cdf6a3e",
+      "id": "vaultGet",
+      "name": "sensitive/flagged"
+    },
+    {
+      "action": {
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:6a49ff3e6f162c6208e7ea838a500f1c676e11e2eef7f4968ff54e09b4a69cb1",
+      "id": "vaultGet",
+      "name": "sensitive/failures-unflagged"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:eec4e9371e690bca87d2a80b09dadc514d474b85b4df0f6d6a49ea74e29d1eeb",
+      "id": "vaultGet",
+      "name": "sensitive/failures-and-flag"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:4a68d690640d36edf8b08d347116f809a96b9fcb7b04192e6bfd697f10887677",
+      "id": "vaultGet",
+      "name": "sensitive/only-the-implied-failures-and-flag"
     }
   ],
   "doors": [
@@ -1886,6 +1983,160 @@
       "name": "core/failure-classes",
       "pattern": "urn:core:failure-classes",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:failure-classes> a ik:Endpoint ;\n    ik:id \"failure-classes\" ;\n    ik:summary \"declared failure classes, flat and per verb (ledger #1546)\" ;\n    ik:verb \"Source\", \"Sink\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:net:*> ;\n    ik:mayFail ik:RetryAfterFailure, ik:TransientFailure ;\n    ik:action <urn:ikigai:contract:failure-classes:source:b3:e3ffe603e3a3b77c8eb170b6ed9e1ad803e57d55a3888c18f4e7e5b8fa211906> ;\n    ik:action <urn:ikigai:contract:failure-classes:sink:b3:523308d6b076036e1a9c026e637488ec468db8a4d5ec2af9af04a9571dd9c80f> .\n\n<urn:ikigai:contract:failure-classes:source:b3:e3ffe603e3a3b77c8eb170b6ed9e1ad803e57d55a3888c18f4e7e5b8fa211906> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:net:*> ;\n    ik:mayFail ik:RetryAfterFailure ;\n    ik:mayFail ik:TransientFailure .\n\n<urn:ikigai:contract:failure-classes:sink:b3:523308d6b076036e1a9c026e637488ec468db8a4d5ec2af9af04a9571dd9c80f> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:requires <urn:cap:net:write> ;\n    ik:mayFail ik:RefusedFailure ;\n    ik:mayFail ik:OverBudgetFailure .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive:source:b3:f6d7918de98069832183857b96f4d2d36a4119cd38d5e8d8adced82df9fee05b",
+          "match": "urn:ikigai:match:source:urn:core:existence-sensitive",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive:exists:b3:ff9dc7d8eb7f57fbd39c0da5b8ed375fcdf446a1863253fd59ed74bda04752d7",
+          "match": "urn:ikigai:match:exists:urn:core:existence-sensitive",
+          "verb": "Exists"
+        }
+      ],
+      "description": {
+        "existence_sensitive": true,
+        "id": "existence-sensitive",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "a flat door whose existence is sensitive, for every verb (ledger #2176)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ]
+      },
+      "name": "core/existence-sensitive",
+      "pattern": "urn:core:existence-sensitive",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:existence-sensitive> a ik:Endpoint ;\n    ik:id \"existence-sensitive\" ;\n    ik:summary \"a flat door whose existence is sensitive, for every verb (ledger #2176)\" ;\n    ik:verb \"Source\", \"Exists\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true ;\n    ik:action <urn:ikigai:contract:existence-sensitive:source:b3:f6d7918de98069832183857b96f4d2d36a4119cd38d5e8d8adced82df9fee05b> ;\n    ik:action <urn:ikigai:contract:existence-sensitive:exists:b3:ff9dc7d8eb7f57fbd39c0da5b8ed375fcdf446a1863253fd59ed74bda04752d7> .\n\n<urn:ikigai:contract:existence-sensitive:source:b3:f6d7918de98069832183857b96f4d2d36a4119cd38d5e8d8adced82df9fee05b> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true .\n\n<urn:ikigai:contract:existence-sensitive:exists:b3:ff9dc7d8eb7f57fbd39c0da5b8ed375fcdf446a1863253fd59ed74bda04752d7> a ik:Action ;\n    ik:verb \"Exists\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive-per-verb:source:b3:8a7225bf9d7dc6927e39d79670809d00040a9e3191e744b0256cf693777d6c97",
+          "match": "urn:ikigai:match:source:urn:core:existence-sensitive-per-verb",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive-per-verb:sink:b3:0fc36b97adfd23ce7b0fd16d2b0fcab8e473bcc28f881fa2cedce9cb8033bdbc",
+          "match": "urn:ikigai:match:sink:urn:core:existence-sensitive-per-verb",
+          "verb": "Sink"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "existence-sensitive-per-verb",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "only the Sink verb is sensitive; the flat Source is not (ledger #2176)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "core/existence-sensitive-per-verb",
+      "pattern": "urn:core:existence-sensitive-per-verb",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:existence-sensitive-per-verb> a ik:Endpoint ;\n    ik:id \"existence-sensitive-per-verb\" ;\n    ik:summary \"only the Sink verb is sensitive; the flat Source is not (ledger #2176)\" ;\n    ik:verb \"Source\", \"Sink\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:action <urn:ikigai:contract:existence-sensitive-per-verb:source:b3:8a7225bf9d7dc6927e39d79670809d00040a9e3191e744b0256cf693777d6c97> ;\n    ik:action <urn:ikigai:contract:existence-sensitive-per-verb:sink:b3:0fc36b97adfd23ce7b0fd16d2b0fcab8e473bcc28f881fa2cedce9cb8033bdbc> .\n\n<urn:ikigai:contract:existence-sensitive-per-verb:source:b3:8a7225bf9d7dc6927e39d79670809d00040a9e3191e744b0256cf693777d6c97> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> .\n\n<urn:ikigai:contract:existence-sensitive-per-verb:sink:b3:0fc36b97adfd23ce7b0fd16d2b0fcab8e473bcc28f881fa2cedce9cb8033bdbc> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:requires <urn:cap:vault:write> ;\n    ik:existenceSensitive true .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive-replaced:source:b3:8ba6e8376784ca54253f9dc64b5a3c7b8ad9220273a8cfdf5dbfbf456b937e41",
+          "match": "urn:ikigai:match:source:urn:core:existence-sensitive-replaced",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive-replaced:sink:b3:9478995a6648a64da1a99a555efe4b0a1735f9c8e61d112614e1b0238b9de3de",
+          "match": "urn:ikigai:match:sink:urn:core:existence-sensitive-replaced",
+          "verb": "Sink"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "existence_sensitive": true,
+        "id": "existence-sensitive-replaced",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "the flat flag is sensitive, but an explicit Sink action replaces it and is not (ledger #2176)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "core/existence-sensitive-replaced",
+      "pattern": "urn:core:existence-sensitive-replaced",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:existence-sensitive-replaced> a ik:Endpoint ;\n    ik:id \"existence-sensitive-replaced\" ;\n    ik:summary \"the flat flag is sensitive, but an explicit Sink action replaces it and is not (ledger #2176)\" ;\n    ik:verb \"Source\", \"Sink\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true ;\n    ik:action <urn:ikigai:contract:existence-sensitive-replaced:source:b3:8ba6e8376784ca54253f9dc64b5a3c7b8ad9220273a8cfdf5dbfbf456b937e41> ;\n    ik:action <urn:ikigai:contract:existence-sensitive-replaced:sink:b3:9478995a6648a64da1a99a555efe4b0a1735f9c8e61d112614e1b0238b9de3de> .\n\n<urn:ikigai:contract:existence-sensitive-replaced:source:b3:8ba6e8376784ca54253f9dc64b5a3c7b8ad9220273a8cfdf5dbfbf456b937e41> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true .\n\n<urn:ikigai:contract:existence-sensitive-replaced:sink:b3:9478995a6648a64da1a99a555efe4b0a1735f9c8e61d112614e1b0238b9de3de> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:requires <urn:cap:vault:write> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:existence-sensitive-failures:source:b3:f6850402a9b45e71a3d7bf462428c89de3e34f968fc94befc5219f766a3ef623",
+          "match": "urn:ikigai:match:source:urn:core:existence-sensitive-failures",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "existence_sensitive": true,
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "id": "existence-sensitive-failures",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "stated failure classes and the sensitivity flag together (ledger #2176)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "core/existence-sensitive-failures",
+      "pattern": "urn:core:existence-sensitive-failures",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:existence-sensitive-failures> a ik:Endpoint ;\n    ik:id \"existence-sensitive-failures\" ;\n    ik:summary \"stated failure classes and the sensitivity flag together (ledger #2176)\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true ;\n    ik:mayFail ik:RetryAfterFailure, ik:TransientFailure ;\n    ik:action <urn:ikigai:contract:existence-sensitive-failures:source:b3:f6850402a9b45e71a3d7bf462428c89de3e34f968fc94befc5219f766a3ef623> .\n\n<urn:ikigai:contract:existence-sensitive-failures:source:b3:f6850402a9b45e71a3d7bf462428c89de3e34f968fc94befc5219f766a3ef623> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:mayFail ik:RetryAfterFailure ;\n    ik:mayFail ik:TransientFailure ;\n    ik:existenceSensitive true .\n"
     }
   ],
   "form": "ikigai:contract:v1",

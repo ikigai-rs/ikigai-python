@@ -832,7 +832,13 @@ def action_specs(description: dict) -> list[dict]:
                 "requires": description.get("requires", []),
                 **{
                     key: description[key]
-                    for key in ("failures", "groups", "arguments", "output_from")
+                    for key in (
+                        "failures",
+                        "groups",
+                        "arguments",
+                        "output_from",
+                        "existence_sensitive",
+                    )
                     if key in description
                 },
             }
@@ -1066,6 +1072,8 @@ def to_turtle(description: dict) -> str:
         preds.append("ik:output " + ", ".join(lit(o) for o in description["outputs"]))
     if description.get("requires"):
         preds.append("ik:requires " + ", ".join(cap_term(c) for c in description["requires"]))
+    if description.get("existence_sensitive", False):
+        preds.append("ik:existenceSensitive true")
     if description.get("failures"):
         preds.append("ik:mayFail " + ", ".join(failure_term(c) for c in description["failures"]))
 
@@ -1091,6 +1099,8 @@ def to_turtle(description: dict) -> str:
             action_preds.append(f"ik:requires {cap_term(cap)}")
         for cls in spec.get("failures", []):
             action_preds.append(f"ik:mayFail {failure_term(cls)}")
+        if spec.get("existence_sensitive", False):
+            action_preds.append("ik:existenceSensitive true")
         for arg in spec.get("inputs", []):
             node_iri = f"{action_iri}:input:{name_fragment(arg['name'])}"
             extra_nodes.append(f"<{node_iri}> {input_predicates(action_iri, arg)} .")
