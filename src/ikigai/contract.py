@@ -521,6 +521,7 @@ def _uses_v2(action: dict) -> bool:
     """Core's ``uses_v2``: whether the contract uses a construct v1 cannot carry."""
     return bool(
         action.get("failures") is not None
+        or action.get("existence_sensitive", False)
         or action.get("groups")
         or action.get("arguments")
         or action.get("output_from") is not None
@@ -614,12 +615,16 @@ def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
     else:
         _feed_u8(h, 1)
         _feed_str(h, output_from["input"])
-    # Stated failure classes (ledger #1546) go LAST and only when stated: an empty list
-    # ("only the implied ones") is stated, an absent key feeds nothing.
+    # Stated failure classes (ledger #1546) follow output_from, only when stated:
+    # an empty list ("only the implied ones") is stated, an absent key feeds nothing.
     failures = action.get("failures")
     if failures is not None:
         _feed_u8(h, 1)
         _feed_items(h, (_canon_str(word) for word in failures))
+    # Core appends existence sensitivity AFTER the failure classes, only when set.
+    # Absent/false feeds nothing, preserving every existing v1 and v2 digest.
+    if action.get("existence_sensitive", False):
+        _feed_u8(h, 2)
     return "b3:" + h.hexdigest()
 
 
@@ -639,9 +644,10 @@ def contract_id(endpoint_id: str, action: dict) -> str:
 
     A contract that uses any construct of the ArgSpec release (an input's ``needs``,
     ``list``, ``values``, ``examples`` or an empty ``one_of``; an action's ``groups``,
-    open or envelope ``arguments``, ``output_from``, or stated ``failures``, even an empty
-    list) is digested under ``ikigai:contract:v2`` instead (:func:`_contract_id_v2`; byte
-    layout in core's ``tests/vectors/README.md``), so every contract that uses none
+    open or envelope ``arguments``, ``output_from``, stated ``failures``, even an empty
+    list, or true ``existence_sensitive``) is digested under ``ikigai:contract:v2``
+    instead (:func:`_contract_id_v2`; byte layout in core's ``tests/vectors/README.md``),
+    so every contract that uses none
     keeps its v1 digest.
     """
     verb = Verb[action["verb"].upper()]

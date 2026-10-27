@@ -597,6 +597,103 @@
       "contract": "urn:ikigai:contract:httpGet:source:b3:e5d8e2f517cf3efd3b7635d9cdfab8a571f34fb932d822f666a12862989f2621",
       "id": "httpGet",
       "name": "failures/unstated"
+    },
+    {
+      "action": {
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:936ecec4a198d624d378f7dfc24f06ef8d641d462a336bcc79d2009f739ec231",
+      "id": "vaultGet",
+      "name": "sensitive/unflagged"
+    },
+    {
+      "action": {
+        "existence_sensitive": false,
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:936ecec4a198d624d378f7dfc24f06ef8d641d462a336bcc79d2009f739ec231",
+      "id": "vaultGet",
+      "name": "sensitive/false-is-absent (same digest as sensitive/unflagged)"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:670fc847ce4dfd00a7dc383091122cd4e1165291a9c239ff40759c540cdf6a3e",
+      "id": "vaultGet",
+      "name": "sensitive/flagged"
+    },
+    {
+      "action": {
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:6a49ff3e6f162c6208e7ea838a500f1c676e11e2eef7f4968ff54e09b4a69cb1",
+      "id": "vaultGet",
+      "name": "sensitive/failures-unflagged"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:eec4e9371e690bca87d2a80b09dadc514d474b85b4df0f6d6a49ea74e29d1eeb",
+      "id": "vaultGet",
+      "name": "sensitive/failures-and-flag"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:vaultGet:source:b3:4a68d690640d36edf8b08d347116f809a96b9fcb7b04192e6bfd697f10887677",
+      "id": "vaultGet",
+      "name": "sensitive/only-the-implied-failures-and-flag"
     }
   ],
   "doors": [
