@@ -1,0 +1,405 @@
+{
+  "about": "Computed by ikigai-core/ikigai-vocab contract_vectors.rs with the included action and description inputs. Supplemental until these cases enter the shared upstream vectors.",
+  "contracts": [
+    {
+      "action": {
+        "inputs": [
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "summary": "Named request",
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f",
+      "id": "named-request",
+      "name": "v2/fixed-one"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          },
+          {
+            "fixed": "text/turtle",
+            "name": "as",
+            "required": true,
+            "source": "argument",
+            "summary": "Format"
+          }
+        ],
+        "summary": "Named request",
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2",
+      "id": "named-request",
+      "name": "v2/fixed-two"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "fixed": "text/turtle",
+            "name": "as",
+            "required": true,
+            "source": "argument",
+            "summary": "Format"
+          },
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "summary": "Named request",
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2",
+      "id": "named-request",
+      "name": "v2/fixed-two-reordered"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "fixed": "",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "summary": "Named request",
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2",
+      "id": "named-request",
+      "name": "v2/fixed-empty"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [
+          "permanent"
+        ],
+        "inputs": [
+          {
+            "examples": [
+              "urn:graph:one"
+            ],
+            "fixed": "a \"quote\"\nand a slash \\",
+            "name": "graph",
+            "needs": [
+              "other"
+            ],
+            "one_of": [
+              "urn:graph:one"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "summary": "Named request",
+        "verb": "Source"
+      },
+      "contract": "urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d",
+      "id": "named-request",
+      "name": "v2/fixed-with-metadata"
+    }
+  ],
+  "core_revision": "65ed423e4b1cdef7951580b36d18ceb1a9157f4d",
+  "doors": [
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f",
+          "match": "urn:ikigai:match:source:urn:named-request",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "fixed": "urn:graph:one",
+                "name": "graph",
+                "required": true,
+                "source": "argument",
+                "summary": "Graph"
+              }
+            ],
+            "summary": "Named request",
+            "verb": "Source"
+          }
+        ],
+        "id": "named-request",
+        "inputs": [
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "v2/fixed-one",
+      "pattern": "urn:named-request",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:named-request> a ik:Endpoint ;\n    ik:id \"named-request\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:named-request:input:graph> ;\n    ik:action <urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f> .\n\n<urn:ikigai:endpoint:named-request:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"Named request\" ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:a76ff5fe8c6b8226bab3802f1d01cbcebb44fbb2b2742123350559d4b575197f:input:graph> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2",
+          "match": "urn:ikigai:match:source:urn:named-request",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "fixed": "urn:graph:one",
+                "name": "graph",
+                "required": true,
+                "source": "argument",
+                "summary": "Graph"
+              },
+              {
+                "fixed": "text/turtle",
+                "name": "as",
+                "required": true,
+                "source": "argument",
+                "summary": "Format"
+              }
+            ],
+            "summary": "Named request",
+            "verb": "Source"
+          }
+        ],
+        "id": "named-request",
+        "inputs": [
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          },
+          {
+            "fixed": "text/turtle",
+            "name": "as",
+            "required": true,
+            "source": "argument",
+            "summary": "Format"
+          }
+        ],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "v2/fixed-two",
+      "pattern": "urn:named-request",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:named-request> a ik:Endpoint ;\n    ik:id \"named-request\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:named-request:input:graph> ;\n    ik:input <urn:ikigai:endpoint:named-request:input:as> ;\n    ik:action <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2> .\n\n<urn:ikigai:endpoint:named-request:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:endpoint:named-request:input:as> ik:inputName \"as\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Format\" ;\n    ik:fixed \"text/turtle\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:as> ik:inputName \"as\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Format\" ;\n    ik:fixed \"text/turtle\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"Named request\" ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:graph> ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:as> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2",
+          "match": "urn:ikigai:match:source:urn:named-request",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "fixed": "text/turtle",
+                "name": "as",
+                "required": true,
+                "source": "argument",
+                "summary": "Format"
+              },
+              {
+                "fixed": "urn:graph:one",
+                "name": "graph",
+                "required": true,
+                "source": "argument",
+                "summary": "Graph"
+              }
+            ],
+            "summary": "Named request",
+            "verb": "Source"
+          }
+        ],
+        "id": "named-request",
+        "inputs": [
+          {
+            "fixed": "text/turtle",
+            "name": "as",
+            "required": true,
+            "source": "argument",
+            "summary": "Format"
+          },
+          {
+            "fixed": "urn:graph:one",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "v2/fixed-two-reordered",
+      "pattern": "urn:named-request",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:named-request> a ik:Endpoint ;\n    ik:id \"named-request\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:named-request:input:as> ;\n    ik:input <urn:ikigai:endpoint:named-request:input:graph> ;\n    ik:action <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2> .\n\n<urn:ikigai:endpoint:named-request:input:as> ik:inputName \"as\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Format\" ;\n    ik:fixed \"text/turtle\" .\n\n<urn:ikigai:endpoint:named-request:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:as> ik:inputName \"as\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Format\" ;\n    ik:fixed \"text/turtle\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"urn:graph:one\" .\n\n<urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"Named request\" ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:as> ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:67e288ca71c3502d8eb6d1e47fc0fc29639f03fe216657793ddac6cbc17d21e2:input:graph> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2",
+          "match": "urn:ikigai:match:source:urn:named-request",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "fixed": "",
+                "name": "graph",
+                "required": true,
+                "source": "argument",
+                "summary": "Graph"
+              }
+            ],
+            "summary": "Named request",
+            "verb": "Source"
+          }
+        ],
+        "id": "named-request",
+        "inputs": [
+          {
+            "fixed": "",
+            "name": "graph",
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "v2/fixed-empty",
+      "pattern": "urn:named-request",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:named-request> a ik:Endpoint ;\n    ik:id \"named-request\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:named-request:input:graph> ;\n    ik:action <urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2> .\n\n<urn:ikigai:endpoint:named-request:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"\" .\n\n<urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:fixed \"\" .\n\n<urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"Named request\" ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:e231cbc6c07f3af88bb13d65ac4b8eaabb7732d472e696eb2a0fe58ed913fdf2:input:graph> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d",
+          "match": "urn:ikigai:match:source:urn:named-request",
+          "verb": "Source"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "existence_sensitive": true,
+            "failures": [
+              "permanent"
+            ],
+            "inputs": [
+              {
+                "examples": [
+                  "urn:graph:one"
+                ],
+                "fixed": "a \"quote\"\nand a slash \\",
+                "name": "graph",
+                "needs": [
+                  "other"
+                ],
+                "one_of": [
+                  "urn:graph:one"
+                ],
+                "required": true,
+                "source": "argument",
+                "summary": "Graph"
+              }
+            ],
+            "summary": "Named request",
+            "verb": "Source"
+          }
+        ],
+        "id": "named-request",
+        "inputs": [
+          {
+            "examples": [
+              "urn:graph:one"
+            ],
+            "fixed": "a \"quote\"\nand a slash \\",
+            "name": "graph",
+            "needs": [
+              "other"
+            ],
+            "one_of": [
+              "urn:graph:one"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": "Graph"
+          }
+        ],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      },
+      "name": "v2/fixed-with-metadata",
+      "pattern": "urn:named-request",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:named-request> a ik:Endpoint ;\n    ik:id \"named-request\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:named-request:input:graph> ;\n    ik:action <urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d> .\n\n<urn:ikigai:endpoint:named-request:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:oneOf \"urn:graph:one\" ;\n    ik:example \"urn:graph:one\" ;\n    ik:needs <urn:ikigai:endpoint:named-request:input:other> ;\n    ik:fixed \"a \\\"quote\\\"\\nand a slash \\\\\" .\n\n<urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d:input:graph> ik:inputName \"graph\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"Graph\" ;\n    ik:oneOf \"urn:graph:one\" ;\n    ik:example \"urn:graph:one\" ;\n    ik:needs <urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d:input:other> ;\n    ik:fixed \"a \\\"quote\\\"\\nand a slash \\\\\" .\n\n<urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:summary \"Named request\" ;\n    ik:mayFail ik:PermanentFailure ;\n    ik:existenceSensitive true ;\n    ik:input <urn:ikigai:contract:named-request:source:b3:d01d17b20882a0fa97df438d99787ea1f2eb80a4b16f20b5de441c85825e337d:input:graph> .\n"
+    }
+  ]
+}
