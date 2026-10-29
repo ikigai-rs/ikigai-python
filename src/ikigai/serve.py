@@ -176,6 +176,7 @@ class ArgSpec:
         list: str | None = None,
         values: dict[str, dict] | None = None,
         examples: list[str] | None = None,
+        fixed: str | None = None,
     ):
         """``name`` is the wire argument name. ``default`` forces ``required`` False (as
         in Rust); ``cls`` is an XSD class IRI; ``one_of`` an enforced value set;
@@ -185,7 +186,8 @@ class ArgSpec:
         ``whitespace``, ``comma-or-whitespace``, ``newline``) of a list-valued argument,
         which may be given more than once; ``values`` describes particular ``one_of``
         values (``{"retract": {"summary": …, "tags": […], "needs": […]}}``);
-        ``examples`` are values the contract accepts. The ``py_*`` attributes are
+        ``examples`` are values the contract accepts. ``fixed`` is the value a named
+        request fixes this input to (including an empty string). The ``py_*`` attributes are
         routing state, set later, never serialized."""
         if source not in ("argument", "binding"):
             raise ValueError(f"ArgSpec source must be `argument` or `binding` (got {source!r})")
@@ -195,6 +197,7 @@ class ArgSpec:
         self.required = required if default is None else False
         self.cls = cls
         self.default = default
+        self.fixed = fixed
         if list is not None and list not in preflight.LIST_SEPARATORS:
             raise ValueError(
                 f"ArgSpec list must be one of {', '.join(sorted(preflight.LIST_SEPARATORS))}"
@@ -241,6 +244,7 @@ class ArgSpec:
                 list=spec.get("list"),
                 values=spec.get("values"),
                 examples=spec.get("examples"),
+                fixed=spec.get("fixed"),
             )
         raise TypeError(f"not an ArgSpec: {spec!r}")
 
@@ -257,6 +261,8 @@ class ArgSpec:
             out["class"] = self.cls
         if self.default is not None:
             out["default"] = self.default
+        if self.fixed is not None:
+            out["fixed"] = self.fixed
         if self.one_of or self.enumerated:
             out["one_of"] = self.one_of
         if self.examples:
@@ -1002,6 +1008,8 @@ def to_turtle(description: dict) -> str:
             node += f" ;\n    ik:listSeparator {lit(arg['list'])}"
         for needed in arg.get("needs", []):
             node += f" ;\n    ik:needs <{owner}:input:{name_fragment(needed)}>"
+        if arg.get("fixed") is not None:
+            node += f" ;\n    ik:fixed {lit(arg['fixed'])}"
         for value in sorted(arg.get("values", {})):
             node += f" ;\n    ik:valueNote <{value_node_iri(owner, arg['name'], value)}>"
         return node
