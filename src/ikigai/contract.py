@@ -531,6 +531,7 @@ def _uses_v2(action: dict) -> bool:
             or arg.get("values")
             or arg.get("examples")
             or arg.get("fixed") is not None
+            or arg.get("reads_body", False)
             or ("one_of" in arg and not arg["one_of"])
             for arg in action.get("inputs") or ()
         )
@@ -626,6 +627,12 @@ def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
     # tag preserves every unflagged digest, including contracts with stated failures.
     if action.get("existence_sensitive", False):
         _feed_u8(h, 2)
+    # Body readers follow sensitivity and precede named request inputs. Only the
+    # flagged names form this tail; absent/false flags preserve existing digests.
+    readers = [arg["name"] for arg in action.get("inputs") or () if arg.get("reads_body", False)]
+    if readers:
+        _feed_u8(h, 3)
+        _feed_set(h, readers)
     # Named request inputs are a tail, not part of _input_v2: unfixed contracts
     # keep their existing digest (core's contract_id_v2, ledger #2512).
     fixed = [
@@ -654,7 +661,8 @@ def contract_id(endpoint_id: str, action: dict) -> str:
     identity, and two contracts that would render differently never share one.
 
     A contract that uses any construct of the ArgSpec release (an input's ``needs``,
-    ``list``, ``values``, ``examples``, ``fixed`` or an empty ``one_of``; an action's ``groups``,
+    ``list``, ``values``, ``examples``, ``fixed``, ``reads_body: true`` or an empty ``one_of``;
+    an action's ``groups``,
     open or envelope ``arguments``, ``output_from``, stated ``failures`` (even an empty
     list), or ``existence_sensitive: true``) is digested under ``ikigai:contract:v2``
     instead (:func:`_contract_id_v2`; byte layout in core's ``tests/vectors/README.md``),

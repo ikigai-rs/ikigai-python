@@ -1,4 +1,9 @@
-`contract_vectors.json` remains the verbatim shared upstream fixture. The supplemental
+`contract_cases.json` and `contract_vectors.json` are verbatim copies from
+[ikigai-core revision 7a0cd8fc658eb6988af24bf062b75840163ad1ba](https://github.com/ikigai-rs/ikigai-core/commit/7a0cd8fc658eb6988af24bf062b75840163ad1ba),
+including the ten `body/*` contract cases and the `core/reads-body` Turtle door.
+Copy both files without reformatting; `.gitattributes` keeps their line endings LF.
+
+The supplemental
 `fixed_contract_vectors.json` pins named request metadata against
 [ikigai-core revision 65ed423e4b1cdef7951580b36d18ceb1a9157f4d](https://github.com/ikigai-rs/ikigai-core/commit/65ed423e4b1cdef7951580b36d18ceb1a9157f4d).
 That revision implements the fixed tail but has no shared fixed-input vector cases yet.
