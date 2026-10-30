@@ -1010,6 +1010,8 @@ def to_turtle(description: dict) -> str:
             node += f" ;\n    ik:needs <{owner}:input:{name_fragment(needed)}>"
         if arg.get("fixed") is not None:
             node += f" ;\n    ik:fixed {lit(arg['fixed'])}"
+        if arg.get("reads_body", False):
+            node += " ;\n    ik:readsBody true"
         for value in sorted(arg.get("values", {})):
             node += f" ;\n    ik:valueNote <{value_node_iri(owner, arg['name'], value)}>"
         return node

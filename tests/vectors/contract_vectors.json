@@ -694,6 +694,260 @@
       "contract": "urn:ikigai:contract:vaultGet:source:b3:4a68d690640d36edf8b08d347116f809a96b9fcb7b04192e6bfd697f10887677",
       "id": "vaultGet",
       "name": "sensitive/only-the-implied-failures-and-flag"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:325df113fce456ccb8f86f6c7640b6f3e1c1981e4e4a3d89e4048785bc28b58b",
+      "id": "bodySink",
+      "name": "body/unflagged"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": false,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:325df113fce456ccb8f86f6c7640b6f3e1c1981e4e4a3d89e4048785bc28b58b",
+      "id": "bodySink",
+      "name": "body/false-is-absent"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:8bf6aa62acf87aa73248a4a4d62928c12d9af3fb597e45652aadb472b3893e56",
+      "id": "bodySink",
+      "name": "body/flagged"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:4a0b34afe004cafcff69ba443ca914e4ed167fdaaf520197064867d9e969ff72",
+      "id": "bodySink",
+      "name": "body/other-input"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:1ef338e066b6bd3c8cc429dd1649e8ac2564aec674f991863c46c34f25c64347",
+      "id": "bodySink",
+      "name": "body/multiple"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "z",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:1ef338e066b6bd3c8cc429dd1649e8ac2564aec674f991863c46c34f25c64347",
+      "id": "bodySink",
+      "name": "body/reordered"
+    },
+    {
+      "action": {
+        "arguments": {
+          "open": "additional arguments"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:374be991c4c394d0737ae416fef51f8c73a9702f732fe1ddd0999a520c2d0da6",
+      "id": "bodySink",
+      "name": "body/v2-unflagged"
+    },
+    {
+      "action": {
+        "arguments": {
+          "open": "additional arguments"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": false,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:374be991c4c394d0737ae416fef51f8c73a9702f732fe1ddd0999a520c2d0da6",
+      "id": "bodySink",
+      "name": "body/v2-false-is-absent"
+    },
+    {
+      "action": {
+        "arguments": {
+          "open": "additional arguments"
+        },
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:cc19c2d7e6847db57160d50115d566d311a134bf47e0bac7e7c8c1694d696939",
+      "id": "bodySink",
+      "name": "body/v2-flagged"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "z",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:bodySink:sink:b3:454e2a795e896c1e0cede124adf875c0bf8b64cf2bd74f2ae38c94c9a390d282",
+      "id": "bodySink",
+      "name": "body/failures-and-sensitive"
     }
   ],
   "doors": [
@@ -2137,6 +2391,81 @@
       "name": "core/existence-sensitive-failures",
       "pattern": "urn:core:existence-sensitive-failures",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:existence-sensitive-failures> a ik:Endpoint ;\n    ik:id \"existence-sensitive-failures\" ;\n    ik:summary \"stated failure classes and the sensitivity flag together (ledger #2176)\" ;\n    ik:verb \"Source\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:existenceSensitive true ;\n    ik:mayFail ik:RetryAfterFailure, ik:TransientFailure ;\n    ik:action <urn:ikigai:contract:existence-sensitive-failures:source:b3:f6850402a9b45e71a3d7bf462428c89de3e34f968fc94befc5219f766a3ef623> .\n\n<urn:ikigai:contract:existence-sensitive-failures:source:b3:f6850402a9b45e71a3d7bf462428c89de3e34f968fc94befc5219f766a3ef623> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" ;\n    ik:requires <urn:cap:vault:read> ;\n    ik:mayFail ik:RetryAfterFailure ;\n    ik:mayFail ik:TransientFailure ;\n    ik:existenceSensitive true .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57",
+          "match": "urn:ikigai:match:sink:urn:core:reads-body",
+          "verb": "Sink"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "existence_sensitive": true,
+            "failures": [
+              "transient"
+            ],
+            "inputs": [
+              {
+                "name": "content",
+                "reads_body": true,
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "name": "ordinary",
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "name": "explicit-false",
+                "reads_body": false,
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              }
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "reads-body",
+        "inputs": [
+          {
+            "name": "content",
+            "reads_body": true,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "ordinary",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "explicit-false",
+            "reads_body": false,
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [],
+        "summary": "body reader and ordinary inputs, flat and per action (ledger #2470)",
+        "title": "",
+        "verbs": [
+          "Sink",
+          "Meta"
+        ]
+      },
+      "name": "core/reads-body",
+      "pattern": "urn:core:reads-body",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:reads-body> a ik:Endpoint ;\n    ik:id \"reads-body\" ;\n    ik:summary \"body reader and ordinary inputs, flat and per action (ledger #2470)\" ;\n    ik:verb \"Sink\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:content> ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:ordinary> ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:explicit-false> ;\n    ik:action <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57> .\n\n<urn:ikigai:endpoint:reads-body:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:readsBody true .\n\n<urn:ikigai:endpoint:reads-body:input:ordinary> ik:inputName \"ordinary\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:endpoint:reads-body:input:explicit-false> ik:inputName \"explicit-false\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:readsBody true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:ordinary> ik:inputName \"ordinary\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:explicit-false> ik:inputName \"explicit-false\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:mayFail ik:TransientFailure ;\n    ik:existenceSensitive true ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:content> ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:ordinary> ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:explicit-false> .\n"
     }
   ],
   "form": "ikigai:contract:v1",

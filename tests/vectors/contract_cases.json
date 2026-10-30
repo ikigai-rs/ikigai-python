@@ -1,0 +1,2205 @@
+{
+  "doors": [
+    {
+      "name": "python/examples.hello",
+      "pattern": "urn:py:hello",
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": "the name to greet"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/examples.upper",
+      "pattern": "urn:py:upper",
+      "description": {
+        "id": "upper",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "text",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to uppercase"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Uppercase a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/examples.reverse",
+      "pattern": "urn:py:reverse",
+      "description": {
+        "id": "reverse",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "text",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to reverse"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Reverse a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/demo.hello",
+      "pattern": "urn:py:hello",
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": "the name to greet"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/demo.reverse",
+      "pattern": "urn:py:reverse",
+      "description": {
+        "id": "reverse",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": "the text to reverse"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Reverse a string",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/echo",
+      "pattern": "urn:py:echo/{message}",
+      "description": {
+        "id": "_echo",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "message",
+            "required": true,
+            "source": "binding",
+            "summary": "what to echo"
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "",
+            "name": "suffix",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Echo the name back",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/note",
+      "pattern": "urn:py:note:{key}",
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "read a note",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "write a note",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "forget a note",
+            "verb": "Delete"
+          }
+        ],
+        "id": "note",
+        "inputs": [],
+        "outputs": [],
+        "summary": "A key-value note",
+        "title": "Notes",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/ttt-stored",
+      "pattern": "urn:iki:tutorial:ttt:stored:{x}:{y}",
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "the mark played at (x, y); NotFound if none has been",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": "the mark to play, e.g. X or O"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "play a mark at (x, y)",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "x",
+                "required": true,
+                "source": "binding",
+                "summary": "the column — any integer"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "y",
+                "required": true,
+                "source": "binding",
+                "summary": "the row — any integer"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "clear the cell at (x, y)",
+            "verb": "Delete"
+          }
+        ],
+        "id": "ttt-stored",
+        "inputs": [],
+        "outputs": [],
+        "summary": "What has been played at (x, y): read it, play a mark, or clear it.",
+        "title": "Stored cell",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/guarded",
+      "pattern": "urn:py:guarded",
+      "description": {
+        "id": "guard>ed %41 naïve",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "a",
+            "name": "mode",
+            "one_of": [
+              "b",
+              "a",
+              "c"
+            ],
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "default": "3",
+            "name": "count",
+            "required": false,
+            "source": "argument",
+            "summary": "how many"
+          },
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "default": "now",
+            "name": "when",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/turtle"
+        ],
+        "requires": [
+          "urn:cap:py:read",
+          "legacy label",
+          "urn:cap:py:a"
+        ],
+        "summary": "line one\nline two\\",
+        "title": "A \"quoted\"\ttitle",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "python/shuffled",
+      "pattern": "urn:py:shuffled:{a}:{b}",
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "name": "zeta",
+                "one_of": [
+                  "y",
+                  "x",
+                  "y"
+                ],
+                "required": false,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "default": "1",
+                "name": "alpha",
+                "required": false,
+                "source": "argument",
+                "summary": "first"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:py:z",
+              "urn:cap:py:a",
+              "urn:cap:py:z"
+            ],
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:py:a"
+            ],
+            "verb": "Exists"
+          }
+        ],
+        "id": "urn:py:shuffled",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "deno/hello",
+      "pattern": "urn:ts:hello",
+      "description": {
+        "id": "hello",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "who",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Greet someone",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "deno/echo",
+      "pattern": "urn:ts:echo:{msg}",
+      "description": {
+        "id": "echo",
+        "inputs": [
+          {
+            "name": "msg",
+            "required": true,
+            "source": "binding",
+            "summary": "what to say"
+          },
+          {
+            "default": "",
+            "name": "suffix",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "summary": "Echo the name",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "deno/guarded",
+      "pattern": "urn:ts:guarded",
+      "description": {
+        "id": "guarded",
+        "inputs": [
+          {
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "mode",
+            "one_of": [
+              "upper",
+              "lower"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:ts:write",
+          "urn:cap:ts:read",
+          "legacy label"
+        ],
+        "summary": "",
+        "title": "Guarded",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "deno/kv",
+      "pattern": "urn:ts:kv:{bucket}:{key}",
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "read it",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              },
+              {
+                "name": "content",
+                "required": true,
+                "source": "argument",
+                "summary": "the body to write"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "write it",
+            "verb": "Sink"
+          },
+          {
+            "inputs": [
+              {
+                "name": "bucket",
+                "required": true,
+                "source": "binding",
+                "summary": "the bucket"
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#integer",
+                "name": "key",
+                "required": true,
+                "source": "binding",
+                "summary": "the key"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "summary": "clear it",
+            "verb": "Delete"
+          }
+        ],
+        "id": "kv",
+        "inputs": [],
+        "outputs": [],
+        "summary": "a key-value store",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "deno/edge",
+      "pattern": "urn:ts:edge:{b}:{a}",
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": "bee"
+              },
+              {
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": "ay"
+              },
+              {
+                "name": "zeta",
+                "required": true,
+                "source": "argument",
+                "summary": "last by name"
+              },
+              {
+                "name": "𝄞x",
+                "one_of": [
+                  "｡",
+                  "𝄞",
+                  "b",
+                  "a",
+                  "b"
+                ],
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "default": "d",
+                "name": "｡x",
+                "required": false,
+                "source": "argument",
+                "summary": ""
+              },
+              {
+                "class": "http://www.w3.org/2001/XMLSchema#string",
+                "name": "Alpha",
+                "required": true,
+                "source": "argument",
+                "summary": ""
+              }
+            ],
+            "outputs": [
+              "text/turtle"
+            ],
+            "requires": [
+              "urn:cap:z",
+              "urn:cap:a",
+              "urn:cap:z"
+            ],
+            "summary": "naïve — 𝄞 ｡",
+            "verb": "Source"
+          },
+          {
+            "inputs": [
+              {
+                "name": "b",
+                "required": true,
+                "source": "binding",
+                "summary": "bee"
+              },
+              {
+                "name": "a",
+                "required": true,
+                "source": "binding",
+                "summary": "ay"
+              }
+            ],
+            "outputs": [
+              "text/plain;charset=utf-8"
+            ],
+            "requires": [
+              "urn:cap:a"
+            ],
+            "verb": "Exists"
+          }
+        ],
+        "id": "ev>il 100% naïve",
+        "inputs": [],
+        "outputs": [],
+        "summary": "every field the contract digest covers",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "core/hostile-terms",
+      "pattern": "urn:core:hostile",
+      "description": {
+        "id": "hostile-terms",
+        "inputs": [
+          {
+            "class": "urn:cls:a> b",
+            "name": "encoded",
+            "required": true,
+            "source": "argument",
+            "summary": "line one\r\nline\ttwo"
+          },
+          {
+            "class": "http://ok> . <urn:z> a <urn:w",
+            "default": "x\ry",
+            "name": "fallback",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "class": "not a class",
+            "name": "bare",
+            "one_of": [
+              "a\nb",
+              "c\td"
+            ],
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "text/turtle"
+        ],
+        "requires": [
+          "urn:cap:core:read",
+          "not an iri",
+          "urn:cap:x> . <urn:everything",
+          "https://cap> . <urn:z"
+        ],
+        "summary": "one\ntwo\rthree\tfour \"q\" \\",
+        "title": "T\tab\r\nend",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "core/percent-names",
+      "pattern": "urn:core:percent",
+      "description": {
+        "id": "50% off",
+        "inputs": [
+          {
+            "class": "urn:cls:a%20b",
+            "name": "100%",
+            "required": true,
+            "source": "argument",
+            "summary": "a name with a bare %"
+          },
+          {
+            "class": "urn:cls:100%",
+            "name": "rate%25",
+            "required": false,
+            "source": "argument",
+            "summary": "a name that looks escaped"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:a%20b",
+          "urn:cap:100%"
+        ],
+        "summary": "",
+        "title": "Percent names",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "core/bracket-names",
+      "pattern": "http://[::1]:8080/{key}",
+      "description": {
+        "id": "http://[::1]/x",
+        "inputs": [
+          {
+            "class": "http://[::1]/cls",
+            "name": "a[0]",
+            "required": true,
+            "source": "argument",
+            "summary": "a name with brackets"
+          },
+          {
+            "name": "del nel pua nonchar﷐￿",
+            "required": false,
+            "source": "argument",
+            "summary": "a name with every kind of non-ucschar code point"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "http://[::1]/cap"
+        ],
+        "summary": "",
+        "title": "Bracket names",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "core/hash-query-names",
+      "pattern": "urn:hq:{key}?view=full#top",
+      "description": {
+        "id": "a#b?c#d",
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#string",
+            "name": "x#y",
+            "required": true,
+            "source": "argument",
+            "summary": "a name with a hash"
+          },
+          {
+            "name": "q?r",
+            "required": false,
+            "source": "argument",
+            "summary": "a name with a question mark"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:hq?scope#all"
+        ],
+        "summary": "",
+        "title": "Hash and query names",
+        "verbs": [
+          "Source",
+          "Meta"
+        ]
+      }
+    },
+    {
+      "name": "core/argspec-shape",
+      "pattern": "urn:core:argspec-shape",
+      "description": {
+        "id": "argspec-shape",
+        "title": "",
+        "summary": "every construct the ArgSpec release added",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ],
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          },
+          {
+            "name": "in",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          },
+          {
+            "name": "proposals",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "list": "comma",
+            "one_of": [
+              "minor",
+              "info"
+            ],
+            "values": {
+              "info": {
+                "summary": "informational only",
+                "tags": [
+                  "quiet"
+                ]
+              }
+            },
+            "examples": [
+              "minor,info"
+            ]
+          },
+          {
+            "name": "provider",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "one_of": []
+          },
+          {
+            "name": "endpoint",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "needs": [
+              "in"
+            ]
+          }
+        ],
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "in"
+            ],
+            "pipe": "content"
+          }
+        ],
+        "output_from": {
+          "input": "in"
+        },
+        "outputs": [
+          "text/plain"
+        ],
+        "actions": [
+          {
+            "verb": "Sink",
+            "inputs": [
+              {
+                "name": "content",
+                "summary": "",
+                "required": true,
+                "source": "argument"
+              },
+              {
+                "name": "email",
+                "summary": "",
+                "required": true,
+                "source": "argument"
+              }
+            ],
+            "arguments": {
+              "envelope": "content"
+            }
+          },
+          {
+            "verb": "Delete",
+            "inputs": [
+              {
+                "name": "key",
+                "summary": "",
+                "required": true,
+                "source": "argument"
+              }
+            ],
+            "arguments": {
+              "open": "anything else is a label"
+            },
+            "output_from": "origin"
+          }
+        ]
+      }
+    },
+    {
+      "name": "core/failure-classes",
+      "pattern": "urn:core:failure-classes",
+      "description": {
+        "id": "failure-classes",
+        "title": "",
+        "summary": "declared failure classes, flat and per verb (ledger #1546)",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "actions": [
+          {
+            "verb": "Sink",
+            "requires": [
+              "urn:cap:net:write"
+            ],
+            "failures": [
+              "refused",
+              "over-budget"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "core/existence-sensitive",
+      "pattern": "urn:core:existence-sensitive",
+      "description": {
+        "id": "existence-sensitive",
+        "title": "",
+        "summary": "a flat door whose existence is sensitive, for every verb (ledger #2176)",
+        "verbs": [
+          "Source",
+          "Exists",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "existence_sensitive": true
+      }
+    },
+    {
+      "name": "core/existence-sensitive-per-verb",
+      "pattern": "urn:core:existence-sensitive-per-verb",
+      "description": {
+        "id": "existence-sensitive-per-verb",
+        "title": "",
+        "summary": "only the Sink verb is sensitive; the flat Source is not (ledger #2176)",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "actions": [
+          {
+            "verb": "Sink",
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "existence_sensitive": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "core/existence-sensitive-replaced",
+      "pattern": "urn:core:existence-sensitive-replaced",
+      "description": {
+        "id": "existence-sensitive-replaced",
+        "title": "",
+        "summary": "the flat flag is sensitive, but an explicit Sink action replaces it and is not (ledger #2176)",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "existence_sensitive": true,
+        "actions": [
+          {
+            "verb": "Sink",
+            "requires": [
+              "urn:cap:vault:write"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "core/existence-sensitive-failures",
+      "pattern": "urn:core:existence-sensitive-failures",
+      "description": {
+        "id": "existence-sensitive-failures",
+        "title": "",
+        "summary": "stated failure classes and the sensitivity flag together (ledger #2176)",
+        "verbs": [
+          "Source",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "existence_sensitive": true
+      }
+    },
+    {
+      "name": "core/reads-body",
+      "pattern": "urn:core:reads-body",
+      "description": {
+        "id": "reads-body",
+        "title": "",
+        "summary": "body reader and ordinary inputs, flat and per action (ledger #2470)",
+        "verbs": [
+          "Sink",
+          "Meta"
+        ],
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "ordinary",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          },
+          {
+            "name": "explicit-false",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": false
+          }
+        ],
+        "outputs": [],
+        "actions": [
+          {
+            "verb": "Sink",
+            "inputs": [
+              {
+                "name": "content",
+                "summary": "",
+                "required": true,
+                "source": "argument",
+                "reads_body": true
+              },
+              {
+                "name": "ordinary",
+                "summary": "",
+                "required": true,
+                "source": "argument"
+              },
+              {
+                "name": "explicit-false",
+                "summary": "",
+                "required": true,
+                "source": "argument",
+                "reads_body": false
+              }
+            ],
+            "failures": [
+              "transient"
+            ],
+            "existence_sensitive": true
+          }
+        ]
+      }
+    }
+  ],
+  "contracts": [
+    {
+      "name": "empty-source",
+      "id": "toUpper",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "empty-source-other-id",
+      "id": "toLower",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "empty-sink",
+      "id": "toUpper",
+      "action": {
+        "verb": "Sink"
+      }
+    },
+    {
+      "name": "empty-meta",
+      "id": "toUpper",
+      "action": {
+        "verb": "Meta"
+      }
+    },
+    {
+      "name": "set-order-a",
+      "id": "e",
+      "action": {
+        "inputs": [
+          {
+            "name": "m",
+            "one_of": [
+              "x",
+              "y"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "a/b",
+          "c/d"
+        ],
+        "requires": [
+          "urn:cap:a",
+          "urn:cap:b"
+        ],
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "set-order-b (same digest as a)",
+      "id": "e",
+      "action": {
+        "inputs": [
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "m",
+            "one_of": [
+              "y",
+              "x",
+              "y"
+            ],
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "outputs": [
+          "c/d",
+          "a/b",
+          "a/b"
+        ],
+        "requires": [
+          "urn:cap:b",
+          "urn:cap:a",
+          "urn:cap:b"
+        ],
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "same-name-inputs",
+      "id": "e",
+      "action": {
+        "inputs": [
+          {
+            "class": "urn:c",
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "in",
+            "required": true,
+            "source": "argument",
+            "summary": ""
+          },
+          {
+            "name": "in",
+            "required": true,
+            "source": "binding",
+            "summary": ""
+          },
+          {
+            "default": "",
+            "name": "in",
+            "required": false,
+            "source": "argument",
+            "summary": ""
+          }
+        ],
+        "verb": "Delete"
+      }
+    },
+    {
+      "name": "every-field",
+      "id": "urn:cms:graph",
+      "action": {
+        "inputs": [
+          {
+            "class": "http://www.w3.org/2001/XMLSchema#integer",
+            "default": "0",
+            "name": "k",
+            "one_of": [
+              "0",
+              "1"
+            ],
+            "required": false,
+            "source": "binding",
+            "summary": "a key"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ],
+        "requires": [
+          "urn:cap:cms:read",
+          "legacy"
+        ],
+        "summary": "s",
+        "verb": "Exists"
+      }
+    },
+    {
+      "name": "hostile-id",
+      "id": "ev>il %25 a:b é",
+      "action": {
+        "summary": "ünïcode ✓",
+        "verb": "Sink"
+      }
+    },
+    {
+      "name": "empty-id",
+      "id": "",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "bracket-id",
+      "id": "http://[::1]/x",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "non-ucschar-id",
+      "id": "abcd﷐e￿",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "hash-id",
+      "id": "a#b#c",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "query-id",
+      "id": "a?b",
+      "action": {
+        "verb": "Source"
+      }
+    },
+    {
+      "name": "to-upper (the renamed builtin id)",
+      "id": "to-upper",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "in",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": [
+          "text/plain;charset=utf-8"
+        ]
+      }
+    },
+    {
+      "name": "v2/group",
+      "id": "kernel-cut",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "thread",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          },
+          {
+            "name": "content",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          }
+        ],
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/group-members-are-a-set (same digest as v2/group)",
+      "id": "kernel-cut",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          },
+          {
+            "name": "thread",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          }
+        ],
+        "groups": [
+          {
+            "kind": "exactly-one",
+            "members": [
+              "thread",
+              "content",
+              "thread"
+            ],
+            "pipe": "content"
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/at-most-one-group",
+      "id": "pick",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "a",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          },
+          {
+            "name": "b",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          }
+        ],
+        "groups": [
+          {
+            "kind": "at-most-one",
+            "members": [
+              "a",
+              "b"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/needs",
+      "id": "kernel-validate",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "endpoint",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "needs": [
+              "verb"
+            ]
+          },
+          {
+            "name": "verb",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/list",
+      "id": "sparql-select",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "graph",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "list": "comma-or-whitespace",
+            "class": "http://www.w3.org/2001/XMLSchema#anyURI"
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/enumerated-empty",
+      "id": "llm-ask",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "provider",
+            "summary": "",
+            "required": false,
+            "source": "argument",
+            "one_of": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/value-notes",
+      "id": "finding",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "decision",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "one_of": [
+              "publish",
+              "retract"
+            ],
+            "values": {
+              "retract": {
+                "summary": "withdraw a published decision",
+                "tags": [
+                  "revision"
+                ],
+                "needs": [
+                  "revises"
+                ]
+              }
+            }
+          },
+          {
+            "name": "revises",
+            "summary": "",
+            "required": false,
+            "source": "argument"
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/examples",
+      "id": "a11y-contrast",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "from",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "examples": [
+              "#336699"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "v2/open-arguments",
+      "id": "compose",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "src",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "arguments": {
+          "open": "each fills a {name} marker in the body"
+        }
+      }
+    },
+    {
+      "name": "v2/envelope",
+      "id": "intake",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          },
+          {
+            "name": "email",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "arguments": {
+          "envelope": "content"
+        }
+      }
+    },
+    {
+      "name": "v2/output-from-input",
+      "id": "compose",
+      "action": {
+        "verb": "Source",
+        "inputs": [
+          {
+            "name": "src",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "output_from": {
+          "input": "src"
+        }
+      }
+    },
+    {
+      "name": "v2/output-from-origin",
+      "id": "httpGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "output_from": "origin"
+      }
+    },
+    {
+      "name": "failures/stated",
+      "id": "httpGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "failures": [
+          "retry-after",
+          "transient",
+          "refused"
+        ]
+      }
+    },
+    {
+      "name": "failures/stated-in-another-order",
+      "id": "httpGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "failures": [
+          "refused",
+          "transient",
+          "retry-after"
+        ]
+      }
+    },
+    {
+      "name": "failures/only-the-implied",
+      "id": "httpGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ],
+        "failures": []
+      }
+    },
+    {
+      "name": "failures/unstated",
+      "id": "httpGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "application/octet-stream"
+        ],
+        "requires": [
+          "urn:cap:net:*"
+        ]
+      }
+    },
+    {
+      "name": "sensitive/unflagged",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ]
+      }
+    },
+    {
+      "name": "sensitive/false-is-absent (same digest as sensitive/unflagged)",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "existence_sensitive": false
+      }
+    },
+    {
+      "name": "sensitive/flagged",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "existence_sensitive": true
+      }
+    },
+    {
+      "name": "sensitive/failures-unflagged",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "failures": [
+          "retry-after",
+          "transient"
+        ]
+      }
+    },
+    {
+      "name": "sensitive/failures-and-flag",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "existence_sensitive": true
+      }
+    },
+    {
+      "name": "sensitive/only-the-implied-failures-and-flag",
+      "id": "vaultGet",
+      "action": {
+        "verb": "Source",
+        "outputs": [
+          "text/plain"
+        ],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "failures": [],
+        "existence_sensitive": true
+      }
+    },
+    {
+      "name": "body/unflagged",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/false-is-absent",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": false
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/flagged",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/other-input",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/multiple",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/reordered",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          }
+        ],
+        "outputs": []
+      }
+    },
+    {
+      "name": "body/v2-unflagged",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": [],
+        "arguments": {
+          "open": "additional arguments"
+        }
+      }
+    },
+    {
+      "name": "body/v2-false-is-absent",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": false
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": [],
+        "arguments": {
+          "open": "additional arguments"
+        }
+      }
+    },
+    {
+      "name": "body/v2-flagged",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": [],
+        "arguments": {
+          "open": "additional arguments"
+        }
+      }
+    },
+    {
+      "name": "body/failures-and-sensitive",
+      "id": "bodySink",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "",
+            "required": true,
+            "source": "argument",
+            "reads_body": true
+          },
+          {
+            "name": "z",
+            "summary": "",
+            "required": true,
+            "source": "argument"
+          }
+        ],
+        "outputs": [],
+        "failures": [
+          "retry-after",
+          "transient"
+        ],
+        "existence_sensitive": true
+      }
+    }
+  ],
+  "patterns": [
+    "urn:iki:fn:toUpper",
+    "urn:file:{path}",
+    "urn:a:%7B",
+    "urn:a:{",
+    "urn:sp ace:<>\"|^`\\:naïve",
+    "urn:ts:kv:{bucket}:{key}",
+    "urn:ts:naïve 𝄞|x",
+    "http://[::1]/{path}",
+    "urn:x:del nel pua nonchar﷐￿",
+    "urn:x:a#b#c",
+    "urn:x:{k}?q=1"
+  ],
+  "parses": [
+    "urn:ikigai:match:source:urn:file:%7Bpath%7D",
+    "urn:ikigai:match:meta:urn:a:%25",
+    "urn:ikigai:match:Source:urn:x",
+    "urn:ikigai:match:frobnicate:urn:x",
+    "urn:ikigai:match:source",
+    "urn:ikigai:match:source:%G1",
+    "urn:ikigai:match:source:%4",
+    "urn:ikigai:match:source:%+1",
+    "urn:ikigai:match:source:%C3%A9",
+    "urn:ikigai:match:source:%C3",
+    "urn:ikigai:contract:urn:cms:graph:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:ev%3Eil:delete:b3:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+    "urn:ikigai:contract:x:source:b3:ababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:x:source:b3:+bababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract::sink:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:sink:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:endpoint:x:action:source",
+    "urn:ikigai:match:source:%-1",
+    "urn:ikigai:match:source:%+F",
+    "urn:ikigai:match:source:a%+1b",
+    "urn:ikigai:match:source:% 1",
+    "urn:ikigai:match:source:%",
+    "urn:ikigai:match:source:%01",
+    "urn:ikigai:match:source:%7b",
+    "urn:ikigai:match:source:urn:file:{path}",
+    "urn:ikigai:match:source:%41",
+    "urn:ikigai:match:source:%é",
+    "urn:ikigai:match:source:",
+    "urn:ikigai:contract:%+1:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:%01:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:x:Source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:x:source:b3:abababababababababababababababababababababababababababababababab00",
+    "urn:ikigai:contract:a:b:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:match:source:urn:%66ile:%7bpath%7d",
+    "urn:ikigai:contract:{x}:source:b3:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+    "urn:ikigai:contract:%66ile:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:match:source:http://[::1]/x",
+    "urn:ikigai:match:source:http://%5B::1%5D/x",
+    "urn:ikigai:match:source:a%7Fb%C2%85c",
+    "urn:ikigai:contract:http://[::1]/x:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:match:source:a%23b%3Fc",
+    "urn:ikigai:match:source:a#b?c",
+    "urn:ikigai:match:source:a%23b%3fc",
+    "urn:ikigai:contract:a#b#c:source:b3:abababababababababababababababababababababababababababababababab",
+    "urn:ikigai:contract:a%23b%23c:source:b3:abababababababababababababababababababababababababababababababab"
+  ]
+}
