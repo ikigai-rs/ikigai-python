@@ -83,6 +83,41 @@ def test_an_alias_stripped_name_resolves_a_family_too(served):
         assert k.source("urn:py:note:a").text == "via the alias"
 
 
+@pytest.fixture
+def quakes(socket_dir):
+    @endpoint("urn:quakes:near:{lat}:{lon}", summary="Quakes near a point")
+    def near(lat: str, lon: str) -> str:
+        return f"near {lat},{lon}"
+
+    path = socket_dir / "quakes.sock"
+    server = Server([near], path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield path
+    server.shutdown()
+    thread.join(timeout=5)
+
+
+def test_a_deeper_alias_mount_reaches_the_full_name(quakes):
+    # ikigai-cli PR 630: `--mount urn:quakes:near:=sock` is deeper than one
+    # segment, so it forwards `urn:quakes:near:37.5:137.2` unchanged and its
+    # hello is verbatim. The template written against the full name answers,
+    # and the catalog lists the full name, which the mount lists unchanged.
+    with ikigai.connect(quakes, mode=HelloMode.VERBATIM) as k:
+        assert k.source("urn:quakes:near:37.5:137.2").text == "near 37.5,137.2"
+        assert [e.pattern for e in k.entries()] == ["urn:quakes:near:{lat}:{lon}"]
+
+
+def test_a_first_segment_alias_mount_still_strips(quakes):
+    # `--mount urn:quakes:=sock` keeps stripping: `urn:near:…` arrives.
+    with ikigai.connect(quakes, mode=HelloMode.ALIAS) as k:
+        assert k.source("urn:near:37.5:137.2").text == "near 37.5,137.2"
+        assert [e.pattern for e in k.entries()] == ["urn:near:{lat}:{lon}"]
+        # A comma list mixing both kinds sends `alias`; a full name from its
+        # deeper prefix still reaches the declared template.
+        assert k.source("urn:quakes:near:37.5:137.2").text == "near 37.5,137.2"
+
+
 def test_a_binding_is_described_as_a_binding(served):
     with ikigai.connect(served) as k:
         description = k.describe("urn:py:echo/anything")

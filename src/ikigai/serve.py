@@ -53,10 +53,10 @@ patterns coming back. This server therefore answers BOTH the declared IRI
 (``urn:py:hello`` — for ``--override`` mounts and direct ``--connect``
 clients) and its alias-stripped form (``urn:hello``) — for a template,
 ``urn:py:echo/{m}`` answers as ``urn:echo/{m}`` too. The stripped form assumes
-the mount prefix is the FIRST segment (``urn:py:``); a deeper prefix
-(``--mount urn:py:echo:=…``) strips more than this server can know about, so
-mount a family with ``--override <its prefix>=<socket>``, which forwards
-IRIs unchanged. Every connection's
+the mount prefix is the FIRST segment (``urn:py:``). An alias mount deeper
+than one segment (``--mount urn:py:echo:=…``, ikigai-cli PR 630 onward)
+forwards IRIs unchanged under a verbatim hello, as ``--override`` does, so the
+declared pattern answers the full name. Every connection's
 hello declares its mount mode (the hello is required since wire v7), and
 ``entries`` answers in that mode's form per connection; the ``strip_alias``
 constructor default now only governs direct ``Space.entries()`` calls.

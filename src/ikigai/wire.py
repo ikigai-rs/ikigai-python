@@ -1344,8 +1344,8 @@ class HelloMode(IntEnum):
     whose canonical IRIs carry a namespace prefix (this package's servers),
     which otherwise cannot know what form ``Entries`` should list."""
 
-    VERBATIM = 0  # plain client / --connect / --override / --prefer
-    ALIAS = 1  # an alias --mount: IRIs arrive prefix-stripped
+    VERBATIM = 0  # plain client / --connect / --override / --prefer / a deeper alias --mount
+    ALIAS = 1  # a first-segment alias --mount: IRIs arrive prefix-stripped
 
 
 @dataclass(frozen=True)
