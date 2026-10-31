@@ -635,3 +635,10 @@ of ikigai-vocab 0.1.108's) pin them.
 ## License
 
 MIT OR Apache-2.0, at your option.
+
+## Accessibility
+
+[ACCESSIBILITY.md](https://github.com/ikigai-rs/ikigai-python/blob/main/ACCESSIBILITY.md) says
+what this package and its examples emit that people read (error messages, the plain-text
+description, the examples' pages), the rules that output follows, what is tested, the known
+limitations, and how to report a barrier.
