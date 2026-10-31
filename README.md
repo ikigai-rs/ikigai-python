@@ -12,13 +12,14 @@ resources that a Rust host mounts.
 A binding = client + servable peer space; the module mechanism IS
 mount-over-wire.
 
-Wire protocol version: **8** (`ikigai.PROTOCOL_VERSION`), backward
+Wire protocol version: **9** (`ikigai.PROTOCOL_VERSION`), backward
 compatible down to **7** (`ikigai.MIN_PROTOCOL_VERSION`): the connection
 opens with a version hello each way — REQUIRED since v7 (the pre-v6
 tolerances are gone) — and failures cross the wire **typed** (see the
-wire-protocol notes below). v8 adds one error variant, `Conflict`; a v7
-host (ikigai-cli 0.1.29 and earlier) still talks to this package in both
-directions. A v6 peer still fails cleanly: the hello itself names both
+wire-protocol notes below). v9 adds `IssueWith` and five typed errors (see
+[the v9 release notes](#release-notes-wire-v9-issuewith-ledger-1914-1546));
+v8 added `Conflict`. A v7 host (ikigai-cli 0.1.29 and earlier) still talks
+to this package in both directions. A v6 peer still fails cleanly: the hello itself names both
 versions.
 
 ## Install
@@ -533,8 +534,8 @@ record the layout. Highlights that a public ABI document should state:
 - Framing: `u32` **big-endian** length + [postcard](https://postcard.jamesmunns.com)
   payload; 64 MiB frame cap, checked before allocation. Over QUIC there is no
   length header and no hello: each call is one bidirectional stream, the
-  stream's FIN ends each message, and the negotiated ALPN id (`ikigai/8`,
-  `ikigai/7`) is the version.
+  stream's FIN ends each message, and the negotiated ALPN id (`ikigai/9`,
+  `ikigai/8`, `ikigai/7`) is the version.
 - **Version hello (since v6, REQUIRED since v7).** The first frame each way
   is `b"IKWH"` + `u32` big-endian version + `u8` mode — deliberately *not*
   postcard, because the codec whose version is being negotiated must not be
@@ -548,20 +549,20 @@ record the layout. Highlights that a public ABI document should state:
   — and a first frame without the magic is refused by the server. This
   package speaks v9 (`ikigai.PROTOCOL_VERSION`) and still raises
   `ProtocolError` naming its version on any undecodable message.
-- **Backward compatibility (since v8).** A v8 side accepts a hello of v7 or
-  v8 (`MIN_PROTOCOL_VERSION`..=`PROTOCOL_VERSION`); anything else is refused
+- **Backward compatibility (since v8).** This package accepts a hello of v7, v8 or
+  v9 (`MIN_PROTOCOL_VERSION`..=`PROTOCOL_VERSION`); anything else is refused
   as before, naming both versions. The server answers an accepted hello
   **with the peer's own version** (a v7 client requires a v7 answer) and the
   connection remembers it: a reply to a v7 peer downgrades `Conflict(msg)`
   to `Endpoint("conflict: {msg}")`, the Rust core's rendering of it and
-  byte-identical to what v7 received before. A v8 client that dials a v7
-  server gets `7` back and a hang-up (that is how a v7 server refuses an
-  `8`), so it redials once offering 7; the offer only steps down, never
-  below the floor. `Client.server_version` says which version a connection
+  byte-identical to what v7 received before. A client that dials a v7
+  server gets `7` back and a hang-up (that is how a v7 server refuses a
+  newer version), so it redials once offering 7; the offer only steps down,
+  never below the floor. `Client.server_version` says which version a connection
   speaks.
 - **Typed errors (since v7).** A failure crosses as `Reply::ErrorTyped`
-  (postcard discriminant 5) carrying the `WireError` enum — variants 0–8 in
-  declaration order: `Unresolved(iri)`, `MissingArgument(name)`,
+  (postcard discriminant 5) carrying the `WireError` enum — the original
+  variants 0–8 in declaration order: `Unresolved(iri)`, `MissingArgument(name)`,
   `InvalidArgument{name, detail}`, `Endpoint(message)`, `Denied(message)`,
   `NotFound(message)`, `Timeout(message)`, `Unavailable(message)`, and
   since v8 `Conflict(message)` — an append-only, wire-local mirror of
@@ -570,7 +571,8 @@ record the layout. Highlights that a public ABI document should state:
   `05 08 01 78`. Timeout/Unavailable are transient; the rest (Conflict
   included) permanent. An unknown future variant degrades to the base
   `EndpointError`, loudly named. The flat `Reply::Error` string (variant 3)
-  remains decodable but is no longer sent.
+  remains decodable but is no longer sent. The five v9 additions (tags 9–13)
+  and their downgrade behavior are described in the v9 release notes below.
 - Enum discriminants are the **declaration index** as a varint —
   `Verb::Source` is `0` on the wire even though it is declared
   `#[repr(u8)] Source = 1` (those codes are only for identity hashing).
