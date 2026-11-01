@@ -370,24 +370,35 @@ serve([cell], "/tmp/ttt.sock")
   target's golden thread after every Sink or Delete it forwards, so the cached
   read above needs no code here. `tests/test_integration.py` proves it
   through the installed host.
-- **Mount a family with `--override`**, which forwards IRIs unchanged:
-  `ikigai --override urn:iki:tutorial:ttt:stored:=/tmp/ttt.sock`. An alias
-  `--mount` works only at the first segment (`--mount urn:iki:=…`), because
-  this server can strip only what it can guess — see below.
+- **Mount a family at its own prefix**: `ikigai --override
+  urn:iki:tutorial:ttt:stored:=/tmp/ttt.sock`, or an alias `--mount` at that
+  deeper prefix (ikigai-cli PR 630 onward), both forward IRIs unchanged. An
+  alias `--mount` at the first segment (`--mount urn:iki:=…`) strips it — see
+  below.
 
 `examples/tictactoe_store.py` is the ikigai book's tic-tac-toe atom served
 this way — the Rust `stored_cell`'s contract, message for message — for a
 Rust host to mount under everything else the game computes.
 
-### Alias mounts strip the prefix (important)
+### Alias mounts strip a first-segment prefix (important)
 
 `--mount urn:py:=<socket>` is an **alias** mount: the host rewrites
 `urn:py:hello` → `urn:hello` before forwarding, and re-prefixes catalog
 patterns coming back. This server therefore answers **both** the declared IRI
 and its alias-stripped form (`urn:py:echo/{m}` also answers as `urn:echo/{m}`).
-It strips exactly the first segment — the only prefix a peer can guess, since
-the hello says THAT the mount aliases but not at which prefix — so a deeper
-alias prefix reaches nothing here; use `--override` for that. Each connection's hello declares its mount mode
+It strips exactly the first segment, the only prefix a peer can guess, since
+the hello says THAT the mount aliases but not at which prefix.
+
+An alias mount whose prefix is **deeper than one segment** forwards the IRI
+**unchanged** (ikigai-cli PR 630 onward). "Deeper" means that after `urn:`,
+with trailing colons removed, the prefix still contains a colon:
+`urn:quakes:near:` is deeper; `urn:quakes:`, `urn:quakes-py:` and `urn:` are
+not. So a peer mounted at `urn:quakes:near:` receives
+`urn:quakes:near:37.5:137.2`, the same name the reader used, and a template
+written against the full name (`urn:quakes:near:{lat}:{lon}`) answers it.
+Such a connection's hello is `verbatim`, so the catalog lists full names,
+which the mount lists unchanged. A first-segment mount keeps the stripping
+above. Each connection's hello declares its mount mode
 (the hello is required since wire v7), and `entries` answers accordingly
 *per connection*: an alias mount sees the stripped patterns, a verbatim
 client (plain `--connect`, `--override`, `--prefer`) sees the declared IRIs
