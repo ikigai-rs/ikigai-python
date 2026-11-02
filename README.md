@@ -557,6 +557,14 @@ on the peer refusing what the contract does not admit:
   `Capability.satisfies(scope)` asks the same question.
 - A refusal crosses typed as `DeniedError`, with core's text
   (``capability does not grant `urn:cap:x` (declared by `urn:py:x`)``).
+- An **existence-sensitive** door (`existence_sensitive=True` on `@endpoint`, or
+  on one family verb) hides itself from a caller the floor refuses: the refusal
+  crosses as `UnresolvedError` naming the target, the same answer, byte for byte,
+  as for a name bound nowhere. A marked verb conceals its own refusals; an
+  undeclared verb conceals whenever anything is marked; `Meta` conceals from a
+  caller who passes the floor of no declared verb. An explicit verb left unmarked
+  beside a marked one is still refused with `DeniedError`. This is core's rule
+  (ikigai-core 0.2.2), pinned by its capability vectors.
 
 The floor is coarse: a handler does not see the caller's capability, so a rule
 finer than a declared scope (a path, a host) is not expressible here yet.
