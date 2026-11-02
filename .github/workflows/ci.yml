@@ -31,12 +31,19 @@ jobs:
     # so only a version bump rebuilds it. The `test` job skips every host-backed test (no
     # binary); here they run: the QUIC client (tests/test_quic_interop.py), both directions
     # over a Unix socket (tests/test_integration.py), and the v9 door's IssueWith and error
-    # classes (tests/test_issue_with.py). `--require-interop` turns a missing binary into a
-    # FAILURE: a skipped interop suite would pass green while covering nothing. Move
-    # IKIGAI_CLI_VERSION to follow the door.
+    # classes (tests/test_issue_with.py). It also builds ikigai-tutorial's `ttt-host` for the
+    # tic-tac-toe parity test (tests/test_tictactoe_app.py), which drives that binary, not the
+    # `ikigai` cli, so the cli pin does not cover it. `--require-interop` turns a missing
+    # binary, either one, into a FAILURE: a skipped interop suite would pass green while
+    # covering nothing. Move IKIGAI_CLI_VERSION to follow the door.
     runs-on: ubuntu-latest
     env:
       IKIGAI_CLI_VERSION: "0.1.67"
+      # The ikigai-tutorial commit ttt-host is built from. It moves when the tutorial changes
+      # what ttt-host answers (its views, refusals, routes or caching): move it to the
+      # tutorial's main, run the parity test against a ttt-host built there, and bring the
+      # Python face up to date in the same PR.
+      TTT_HOST_REV: "8c30fe704537c1a87ca384e6e5de1ab4443827d6"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,6 +62,21 @@ jobs:
         run: |
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/ikigai" --version
+      - name: Cache ttt-host
+        id: ttt-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/ttt-host
+          key: ttt-host-${{ runner.os }}-${{ env.TTT_HOST_REV }}
+      - name: Build ttt-host
+        if: steps.ttt-cache.outputs.cache-hit != 'true'
+        run: >-
+          cargo install --git https://github.com/ikigai-rs/ikigai-tutorial
+          --rev "$TTT_HOST_REV" --locked ttt-host --root ~/ttt-host
+      - name: Name ttt-host for the parity test
+        run: |
+          test -x "$HOME/ttt-host/bin/ttt-host"
+          echo "TTT_HOST=$HOME/ttt-host/bin/ttt-host" >> "$GITHUB_ENV"
       - name: Install
         run: python -m pip install -e '.[dev,examples,quic]'
       - name: Interop (the whole suite, against a local Rust door)
