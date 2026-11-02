@@ -1,5 +1,5 @@
 {
-  "about": "Shared escaping and link-target vectors for HTML built from data (ledger #1813). The canonical copy is ikigai-fn's tests/vectors/html_vectors.json, consumed by tests/html_vectors.rs; a port (Python, Deno, an XSLT template) keeps a VERBATIM copy and runs every case. The expected outputs are written by hand, not computed: they are the contract. html_text and attr give the same output (attr is html_text under the name that says where it goes), so both run the 'escape' cases. A safe_href output of null means: not a link, render the label as text; otherwise the output is the trimmed target, still to be escaped with attr. A json_attr input is a list of [key, value] pairs, in order.",
+  "about": "Shared escaping and link-target vectors for HTML built from data (ledger #1813). The canonical copy is ikigai-fn's tests/vectors/html_vectors.json, consumed by tests/html_vectors.rs; a port (Python, Deno, an XSLT template) keeps a VERBATIM copy and runs every case. The expected outputs are written by hand, not computed: they are the contract. html_text and attr give the same output (attr is html_text under the name that says where it goes), so both run the 'escape' cases. A safe_href output of null means: not a link, render the label as text; otherwise the output is the trimmed target, still to be escaped with attr. percent_decode cases choose plus_is_space explicitly: out is decoded UTF-8, bytes is the decoded byte array; error is malformed_escape (offset is the input byte offset, both APIs refuse) or invalid_utf8 (only the text API refuses). Every url_segment case is also a decode round trip in both plus modes. A json_attr input is a list of [key, value] pairs, in order.",
   "escape": [
     {
       "in": "",
@@ -151,6 +151,28 @@
       "in": "!*'();:@&=+$,/?#[]",
       "out": "%21%2A%27%28%29%3B%3A%40%26%3D%2B%24%2C%2F%3F%23%5B%5D"
     }
+  ],
+  "percent_decode": [
+    {"in": "", "plus_is_space": false, "out": "", "bytes": []},
+    {"in": "plain/日", "plus_is_space": false, "out": "plain/日", "bytes": [112,108,97,105,110,47,230,151,165]},
+    {"in": "%41%2f%2F%00", "plus_is_space": false, "out": "A//\u0000", "bytes": [65,47,47,0]},
+    {"in": "caf%C3%A9", "plus_is_space": false, "out": "café", "bytes": [99,97,102,195,169]},
+    {"in": "%F0%9F%98%80", "plus_is_space": false, "out": "😀", "bytes": [240,159,152,128]},
+    {"in": "a+b%2B%20", "plus_is_space": false, "out": "a+b+ ", "bytes": [97,43,98,43,32]},
+    {"in": "a+b%2B%20", "plus_is_space": true, "out": "a b+ ", "bytes": [97,32,98,43,32]},
+    {"in": "%252B", "plus_is_space": true, "out": "%2B", "bytes": [37,50,66]},
+    {"in": "%", "plus_is_space": false, "error": "malformed_escape", "offset": 0},
+    {"in": "%G1", "plus_is_space": false, "error": "malformed_escape", "offset": 0},
+    {"in": "%1", "plus_is_space": false, "error": "malformed_escape", "offset": 0},
+    {"in": "日%0g", "plus_is_space": true, "error": "malformed_escape", "offset": 3},
+    {"in": "%41%", "plus_is_space": true, "error": "malformed_escape", "offset": 3},
+    {"in": "%%41", "plus_is_space": false, "error": "malformed_escape", "offset": 0},
+    {"in": "%FF", "plus_is_space": false, "error": "invalid_utf8", "bytes": [255]},
+    {"in": "%C3%28", "plus_is_space": true, "error": "invalid_utf8", "bytes": [195,40]},
+    {"in": "%C0%AF", "plus_is_space": false, "error": "invalid_utf8", "bytes": [192,175]},
+    {"in": "%ED%A0%80", "plus_is_space": false, "error": "invalid_utf8", "bytes": [237,160,128]},
+    {"in": "%F4%90%80%80", "plus_is_space": false, "error": "invalid_utf8", "bytes": [244,144,128,128]},
+    {"in": "%E2%82", "plus_is_space": false, "error": "invalid_utf8", "bytes": [226,130]}
   ],
   "safe_href": [
     {

@@ -22,7 +22,9 @@ The published package (`src/ikigai/`):
   QUIC errors in `quic.py` (`CertSetError`, `PinMismatchError`, `ClientRefusedError`,
   `NotEnrolledError`); `AuthError` in `auth.py`, which names the broken rule by a stable code and
   never holds the credential; and the protocol, decode and template errors (`ProtocolError`,
-  `DecodeError` in `postcard.py`, `TemplateError` in `template.py`).
+  `DecodeError` in `postcard.py`, `TemplateError` in `template.py`); and `PercentDecodeError` in
+  `html.py`, worded as `ikigai_fn::html`'s (`percent_decode: malformed percent-escape at byte 3`,
+  `percent_decode: decoded bytes are not UTF-8`), with its kind and offset as attributes.
 - **A plain-text description.** A served endpoint's Meta face, asked for as `text/plain`
   (`description_text` in `serve.py`): its id and title, its verbs, one line per input
   (`input name [source] (optional): summary`), its argument groups, and its outputs.
@@ -33,7 +35,7 @@ The published package (`src/ikigai/`):
   media type, its size and its expiry, never its body. The package defines no rich (HTML)
   display.
 - **HTML helpers, not HTML.** `html.py` escapes text and attributes and checks link targets for a
-  caller that writes HTML; it writes no page itself.
+  caller that writes HTML, and decodes percent escapes strictly; it writes no page itself.
 
 The examples (`examples/`, not shipped in the wheel):
 
@@ -80,7 +82,8 @@ the tests below pin the rest.
   error.
 - `tests/test_serve.py` (`test_meta_faces`), `tests/test_families.py` and
   `tests/test_serve_shape.py` pin lines of the plain-text description.
-- `tests/test_html.py` pins the escaping and link rules against the shared HTML vectors;
+- `tests/test_html.py` pins the escaping, link and percent-decoding rules against the shared HTML
+  vectors, and `test_percent_decode_error_words` pins the decoder's two refusals' words;
   `tests/test_tictactoe_app.py` pins that the page loads `conflict.js` and that it writes with
   `textContent` (`test_the_page_loads_the_script_that_swaps_a_409_into_the_status_region`), that a
   hostile mark is escaped, and, when a `ttt-host` binary is present, that the page and its files
