@@ -287,9 +287,12 @@ What a served endpoint gets for free, because its describe face is real:
   control other than tab/LF/CR becomes U+FFFD), `url_segment` (one path segment
   or query value, RFC 3986 unreserved kept), `safe_href` (the trimmed target, or
   `None` unless it is `http://`, `https://` or a single-slash path) and
-  `json_attr` (htmx's `hx-vals`). `tests/test_html.py` runs every case in
+  `json_attr` (htmx's `hx-vals`), and the strict decoders `percent_decode` (text)
+  and `percent_decode_bytes`, which raise `PercentDecodeError` (kind
+  `malformed_escape` with the byte offset, or `invalid_utf8`) where
+  `urllib.parse.unquote` would keep or replace. `tests/test_html.py` runs every case in
   `tests/vectors/html_vectors.json`, a verbatim copy of ikigai-fn's file at
-  commit 53d50c5; to pick up new vectors, copy that file again, unedited. The
+  v0.9.0 (commit c5c871a); to pick up new vectors, copy that file again, unedited. The
   tic-tac-toe example's `$h` escape goes through `html_text`.
 - **Authorization headers and base64**: `ikigai.auth` mirrors `ikigai_http::auth`
   (stdlib only): `basic` (RFC 7617), `bearer` (RFC 6750) and `scheme` (RFC 9110),
