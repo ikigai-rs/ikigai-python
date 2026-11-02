@@ -101,6 +101,11 @@ rely on the peer refusing what the contract no longer admits.
   (``capability does not grant `urn:cap:x` (declared by `urn:py:x`)``), and the
   handler never runs. An unbound name is still ``Unresolved`` whatever the
   caller holds.
+- An EXISTENCE-SENSITIVE refusal (``existence_sensitive=True`` on ``@endpoint``
+  or a family verb) crosses as ``Unresolved`` naming the target instead: exactly
+  the answer for a name bound nowhere, so a refused caller cannot learn that the
+  name exists (core's rule, :func:`conceals`). ``Meta`` is concealed too, from a
+  caller who passes the floor of no declared verb.
 """
 
 from __future__ import annotations
@@ -587,13 +592,16 @@ class Action:
         groups: list | None = None,
         arguments: dict | None = None,
         output_from=None,
+        existence_sensitive: bool = False,
     ):
         """``verb`` and ``handler`` are the action; ``template`` supplies the bindings
         (each variable is an input, first in order). ``cacheable`` is refused for a
         mutating verb; ``args=None`` derives the contract from the signature.
         ``groups`` (:class:`InputGroup`), ``arguments`` (``{"open": summary}`` or
         ``{"envelope": carrier}``) and ``output_from`` (``"origin"`` or an input name)
-        declare the rest of the contract shape."""
+        declare the rest of the contract shape. ``existence_sensitive`` marks the verb
+        (``ActionSpec::existence_sensitive``): a caller the floor refuses it is answered
+        ``Unresolved``, as for a name bound nowhere (see :func:`conceals`)."""
         if cacheable and _is_mutating(verb):
             raise ValueError(f"{where}: a {verb.wire_name} answer is never cacheable")
         self.verb = verb
@@ -638,6 +646,7 @@ class Action:
         self.groups = [InputGroup.of(g) for g in groups or ()]
         self.arguments = _arguments_json(arguments)
         self.output_from = _output_from_json(output_from)
+        self.existence_sensitive = bool(existence_sensitive)
         names = {spec.name for spec in self.args}
         for ref in self._references():
             if ref not in names:
@@ -679,6 +688,8 @@ class Action:
             out["arguments"] = self.arguments
         if self.output_from is not None:
             out["output_from"] = self.output_from
+        if self.existence_sensitive:
+            out["existence_sensitive"] = True
         return out
 
 
@@ -773,7 +784,11 @@ class _Door:
             # The flat form's shape fields are the Source action's, read through.
             source = self.actions[Verb.SOURCE].spec_json()
             out.update(
-                {k: source[k] for k in ("groups", "arguments", "output_from") if k in source}
+                {
+                    k: source[k]
+                    for k in ("groups", "arguments", "output_from", "existence_sensitive")
+                    if k in source
+                }
             )
         if not self.flat:
             out["actions"] = [self.actions[v].spec_json() for v in self.verbs if v in self.actions]
@@ -852,6 +867,24 @@ def action_specs(description: dict) -> list[dict]:
     return specs
 
 
+def _floor_table(description: dict) -> tuple[list[tuple[str, list[str]]], list[str]]:
+    """``(declared, every)`` as core's ``Floor`` holds them: each declared verb with its own
+    ``requires`` (from :func:`action_specs`), and the union of every scope declared,
+    deduplicated in declaration order (the floor of an undeclared verb; with no declared
+    verb, the flat ``requires`` and every explicit action's)."""
+    declared = [(spec["verb"], spec.get("requires", [])) for spec in action_specs(description)]
+    every: list[str] = []
+    sources = [requires for _, requires in declared]
+    if not declared:
+        sources = [description.get("requires", [])]
+        sources += [a.get("requires", []) for a in description.get("actions", [])]
+    for requires in sources:
+        for scope in requires:  # one scope at a time, so a repeat WITHIN a list is caught too
+            if scope not in every:
+                every.append(scope)
+    return declared, every
+
+
 def required_scopes(description: dict, verb: Verb) -> list[str]:
     """The scopes a request with ``verb`` must hold to pass the declared-capability floor,
     read from a description in its serde (JSON) shape: core's
@@ -882,16 +915,7 @@ def required_scopes(description: dict, verb: Verb) -> list[str]:
     >>> required_scopes(calendar, Verb.DELETE), required_scopes(calendar, Verb.META)
     (['urn:cap:cal:read', 'urn:cap:cal:write'], [])
     """
-    declared = [(spec["verb"], spec.get("requires", [])) for spec in action_specs(description)]
-    every: list[str] = []
-    sources = [requires for _, requires in declared]
-    if not declared:
-        sources = [description.get("requires", [])]
-        sources += [a.get("requires", []) for a in description.get("actions", [])]
-    for requires in sources:
-        for scope in requires:  # one scope at a time, so a repeat WITHIN a list is caught too
-            if scope not in every:
-                every.append(scope)
+    declared, every = _floor_table(description)
     own: dict[str, list[str]] = {}
     for declared_verb, requires in declared:
         own.setdefault(declared_verb, requires)  # the first spec for a verb, as core's find
@@ -911,6 +935,54 @@ def unsatisfied_scopes(description: dict, verb: Verb, capability: Capability) ->
     return [
         s for s in required_scopes(description, verb) if not capability_satisfies(capability, s)
     ]
+
+
+def conceals(description: dict, verb: Verb, capability: Capability) -> bool:
+    """Whether the floor's refusal of ``verb`` under ``capability`` must answer as a name
+    bound nowhere (``Unresolved``), never ``Denied``: core's ``Floor::conceals`` (ledger
+    #2176, #2889), so a refused caller cannot learn that an existence-sensitive name
+    exists.
+
+    - Nothing is concealed unless the description marks existence sensitivity somewhere
+      (the flat ``existence_sensitive``, or an explicit action's).
+    - A declared verb conceals when its OWN action (from :func:`action_specs`, where an
+      explicit action's flag replaces the flat one) is marked and the floor refuses it.
+    - An undeclared verb conceals whenever the floor refuses it.
+    - ``Meta``, which the floor never gates, conceals when ``capability`` passes the floor
+      of no declared verb (with no declared verb, of the union of everything declared).
+
+    >>> vault = {"verbs": ["Source", "Sink"], "inputs": [], "outputs": [],
+    ...     "actions": [{"verb": "Source", "requires": ["urn:cap:vault:read"]},
+    ...                 {"verb": "Sink", "requires": ["urn:cap:vault:write"],
+    ...                  "existence_sensitive": True}]}
+    >>> reader = Capability.scoped(["urn:cap:vault:read"])
+    >>> conceals(vault, Verb.SINK, reader), conceals(vault, Verb.META, reader)
+    (True, False)
+    >>> conceals(vault, Verb.SOURCE, Capability.scoped([]))  # its own action is unmarked
+    False
+    """
+    specs = action_specs(description)
+    marked = {spec["verb"] for spec in specs if spec.get("existence_sensitive", False)}
+    anywhere = (
+        bool(marked)
+        or description.get("existence_sensitive", False)
+        or any(a.get("existence_sensitive", False) for a in description.get("actions", []))
+    )
+    if not anywhere:
+        return False
+
+    def passes(scopes: list[str]) -> bool:
+        return all(capability_satisfies(capability, s) for s in scopes)
+
+    declared, every = _floor_table(description)
+    if verb == Verb.META:
+        if not declared:
+            return not passes(every)
+        return not any(passes(requires) for _, requires in declared)
+    is_declared = any(declared_verb == verb.wire_name for declared_verb, _ in declared)
+    if is_declared and verb.wire_name not in marked:
+        return False
+    return not passes(required_scopes(description, verb))
 
 
 def action_matches(pattern: str, description: dict) -> list[dict]:
@@ -1147,6 +1219,7 @@ class EndpointDef(_Door):
         groups: list | None = None,
         arguments: dict | None = None,
         output_from: str | dict | None = None,
+        existence_sensitive: bool = False,
     ):
         """Wrap ``handler`` as the Source action of ``iri``. ``id`` defaults to the
         handler's name; ``summary`` to the handler docstring's first line."""
@@ -1168,6 +1241,7 @@ class EndpointDef(_Door):
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
 
     # The flat form's contract, read through (the names predate actions).
@@ -1216,6 +1290,7 @@ def endpoint(
     groups: list | None = None,
     arguments: dict | None = None,
     output_from: str | dict | None = None,
+    existence_sensitive: bool = False,
 ):
     """Declare a function as a single-verb Source endpoint.
 
@@ -1236,8 +1311,10 @@ def endpoint(
 
     Either way the declaration is REAL: the host engine routes ``key=value``
     arguments by it. ``cacheable=True`` marks the result a pure function of
-    its inputs (``Expiry::Never``) — the HOST kernel then caches it. For more
-    than one verb over one name, use :func:`family`."""
+    its inputs (``Expiry::Never``) — the HOST kernel then caches it.
+    ``existence_sensitive=True`` hides the name from a caller the floor refuses:
+    it is answered ``Unresolved``, as a name bound nowhere, never ``Denied`` (see
+    :func:`conceals`). For more than one verb over one name, use :func:`family`."""
 
     def wrap(fn):
         fn.ikigai_endpoint = EndpointDef(
@@ -1253,6 +1330,7 @@ def endpoint(
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
         return fn
 
@@ -1347,6 +1425,7 @@ class Family(_Door):
         groups: list | None = None,
         arguments: dict | None = None,
         output_from: str | dict | None = None,
+        existence_sensitive: bool = False,
     ):
         """Declare the Source verb (bare ``@f.source`` or ``@f.source(...)``)."""
         contract = dict(
@@ -1358,6 +1437,7 @@ class Family(_Door):
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
         return self._decorator(Verb.SOURCE, fn, contract)
 
@@ -1372,6 +1452,7 @@ class Family(_Door):
         groups: list | None = None,
         arguments: dict | None = None,
         output_from: str | dict | None = None,
+        existence_sensitive: bool = False,
     ):
         """Declare the Sink verb; the body arrives as ``content``."""
         contract = dict(
@@ -1382,6 +1463,7 @@ class Family(_Door):
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
         return self._decorator(Verb.SINK, fn, contract)
 
@@ -1396,6 +1478,7 @@ class Family(_Door):
         groups: list | None = None,
         arguments: dict | None = None,
         output_from: str | dict | None = None,
+        existence_sensitive: bool = False,
     ):
         """Declare the Delete verb."""
         contract = dict(
@@ -1406,6 +1489,7 @@ class Family(_Door):
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
         return self._decorator(Verb.DELETE, fn, contract)
 
@@ -1420,6 +1504,7 @@ class Family(_Door):
         groups: list | None = None,
         arguments: dict | None = None,
         output_from: str | dict | None = None,
+        existence_sensitive: bool = False,
     ):
         """Declare the Exists verb, replacing the "Source would succeed" default."""
         contract = dict(
@@ -1430,6 +1515,7 @@ class Family(_Door):
             groups=groups,
             arguments=arguments,
             output_from=output_from,
+            existence_sensitive=existence_sensitive,
         )
         return self._decorator(Verb.EXISTS, fn, contract)
 
@@ -1695,19 +1781,26 @@ class Space:
             # The same variant the Rust kernel answers with, so the host-side
             # engine rebuilds Error::Unresolved natively.
             return ErrorTypedReply(UnresolvedError(request.target))
-        if request.verb == Verb.META:
-            # A description does not depend on the bindings — and the
-            # catalog's own pattern text matches its template, so Meta on
-            # `urn:…:{x}:{y}` describes the family.
-            return self._meta(d, request)
         if capability is not None and not capability.is_root:
             # Declared = enforced (ledger #1580); root satisfies every scope. Read
             # from the door's described contract on every call, so the floor is
             # computed from the same data a mounting host reads, and a verb
             # declared after this Space was built is floored on its own declaration.
-            lacking = unsatisfied_scopes(d.description_json(), request.verb, capability)
+            description = d.description_json()
+            if conceals(description, request.verb, capability):
+                # EXISTENCE-SENSITIVE (ledger #2176, #2889): the refusal is the miss arm
+                # above, the same error under the same name, and nothing else, so the
+                # caller cannot tell this name from one bound nowhere. Meta included.
+                return ErrorTypedReply(UnresolvedError(request.target))
+            # Meta requires nothing, so it is never Denied.
+            lacking = unsatisfied_scopes(description, request.verb, capability)
             if lacking:
                 return ErrorTypedReply(DeniedError(denial_message(lacking[0], request.target)))
+        if request.verb == Verb.META:
+            # A description does not depend on the bindings — and the
+            # catalog's own pattern text matches its template, so Meta on
+            # `urn:…:{x}:{y}` describes the family.
+            return self._meta(d, request)
         action = d.actions.get(request.verb)
         if action is None and request.verb == Verb.EXISTS:
             return self._exists(d, bindings, request)

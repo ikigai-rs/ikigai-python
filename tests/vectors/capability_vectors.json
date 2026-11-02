@@ -1,5 +1,5 @@
 {
-  "about": "Capability vectors computed by ikigai-core from tests/vectors/capability_cases.json (crates/ikigai-vocab/tests/capability_vectors.rs, which fails if this file differs from what it computes). A capability is \"root\" or the list of scopes it holds; verbs are spelled as ikigai_core::Verb serializes them; a denial is the text of the kernel's Denied, null when the floor admits the request.",
+  "about": "Capability vectors computed by ikigai-core from tests/vectors/capability_cases.json (crates/ikigai-vocab/tests/capability_vectors.rs, which fails if this file differs from what it computes). A capability is \"root\" or the list of scopes it holds; verbs are spelled as ikigai_core::Verb serializes them; a denial is the text of the kernel's Denied, null when the floor admits the request or conceals it; `unresolved`, only on a row the kernel conceals (an existence-sensitive refusal), is the IRI its Unresolved names, the answer a name bound nowhere gets.",
   "coverage": [
     {
       "allows": true,
@@ -1316,6 +1316,639 @@
       "name": "no-verb-exists-held",
       "target": "urn:data:secret",
       "verb": "Exists"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-nothing",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:write"
+      ],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-unrelated",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-held",
+      "target": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": "root",
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-root",
+      "target": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-undeclared-exists",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Exists"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-undeclared-exists-held",
+      "target": "urn:vault:secret",
+      "verb": "Exists"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-meta-nothing",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Meta"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-flat-meta-held",
+      "target": "urn:vault:secret",
+      "verb": "Meta"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-sink-nothing",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-sink-with-read",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:write"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-sink-with-write",
+      "target": "urn:vault:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `urn:cap:vault:read` (declared by `urn:vault:secret`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-source-nothing",
+      "target": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-undeclared-exists",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Exists"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-undeclared-delete-with-read",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Delete"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read",
+        "urn:cap:vault:write"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-undeclared-delete-with-both",
+      "target": "urn:vault:secret",
+      "verb": "Delete"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-meta-nothing",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Meta"
+    },
+    {
+      "capability": [
+        "urn:cap:vault:read"
+      ],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:read"
+            ],
+            "verb": "Source"
+          },
+          {
+            "existence_sensitive": true,
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-per-verb-meta-with-read",
+      "target": "urn:vault:secret",
+      "verb": "Meta"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-replaced-source-nothing",
+      "target": "urn:vault:secret",
+      "unresolved": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": "capability does not grant `urn:cap:vault:write` (declared by `urn:vault:secret`)",
+      "description": {
+        "actions": [
+          {
+            "requires": [
+              "urn:cap:vault:write"
+            ],
+            "verb": "Sink"
+          }
+        ],
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:vault:read"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink"
+        ]
+      },
+      "name": "sensitive-replaced-sink-nothing",
+      "target": "urn:vault:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "vault",
+        "inputs": [],
+        "outputs": [],
+        "summary": "",
+        "title": "",
+        "verbs": [
+          "Source"
+        ]
+      },
+      "name": "sensitive-public",
+      "target": "urn:vault:secret",
+      "verb": "Source"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "sensitive-no-verb-sink",
+      "target": "urn:data:secret",
+      "unresolved": "urn:data:secret",
+      "verb": "Sink"
+    },
+    {
+      "capability": [],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "sensitive-no-verb-meta",
+      "target": "urn:data:secret",
+      "unresolved": "urn:data:secret",
+      "verb": "Meta"
+    },
+    {
+      "capability": [
+        "urn:cap:secret"
+      ],
+      "denied": null,
+      "description": {
+        "existence_sensitive": true,
+        "id": "secret",
+        "inputs": [],
+        "outputs": [],
+        "requires": [
+          "urn:cap:secret"
+        ],
+        "summary": "",
+        "title": "",
+        "verbs": []
+      },
+      "name": "sensitive-no-verb-meta-held",
+      "target": "urn:data:secret",
+      "verb": "Meta"
     }
   ],
   "deny_scopes": [

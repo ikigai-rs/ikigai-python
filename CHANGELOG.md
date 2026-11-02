@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **The served floor conceals an existence-sensitive door** (ledger #2889). A refused caller
+  of a door marked `existence_sensitive` now gets exactly the miss a name bound nowhere gets,
+  `UnresolvedError` naming the target (the same bytes on the wire), never `DeniedError`, so it
+  cannot learn that the name exists: the leak ikigai-core 0.2.2 closed in the kernel (ledger
+  #2176). The rule is core's `Floor::conceals`, mirrored as `ikigai.serve.conceals`: a
+  declared verb conceals when its own action is marked (an explicit action's flag replaces the
+  flat one), an undeclared verb whenever anything is marked, and `Meta` when the caller passes
+  the floor of no declared verb. `@endpoint` and the family verb decorators take
+  `existence_sensitive=True`, which reaches the JSON Meta face, the contract digest and the
+  Turtle (`ik:existenceSensitive true`). `tests/vectors/capability_vectors.json` is core main's
+  file (ikigai-rs/ikigai-core PR 295), verbatim: its 23 `sensitive-*` denial rows, 12 of them
+  concealed, failed nine ways here before this change.
 - **CI `interop` job pins `IKIGAI_CLI_VERSION` 0.2.8**, the current cli, up from 0.1.67, so CI
   tests the door people run (ledger #2857; ikigai-deno made the same move). The whole suite
   under `--require-interop` passed unchanged locally against cli 0.2.3 with its `quic` feature

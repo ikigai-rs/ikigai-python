@@ -28,6 +28,7 @@ from ikigai.serve import (
     Space,
     action_matches,
     action_specs,
+    conceals,
     endpoint,
     family,
     required_scopes,
@@ -48,6 +49,7 @@ from ikigai.wire import (
     TraceContext,
     UnresolvedError,
     Verb,
+    encode_reply,
 )
 
 ROOT = Capability.root()
@@ -164,16 +166,35 @@ def test_the_first_action_for_a_verb_is_its_contract_too():
 # -- denials: the kernel's text for the first unsatisfied scope -------------------------
 
 
+def floor_answer(description, verb_, cap, target):
+    """What the floor answers, as a denials row records it: ``(denied, unresolved)``. A
+    concealed refusal is the miss (``unresolved`` = the target, no ``denied`` text); a
+    refusal otherwise is core's ``Denied`` text; an admitted request is neither."""
+    if conceals(description, verb_, cap):
+        return None, target
+    lacking = unsatisfied_scopes(description, verb_, cap)
+    return (denial_message(lacking[0], target) if lacking else None), None
+
+
 @pytest.mark.parametrize("row", VECTORS["denials"], ids=ids(VECTORS["denials"], "name"))
 def test_the_floor_refuses_with_cores_text(row):
-    lacking = unsatisfied_scopes(
-        row["description"], verb(row["verb"]), capability(row["capability"])
+    refused, unresolved = floor_answer(
+        row["description"], verb(row["verb"]), capability(row["capability"]), row["target"]
     )
-    refused = denial_message(lacking[0], row["target"]) if lacking else None
     assert refused == row["denied"]
+    # `unresolved` is written only on a row the kernel conceals (ledger #2434).
+    assert unresolved == row.get("unresolved")
     if refused is not None:
         # This face's typed error says it the way core's Display does.
         assert DeniedError(refused).display() == "denied: " + refused
+
+
+def test_the_vectors_pin_concealment():
+    # The existence-sensitive rows are the ones that can fail this face's concealment, so
+    # a copy of the file without them would let the rule rot unnoticed.
+    concealed = [row for row in VECTORS["denials"] if "unresolved" in row]
+    assert len(concealed) >= 12
+    assert {row["verb"] for row in concealed} >= {"Source", "Sink", "Exists", "Delete", "Meta"}
 
 
 # -- the served floor: Space.dispatch ---------------------------------------------------
@@ -344,6 +365,145 @@ def test_the_floor_crosses_the_socket_typed(socket_dir):
             assert k.source("urn:py:cal").text == "agenda"
         with ikigai.connect(server.path) as k:
             assert k.source("urn:py:cal").text == "agenda"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+# -- existence-sensitive doors: a refusal answered as a miss (ledger #2176, #2889) --------
+
+
+@endpoint("urn:py:vault", requires=["urn:cap:vault:read"], existence_sensitive=True)
+def vault() -> str:
+    entered.append("vault")
+    return "gold"
+
+
+locker = family("urn:py:locker:{n}", id="locker")
+
+
+@locker.source(requires=["urn:cap:locker:read"])
+def read_locker(n: str) -> str:
+    entered.append("locker.source")
+    return f"locker {n}"
+
+
+@locker.sink(requires=["urn:cap:locker:write"], existence_sensitive=True)
+def write_locker(n: str, content: str) -> None:
+    entered.append("locker.sink")
+
+
+SENSITIVE = Space([vault, locker])
+NOWHERE = Space([])
+
+
+def ask(space, verb_, target, cap=None, **args):
+    request = Request(verb_, target, {k: Inline(v.encode()) for k, v in args.items()})
+    return space.dispatch(Issue(request) if cap is None else IssueAs(request, cap))
+
+
+def concealed(verb_, target, cap, **args):
+    """The reply is EXACTLY what a space binding nothing answers for that name and call:
+    the same typed error, byte for byte on the wire, so the caller learns nothing."""
+    reply = ask(SENSITIVE, verb_, target, cap, **args)
+    miss = ask(NOWHERE, verb_, target, cap, **args)
+    assert isinstance(miss, ErrorTypedReply) and isinstance(miss.error, UnresolvedError)
+    assert isinstance(reply, ErrorTypedReply), reply
+    assert isinstance(reply.error, UnresolvedError), reply.error
+    assert reply.error.message == miss.error.message
+    assert encode_reply(reply) == encode_reply(miss)
+    return True
+
+
+def test_a_sensitive_flat_door_answers_a_refused_caller_as_a_miss():
+    assert concealed(Verb.SOURCE, "urn:py:vault", scoped())
+    assert concealed(Verb.SOURCE, "urn:py:vault", scoped("urn:cap:vault:write"))
+    # An undeclared verb (the default Exists needs what Source needs) and Meta too.
+    assert concealed(Verb.EXISTS, "urn:py:vault", scoped())
+    assert concealed(Verb.META, "urn:py:vault", scoped())
+    # The alias-stripped name is concealed under the name asked for.
+    assert concealed(Verb.SOURCE, "urn:vault", scoped())
+    assert entered == []
+
+
+def test_a_sensitive_flat_door_answers_a_caller_the_floor_admits():
+    held = scoped("urn:cap:vault:read")
+    reply = ask(SENSITIVE, Verb.SOURCE, "urn:py:vault", held)
+    assert isinstance(reply, Resolved) and reply.representation.data == b"gold"
+    assert isinstance(ask(SENSITIVE, Verb.EXISTS, "urn:py:vault", held), Resolved)
+    assert isinstance(ask(SENSITIVE, Verb.META, "urn:py:vault", held), Resolved)
+    # Root (a plain Issue) is never refused, so never concealed.
+    assert isinstance(ask(SENSITIVE, Verb.SOURCE, "urn:py:vault"), Resolved)
+    assert entered == ["vault", "vault"]
+
+
+def test_a_marked_verb_conceals_and_an_explicit_unmarked_verb_beside_it_does_not():
+    reader = scoped("urn:cap:locker:read")
+    # Sink is marked: refused, it is a miss, whether or not the caller may read.
+    assert concealed(Verb.SINK, "urn:py:locker:1", scoped(), content="x")
+    assert concealed(Verb.SINK, "urn:py:locker:1", reader, content="x")
+    # Source is explicit and unmarked: refused, it is still core's Denied.
+    reply = ask(SENSITIVE, Verb.SOURCE, "urn:py:locker:1", scoped())
+    assert isinstance(reply, ErrorTypedReply) and isinstance(reply.error, DeniedError)
+    assert reply.error.message == denial_message("urn:cap:locker:read", "urn:py:locker:1")
+    writer = scoped("urn:cap:locker:write")
+    assert isinstance(ask(SENSITIVE, Verb.SINK, "urn:py:locker:1", writer, content="x"), Resolved)
+    assert entered == ["locker.sink"]
+
+
+def test_an_undeclared_verb_conceals_when_anything_is_marked():
+    reader = scoped("urn:cap:locker:read")
+    # Delete is undeclared, so it needs everything declared; the door marks a verb.
+    assert concealed(Verb.DELETE, "urn:py:locker:1", reader)
+    assert concealed(Verb.EXISTS, "urn:py:locker:1", scoped())
+    # A caller holding everything passes the floor and meets the door's own refusal.
+    both = scoped("urn:cap:locker:read", "urn:cap:locker:write")
+    reply = ask(SENSITIVE, Verb.DELETE, "urn:py:locker:1", both)
+    assert isinstance(reply, ErrorTypedReply) and "not supported" in reply.error.message
+    assert entered == []
+
+
+def test_meta_conceals_unless_the_caller_passes_some_declared_verb():
+    assert concealed(Verb.META, "urn:py:locker:1", scoped())
+    assert concealed(Verb.META, "urn:py:locker:1", scoped("urn:cap:other"))
+    for one in ("urn:cap:locker:read", "urn:cap:locker:write"):
+        assert isinstance(ask(SENSITIVE, Verb.META, "urn:py:locker:1", scoped(one)), Resolved)
+
+
+def test_a_traced_refusal_of_a_sensitive_door_is_the_miss_too():
+    request = Request(Verb.SOURCE, "urn:py:vault", {})
+    context = TraceContext(1, None)
+    reply = SENSITIVE.dispatch(IssueTraced(request, scoped(), context))
+    miss = NOWHERE.dispatch(IssueTraced(request, scoped(), context))
+    assert encode_reply(reply) == encode_reply(miss)
+    assert isinstance(reply.error, UnresolvedError)
+
+
+def test_the_flag_reaches_the_described_contract():
+    flat = vault.ikigai_endpoint.description_json()
+    assert flat["existence_sensitive"] is True and "actions" not in flat
+    assert [s["existence_sensitive"] for s in action_specs(flat)] == [True]
+    per_verb = locker.description_json()
+    assert "existence_sensitive" not in per_verb
+    marks = {a["verb"]: a.get("existence_sensitive", False) for a in per_verb["actions"]}
+    assert marks == {"Source": False, "Sink": True}
+    assert "ik:existenceSensitive true" in to_turtle(per_verb)
+    # An unmarked door says nothing, so its contract digest is unchanged.
+    assert "existence_sensitive" not in cal.ikigai_endpoint.description_json()
+
+
+def test_a_concealed_refusal_crosses_the_socket_as_a_miss(socket_dir):
+    server = Server([vault], socket_dir / "v.sock")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with ikigai.connect(server.path, capability=scoped("urn:cap:other")) as k:
+            with pytest.raises(
+                ikigai.UnresolvedError, match="no endpoint resolved for urn:py:vault"
+            ):
+                k.source("urn:py:vault")
+        with ikigai.connect(server.path, capability=scoped("urn:cap:vault:read")) as k:
+            assert k.source("urn:py:vault").text == "gold"
     finally:
         server.shutdown()
         thread.join(timeout=5)
