@@ -466,8 +466,19 @@ The app's fragments are byte-for-byte the host's own `view:board` and
 `view:status`: `tests/test_tictactoe_app.py` plays one game through the app
 and a twin game through the Rust views and compares every board, status and
 reply, through a won game, refusals and a draw — and the page and its four
-static files against `ttt-host`'s own HTTP face (it skips when `ttt-host` is
-not installed). A move the rules refuse as a `Conflict` (a taken square, a finished
+static files against `ttt-host`'s own HTTP face. The test needs `ttt-host` built
+from the ikigai-tutorial commit CI pins (`TTT_HOST_REV` in
+`.github/workflows/ci.yml`); the `ikigai-cli` pin does not cover it, because
+`ttt-host` is the tutorial's binary, not the cli. It looks at `$TTT_HOST`, then
+`~/.local/ttt-host/bin/ttt-host`, then `PATH`:
+
+```sh
+cargo install --git https://github.com/ikigai-rs/ikigai-tutorial \
+  --rev <TTT_HOST_REV> --locked ttt-host --root ~/.local/ttt-host
+```
+
+Without one it skips locally; CI's interop job builds it and runs the test
+under `--require-interop`, where a missing `ttt-host` fails. A move the rules refuse as a `Conflict` (a taken square, a finished
 game, the wrong mark) is a 409 with the text/plain body `conflict: {message}`, as
 `ttt-host` answers it; the page's `conflict.js` swaps it into the status region, and
 the next successful play restores the status. Every other request to a view is answered as `ttt-host`
@@ -478,16 +489,21 @@ requires the same status, body, Content-Type and `Allow`. A path that is not
 a view gets `404 not found`, because the app is not a proxy for the host's
 other names. The filler is the template language's scanner, its three
 splices and `conditional`, and it runs the README's template cases (the ones
-the tutorial runs through ikigai-fn's own compose). It keeps no state and caches nothing, because every read it makes
-is a cache hit in the host until a move cuts it.
+the tutorial runs through ikigai-fn's own compose). It keeps no state and caches nothing: for a
+game the host keeps in memory, every read it makes is a cache hit in the host until a move cuts
+it. A game over a peer store, as above, is cached nowhere: a mount's answers are uncacheable in
+the host (`ikigai-resolve` 0.1.64 and later, since a cut on the peer never crosses back), so
+every read of the board asks the store.
 
 Two honest limits, both about the kernel in the middle:
 
 - **Always write through the host.** The app Sinks the host's `move:{x}:{y}`
-  and `reset`, never the store. The host cuts a stored cell's golden thread
-  when ITS kernel issues the write; a write straight to the Python store
-  (another client of that socket) would leave the host serving the old board
-  until something else cut it. There is no golden thread over the wire yet.
+  and `reset`, never the store: the host's rules (the turn, a taken square, a
+  finished game) are applied there, and the host cuts a stored cell's golden
+  thread when ITS kernel issues the write. A write straight to the Python store
+  (another client of that socket) skips the rules. It is seen on the next read
+  only because the host caches nothing it reads over a mount; there is no
+  golden thread over the wire yet.
 - **Render from raw resources, never compute the game.** The app asks the
   host for `winner` rather than working it out from the cells. A Python
   composite that read the cells back through the host and decided the winner

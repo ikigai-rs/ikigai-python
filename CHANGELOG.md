@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The tic-tac-toe parity test runs in CI** (ledger #2856). It drives ikigai-tutorial's
+  `ttt-host`, not the `ikigai` cli, and no CI job had one, so it skipped there whatever the cli
+  pin. The `interop` job now builds `ttt-host` at a pinned ikigai-tutorial commit
+  (`TTT_HOST_REV`, cached by that commit and the runner OS) and names it as `TTT_HOST`, and
+  under `--require-interop` a missing `ttt-host`, or one speaking another wire version, FAILS
+  with a sentence saying how to build one. The host is found as the Deno face finds it:
+  `$TTT_HOST`, then `~/.local/ttt-host/bin/ttt-host`, then `PATH`.
+- **One stale assertion fixed, on the face's side.** Against `ttt-host` at that commit, the
+  all-in-Python-but-the-middle test asserted that a second board read was answered from the
+  host's cache. Since `ikigai-resolve` 0.1.64 a mount's answers are uncacheable in the host (a
+  cut on the peer never crosses back), so a game over a peer store caches nothing there; the
+  test now asserts the store is asked again, and the README and the app's docstring say so.
+  The refused-play `Conflict`, the off-board text and the strict `{id}` route were already up
+  to date.
 - `ikigai.html.percent_decode` (text) and `percent_decode_bytes`: strict percent decoders
   mirroring `ikigai_fn::html` 0.9.0. Each `%XX` decodes exactly once in either hex case, `+` is
   a space only when asked, and `%2B` stays a plus. A malformed escape raises

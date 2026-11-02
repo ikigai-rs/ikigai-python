@@ -22,9 +22,11 @@ those arguments), asking the host only for templates and raw resources — ``cel
 through ``conditional``. The output is byte-for-byte what the host's own ``view:board``,
 ``view:status``, ``view:reply`` and page answer for the same game (``tests/test_tictactoe_app.py``
 checks that against a running host), so the same htmx and the same stylesheet drive it. The
-filler is :func:`fill` and :func:`conditional`, and it keeps no state: the host's kernel caches
-every template, cell and rule it reads, and a move cuts exactly what it changed, so each
-render is a handful of cache hits and nothing here knows it.
+filler is :func:`fill` and :func:`conditional`, and it keeps no state: for a game the host
+keeps in memory, the host's kernel caches every template, cell and rule it reads, and a move
+cuts exactly what it changed, so each render is a handful of cache hits and nothing here knows
+it. A game over a peer store is cached nowhere (a mount's answers are uncacheable in the host),
+so each render asks the store again.
 
 Routes (``/`` is the root game, ``/game/{id}/`` game ``id``, ``/game/root/`` the root game
 again; the page's ``<base>`` is that prefix, so the markup's relative paths arrive under it):

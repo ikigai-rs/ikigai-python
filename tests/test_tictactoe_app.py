@@ -1,7 +1,8 @@
 """The tic-tac-toe app: its renderer, its routes, and parity with the Rust views.
 
 The unit tests run anywhere. The parity tests need ``ttt-host`` (the ikigai tutorial's
-``crates/ttt-host``) and skip without it: they run the host, drive one game through this
+``crates/ttt-host``, built from the commit CI pins) and skip without it, or FAIL under
+``--require-interop`` as CI's interop job runs them: they run the host, drive one game through this
 app over HTTP and a second game through the host's own Rust ``view:play``, and compare the
 bytes — the app's board and status against the host's ``view:board`` / ``view:status`` for
 the SAME game, and every reply against the Rust reply to the same move in the twin game.
@@ -11,12 +12,15 @@ If they differ, the Python filler is wrong, not the template.
 from __future__ import annotations
 
 import contextlib
+import functools
 import hashlib
 import http.client
+import os
 import re
 import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -627,10 +631,73 @@ def test_no_host_is_a_503(serve_app, socket_dir):
 
 # -- parity with the Rust views, against a running ttt-host -------------------------------
 
-TTT_HOST = shutil.which("ttt-host") or next(
-    (str(p) for p in [Path.home() / ".local/ttt-host/bin/ttt-host"] if p.exists()), None
+
+def find_ttt_host(environ=os.environ, home: Path | None = None) -> str | None:
+    """The ``ttt-host`` binary, as the Deno face finds it: ``$TTT_HOST``, then
+    ``~/.local/ttt-host/bin/ttt-host``, then ``PATH``; ``None`` when there is none. A
+    ``$TTT_HOST`` is taken as given, so a wrong path fails when the host starts rather than
+    falling back to some other build."""
+    if environ.get("TTT_HOST"):
+        return environ["TTT_HOST"]
+    local = (Path.home() if home is None else home) / ".local/ttt-host/bin/ttt-host"
+    if local.exists():
+        return str(local)
+    return shutil.which("ttt-host")
+
+
+TTT_HOST = find_ttt_host()
+
+#: What to do about a missing host. The cli pin in CI does not cover it: ``ttt-host`` is the
+#: tutorial's binary, built from the ikigai-tutorial commit ``TTT_HOST_REV`` in
+#: .github/workflows/ci.yml names.
+NO_HOST = (
+    "no `ttt-host` binary: build the one CI pins with `cargo install --git "
+    "https://github.com/ikigai-rs/ikigai-tutorial --rev <TTT_HOST_REV from "
+    ".github/workflows/ci.yml> --locked ttt-host --root ~/.local/ttt-host`, "
+    "or name a build with TTT_HOST=<path>"
 )
-needs_host = pytest.mark.skipif(TTT_HOST is None, reason="no `ttt-host` binary")
+
+
+def require_ttt_host(request) -> str:
+    """The ``ttt-host`` binary, or skip; under ``--require-interop`` (CI's interop job, which
+    builds one) a missing one FAILS, so the parity tests cannot pass green by not running."""
+    if TTT_HOST is None:
+        if request.config.getoption("--require-interop"):
+            pytest.fail(f"--require-interop, and {NO_HOST}")
+        pytest.skip(NO_HOST)
+    return TTT_HOST
+
+
+def test_ttt_host_is_found_in_the_deno_faces_order(tmp_path, monkeypatch):
+    local = tmp_path / ".local/ttt-host/bin/ttt-host"
+    elsewhere = tmp_path / "bin/ttt-host"
+    elsewhere.parent.mkdir(parents=True)
+    elsewhere.write_text("")
+    elsewhere.chmod(0o755)
+    monkeypatch.setenv("PATH", str(elsewhere.parent))
+    assert find_ttt_host({}, tmp_path) == str(elsewhere)
+    local.parent.mkdir(parents=True)
+    local.write_text("")
+    assert find_ttt_host({}, tmp_path) == str(local)
+    assert find_ttt_host({"TTT_HOST": "/named/one"}, tmp_path) == "/named/one"
+
+
+class _Request:
+    def __init__(self, required: bool):
+        self.config = self
+        self._required = required
+
+    def getoption(self, name):
+        assert name == "--require-interop"
+        return self._required
+
+
+def test_a_missing_ttt_host_skips_and_under_require_interop_fails(monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "TTT_HOST", None)
+    with pytest.raises(pytest.skip.Exception, match="TTT_HOST_REV"):
+        require_ttt_host(_Request(False))
+    with pytest.raises(pytest.fail.Exception, match="--require-interop, and no `ttt-host`"):
+        require_ttt_host(_Request(True))
 
 
 def free_port() -> int:
@@ -641,8 +708,10 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
-def start_host(socket: Path, *games: str, http: str = "127.0.0.1:0") -> subprocess.Popen:
-    argv = [TTT_HOST, "--http", http, "--socket", str(socket)]
+def start_host(
+    binary: str, socket: Path, *games: str, http: str = "127.0.0.1:0", required: bool = False
+) -> subprocess.Popen:
+    argv = [binary, "--http", http, "--socket", str(socket)]
     for game in games:
         argv += ["--game", game]
     process = subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -659,18 +728,31 @@ def start_host(socket: Path, *games: str, http: str = "127.0.0.1:0") -> subproce
     except ikigai.ProtocolError as e:
         process.kill()
         process.wait()
-        pytest.skip(f"ttt-host speaks another wire version: {e}")
+        message = f"ttt-host speaks another wire version: {e}"
+        if required:
+            pytest.fail(f"--require-interop, and {message}")
+        pytest.skip(message)
     return process
 
 
 @pytest.fixture
-def host(socket_dir):
+def ttt_host(request):
+    """Starts ``ttt-host``: ``ttt_host(socket, *games, http=…)``. Skips without the binary,
+    or with one that speaks another wire version; under ``--require-interop`` both FAIL."""
+    binary = require_ttt_host(request)
+    return functools.partial(
+        start_host, binary, required=request.config.getoption("--require-interop")
+    )
+
+
+@pytest.fixture
+def host(socket_dir, ttt_host):
     """``ttt-host`` with two in-memory games: ``py`` (played through the app) and ``rs``
     (played through the host's Rust views), plus the root game. Yields its socket and the
     URL of its own HTTP face."""
     socket = socket_dir / "h.sock"
     http = f"127.0.0.1:{free_port()}"
-    process = start_host(socket, "py", "rs", http=http)
+    process = ttt_host(socket, "py", "rs", http=http)
     yield socket, f"http://{http}"
     process.terminate()
     process.wait(timeout=10)
@@ -744,7 +826,6 @@ def twins(host, serve_app):
     twins.kernel.close()
 
 
-@needs_host
 def test_parity_through_a_won_game_a_refusal_and_a_draw(twins):
     twins.same_views("py")  # empty
     assert twins.play(1, 1) == "X plays 1,1. O to play."
@@ -766,7 +847,6 @@ def test_parity_through_a_won_game_a_refusal_and_a_draw(twins):
     print(f"parity: {twins.checked} views and {twins.replies} replies the same as ttt-host's")
 
 
-@needs_host
 def test_parity_in_the_root_game(twins):
     twins.same_views("")
     assert twins.python("", "view/play/2/0", "POST") == "X plays 2,0. O to play."
@@ -774,7 +854,6 @@ def test_parity_in_the_root_game(twins):
     assert twins.rust("py", "view:status") == "X to play."  # the root's move stayed there
 
 
-@needs_host
 @pytest.mark.parametrize(
     "path",
     [
@@ -796,7 +875,6 @@ def test_the_page_and_its_files_are_ttt_hosts_byte_for_byte(twins, path):
         assert "base-uri 'self'" in ours[1]["Content-Security-Policy"]
 
 
-@needs_host
 def test_the_page_is_the_games_template_under_its_base(twins):
     page = fetch(f"{twins.base}/game/py/")[2].decode("utf-8")
     assert '<base href="/game/py/">' in page
@@ -805,7 +883,6 @@ def test_the_page_is_the_games_template_under_its_base(twins):
     assert '<base href="/">' in root and 'aria-label="Game root"' in root
 
 
-@needs_host
 def test_a_game_the_host_does_not_have_is_a_404(twins):
     assert fetch(f"{twins.base}/game/nope/")[0] == 404
     assert fetch(f"{twins.base}/game/nope/iki/tutorial/ttt/view/board")[0] == 404
@@ -975,7 +1052,6 @@ def call(base: str, method: str, path: str) -> tuple[int, bytes, str | None, str
         connection.close()
 
 
-@needs_host
 def test_the_edges_are_ttt_hosts(twins):
     for x, y in [(1, 1), (0, 0), (2, 0), (1, 0), (0, 2)]:  # X takes a diagonal: the game is over
         twins.play(x, y)
@@ -990,8 +1066,7 @@ def test_the_edges_are_ttt_hosts(twins):
     print(f"edges: {len(EDGES)} rows the same as ttt-host's, by status {sorted(answered.items())}")
 
 
-@needs_host
-def test_a_hostile_mark_is_escaped_as_the_host_escapes_it(socket_dir, serve_app):
+def test_a_hostile_mark_is_escaped_as_the_host_escapes_it(socket_dir, serve_app, ttt_host):
     """A mark the host did not write, from a Python store under it: every face of the board
     escapes it, and the `$a{…}` in it, which names a bound template, is never expanded."""
     from examples.tictactoe_store import CellStore, stored_cell
@@ -1004,7 +1079,7 @@ def test_a_hostile_mark_is_escaped_as_the_host_escapes_it(socket_dir, serve_app)
     server = Server([stored_cell(store)], store_socket)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     http = f"127.0.0.1:{free_port()}"
-    process = start_host(socket_dir / "h.sock", f"py={store_socket}", http=http)
+    process = ttt_host(socket_dir / "h.sock", f"py={store_socket}", http=http)
     try:
         base, views = serve_app(socket_dir / "h.sock"), "/game/py/iki/tutorial/ttt/view"
         with ikigai.connect(socket_dir / "h.sock") as kernel:
@@ -1022,8 +1097,7 @@ def test_a_hostile_mark_is_escaped_as_the_host_escapes_it(socket_dir, serve_app)
         server.shutdown()
 
 
-@needs_host
-def test_all_in_python_except_the_middle(socket_dir, serve_app):
+def test_all_in_python_except_the_middle(socket_dir, serve_app, ttt_host):
     """The README's demo: the Python store under the Rust host under the Python app."""
     from examples.tictactoe_store import CellStore, stored_cell
     from ikigai.serve import Server
@@ -1032,7 +1106,7 @@ def test_all_in_python_except_the_middle(socket_dir, serve_app):
     store_socket = socket_dir / "s.sock"
     server = Server([stored_cell(store)], store_socket)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    process = start_host(socket_dir / "h.sock", f"py={store_socket}")
+    process = ttt_host(socket_dir / "h.sock", f"py={store_socket}")
     try:
         base = serve_app(socket_dir / "h.sock")
         for x, y in [(1, 1), (0, 0), (2, 2)]:
@@ -1040,9 +1114,12 @@ def test_all_in_python_except_the_middle(socket_dir, serve_app):
         assert store.marks == {(1, 1): "X", (0, 0): "O", (2, 2): "X"}
         board = fetch(f"{base}/game/py/iki/tutorial/ttt/view/board")[2].decode()
         assert 'aria-label="O at 0,0"' in board
+        # A mount's answers are uncacheable in the host (ikigai-resolve 0.1.64 and later: a
+        # cut on the peer never crosses back), so a game over a peer store caches nothing in
+        # ttt-host and every read of the board asks the store again.
         reads = store.reads
         fetch(f"{base}/game/py/iki/tutorial/ttt/view/board")
-        assert store.reads == reads  # the host's cache answered; the store was not asked
+        assert store.reads > reads
     finally:
         process.terminate()
         process.wait(timeout=10)
