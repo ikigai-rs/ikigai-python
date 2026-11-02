@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **CI `interop` job pins `IKIGAI_CLI_VERSION` 0.2.8**, the current cli, up from 0.1.67, so CI
+  tests the door people run (ledger #2857; ikigai-deno made the same move). The whole suite
+  under `--require-interop` passed unchanged locally against cli 0.2.3 with its `quic` feature
+  and a `ttt-host` built at `TTT_HOST_REV`: no test asserted a 0.1.x behavior the 0.2 door
+  changed. The `DIGESTS` comment in `tests/test_tictactoe_app.py` now names `TTT_HOST_REV` as
+  the commit the vendored files match, not tutorial 89677bc, and counts four files, not three.
 - **The tic-tac-toe parity test runs in CI** (ledger #2856). It drives ikigai-tutorial's
   `ttt-host`, not the `ikigai` cli, and no CI job had one, so it skipped there whatever the cli
   pin. The `interop` job now builds `ttt-host` at a pinned ikigai-tutorial commit

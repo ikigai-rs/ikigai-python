@@ -37,9 +37,10 @@ from examples.tictactoe_app import Refusal, Target, fill, respond, segments, tar
 # -- the vendored files -------------------------------------------------------------------
 
 #: Pinned here as well as in the app, so changing a file means changing both on purpose. All
-#: three as ikigai-tutorial commit 89677bc has them (`git show 89677bc:<path>`; unchanged since
-#: 4d9440a), the build of ttt-host the parity tests run against — never a working tree, which
-#: may be mid-edit.
+#: four as the ikigai-tutorial commit `TTT_HOST_REV` in .github/workflows/ci.yml has them
+#: (`git show <TTT_HOST_REV>:<path>`; checked at 8c30fe7), the commit the parity tests' ttt-host
+#: is built from: never a working tree, which may be mid-edit. When TTT_HOST_REV moves, re-hash
+#: the four there.
 DIGESTS = {
     # The book's src/vendor/htmx-2.0.4.min.js, which is ikigai-web's assets/htmx.min.js.
     "htmx-2.0.4.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
