@@ -1,7 +1,7 @@
 """``ikigai.html`` against the shared vectors (ledger #1813).
 
 ``tests/vectors/html_vectors.json`` is a VERBATIM copy of ikigai-fn's
-``tests/vectors/html_vectors.json`` at tag v0.9.0 (commit c5c871a, ikigai-fn PR 33). To pick up new
+``tests/vectors/html_vectors.json`` at commit 6db95f0 (main, after ikigai-fn PR 34). To pick up new
 vectors, copy that file again, unedited; it stays ``eol=lf`` through ``.gitattributes``.
 """
 
