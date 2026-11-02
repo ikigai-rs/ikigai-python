@@ -38,7 +38,7 @@ jobs:
     # covering nothing. Move IKIGAI_CLI_VERSION to follow the door.
     runs-on: ubuntu-latest
     env:
-      IKIGAI_CLI_VERSION: "0.1.67"
+      IKIGAI_CLI_VERSION: "0.2.8"
       # The ikigai-tutorial commit ttt-host is built from. It moves when the tutorial changes
       # what ttt-host answers (its views, refusals, routes or caching): move it to the
       # tutorial's main, run the parity test against a ttt-host built there, and bring the
