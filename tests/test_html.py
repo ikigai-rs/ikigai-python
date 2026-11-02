@@ -1,7 +1,7 @@
 """``ikigai.html`` against the shared vectors (ledger #1813).
 
 ``tests/vectors/html_vectors.json`` is a VERBATIM copy of ikigai-fn's
-``tests/vectors/html_vectors.json`` at commit 6db95f0 (main, after ikigai-fn PR 34). To pick up new
+``tests/vectors/html_vectors.json`` at commit aebf30a (main, after ikigai-fn PR 35). To pick up new
 vectors, copy that file again, unedited; it stays ``eol=lf`` through ``.gitattributes``.
 """
 
@@ -26,6 +26,7 @@ def test_every_section_is_run():
         "escape",
         "url_segment",
         "percent_decode",
+        "form_pairs",
         "safe_href",
         "json_attr",
     }
@@ -109,3 +110,39 @@ def test_percent_decode_error_words():
     with pytest.raises(html.PercentDecodeError) as e:
         html.percent_decode("%FF", False)
     assert str(e.value) == "percent_decode: decoded bytes are not UTF-8"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(c, id=f"{i}-{c.get('error', 'ok')}")
+        for i, c in enumerate(VECTORS["form_pairs"])
+    ],
+)
+def test_form_pairs(case):
+    error = case.get("error")
+    if error is None:
+        assert html.form_pairs(case["in"]) == [tuple(p) for p in case["out"]]
+    else:
+        assert error in {"malformed_escape", "invalid_utf8"}, f"unknown error kind {error!r}"
+        with pytest.raises(html.FormPairsError) as e:
+            html.form_pairs(case["in"])
+        assert (e.value.kind, e.value.offset) == (error, case["offset"])
+        assert isinstance(e.value.source, html.PercentDecodeError)
+        assert e.value.__cause__ is e.value.source
+
+
+@pytest.mark.parametrize(
+    ("given", "kind", "offset", "source_offset", "reason"),
+    [
+        ("日=ok&x=%41%", "malformed_escape", 12, 3, "malformed percent-escape"),
+        ("ok=1&bad=%41%FF", "invalid_utf8", 12, None, "decoded bytes are not UTF-8"),
+    ],
+)
+def test_form_pairs_error_words_and_source(given, kind, offset, source_offset, reason):
+    with pytest.raises(html.FormPairsError) as e:
+        html.form_pairs(given)
+    assert str(e.value) == f"form_pairs: {reason} at byte {offset}"
+    assert (e.value.source.kind, e.value.source.offset) == (kind, source_offset)
+    if kind == "invalid_utf8":
+        assert isinstance(e.value.source.__cause__, UnicodeDecodeError)

@@ -16,6 +16,7 @@ htmx's ``hx-vals='{}'``                         :func:`json_attr`
 
 Percent escapes decode strictly through :func:`percent_decode` (text) or
 :func:`percent_decode_bytes`, which refuse what ``urllib.parse.unquote`` lets through.
+:func:`form_pairs` parses a complete form body or query with original-input byte offsets.
 
 Nothing here makes an unquoted attribute, an event-handler attribute, or the inside of
 ``<script>`` or ``<style>`` safe.
@@ -26,8 +27,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 __all__ = [
+    "FormPairsError",
     "PercentDecodeError",
     "attr",
+    "form_pairs",
     "html_text",
     "json_attr",
     "percent_decode",
@@ -162,6 +165,75 @@ def percent_decode(text: str, plus_is_space: bool) -> str:
         return decoded.decode("utf-8")
     except UnicodeDecodeError as e:
         raise PercentDecodeError("invalid_utf8") from e
+
+
+class FormPairsError(ValueError):
+    """A refused form component, at byte :attr:`offset` in the original input.
+
+    :attr:`source` (also ``__cause__``) is the underlying :class:`PercentDecodeError`;
+    :attr:`kind` is its ``"malformed_escape"`` or ``"invalid_utf8"`` kind. The source's
+    malformed-escape offset is component-relative; this error's offset always refers
+    to the complete body or query. For invalid UTF-8 it identifies the source byte or
+    ``%`` escape that starts the invalid sequence. No partial pairs are returned.
+    """
+
+    def __init__(self, offset: int, source: PercentDecodeError) -> None:
+        """A refusal at original-input byte ``offset``, caused by ``source``."""
+        self.offset = offset
+        self.source = source
+        self.kind = source.kind
+        reason = (
+            "malformed percent-escape"
+            if source.kind == "malformed_escape"
+            else "decoded bytes are not UTF-8"
+        )
+        super().__init__(f"form_pairs: {reason} at byte {offset}")
+
+
+def _form_component(text: str, base: int) -> str:
+    try:
+        return percent_decode(text, True)
+    except PercentDecodeError as source:
+        if source.kind == "malformed_escape":
+            assert source.offset is not None
+            offset = source.offset
+        else:
+            error = source.__cause__
+            assert isinstance(error, UnicodeDecodeError)
+            # Escapes are already validated. Each triplet emits one decoded byte;
+            # walk back to the source byte that starts the invalid UTF-8 sequence.
+            data = text.encode("utf-8")
+            offset = 0
+            for _ in range(error.start):
+                offset += 3 if data[offset] == 0x25 else 1
+        raise FormPairsError(base + offset, source) from source
+
+
+def form_pairs(text: str) -> list[tuple[str, str]]:
+    """Parse an ``application/x-www-form-urlencoded`` body or query strictly.
+
+    Split on literal ``&``, skip empty fields, and split each field at its first
+    literal ``=``. A missing value is empty; duplicate and empty names stay in order.
+    Decode each name and value once with ``+`` as space. Encoded delimiters remain
+    data, and a leading ``?`` is kept.
+
+    Malformed escapes and invalid UTF-8 raise :class:`FormPairsError` with a byte
+    offset in the original input. Fields are checked in order, name before value;
+    malformed escapes take precedence over invalid UTF-8 within each component.
+    Decoded data still needs escaping or link validation for its destination.
+    """
+    pairs = []
+    base = 0
+    for field in text.split("&"):
+        if field:
+            name, separator, value = field.partition("=")
+            name_decoded = _form_component(name, base)
+            value_decoded = _form_component(
+                value, base + len(name.encode("utf-8")) + len(separator)
+            )
+            pairs.append((name_decoded, value_decoded))
+        base += len(field.encode("utf-8")) + 1
+    return pairs
 
 
 def safe_href(href: str) -> str | None:
