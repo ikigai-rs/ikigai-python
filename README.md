@@ -290,9 +290,14 @@ What a served endpoint gets for free, because its describe face is real:
   `json_attr` (htmx's `hx-vals`), and the strict decoders `percent_decode` (text)
   and `percent_decode_bytes`, which raise `PercentDecodeError` (kind
   `malformed_escape` with the byte offset, or `invalid_utf8`) where
-  `urllib.parse.unquote` would keep or replace. `tests/test_html.py` runs every case in
+  `urllib.parse.unquote` would keep or replace. `form_pairs(text)` parses a complete
+  form body or query into ordered name/value tuples, keeping duplicate and empty names.
+  It splits at literal `&` and the first `=`, skips empty fields, and decodes each
+  component once with `+` as space. A `FormPairsError` gives the decode `kind`, the
+  byte `offset` in the original input (also for invalid UTF-8), and the underlying
+  `PercentDecodeError` as `source` and `__cause__`. `tests/test_html.py` runs every case in
   `tests/vectors/html_vectors.json`, a verbatim copy of ikigai-fn's file at
-  v0.9.0 (commit c5c871a); to pick up new vectors, copy that file again, unedited. The
+  commit aebf30a (after PR 35); to pick up new vectors, copy that file again, unedited. The
   tic-tac-toe example's `$h` escape goes through `html_text`.
 - **Authorization headers and base64**: `ikigai.auth` mirrors `ikigai_http::auth`
   (stdlib only): `basic` (RFC 7617), `bearer` (RFC 6750) and `scheme` (RFC 9110),

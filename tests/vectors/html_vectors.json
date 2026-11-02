@@ -1,5 +1,5 @@
 {
-  "about": "Shared escaping and link-target vectors for HTML built from data (ledger #1813). The canonical copy is ikigai-fn's tests/vectors/html_vectors.json, consumed by tests/html_vectors.rs; a port (Python, Deno, an XSLT template) keeps a VERBATIM copy and runs every case. The expected outputs are written by hand, not computed: they are the contract. html_text and attr give the same output (attr is html_text under the name that says where it goes), so both run the 'escape' cases. A safe_href output of null means: not a link, render the label as text; otherwise the output is the trimmed target, still to be escaped with attr. percent_decode cases choose plus_is_space explicitly: out is decoded UTF-8, bytes is the decoded byte array; error is malformed_escape (offset is the input byte offset, both APIs refuse) or invalid_utf8 (only the text API refuses). A leading UTF-8 byte-order mark (U+FEFF) is preserved as data, not stripped; JavaScript TextDecoder users must set ignoreBOM: true. Every url_segment case is also a decode round trip in both plus modes. A json_attr input is a list of [key, value] pairs, in order.",
+  "about": "Shared escaping and link-target vectors for HTML built from data (ledger #1813). The canonical copy is ikigai-fn's tests/vectors/html_vectors.json, consumed by tests/html_vectors.rs; a port (Python, Deno, an XSLT template) keeps a VERBATIM copy and runs every case. The expected outputs are written by hand, not computed: they are the contract. html_text and attr give the same output (attr is html_text under the name that says where it goes), so both run the 'escape' cases. A safe_href output of null means: not a link, render the label as text; otherwise the output is the trimmed target, still to be escaped with attr. percent_decode cases choose plus_is_space explicitly: out is decoded UTF-8, bytes is the decoded byte array; error is malformed_escape (offset is the input byte offset, both APIs refuse) or invalid_utf8 (only the text API refuses). A leading UTF-8 byte-order mark (U+FEFF) is preserved as data, not stripped; JavaScript TextDecoder users must set ignoreBOM: true. Every url_segment case is also a decode round trip in both plus modes. form_pairs cases parse a complete form body or query into ordered [name, value] pairs, skipping empty ampersand fields and splitting at the first equals sign; plus is space and decoding is strict and happens once. Errors are malformed_escape or invalid_utf8 with zero-based byte offsets in the original input, not decoded text. Components are checked in field order, name before value, with malformed escapes taking precedence over invalid UTF-8 within each component. A json_attr input is a list of [key, value] pairs, in order.",
   "escape": [
     {
       "in": "",
@@ -174,6 +174,34 @@
     {"in": "%ED%A0%80", "plus_is_space": false, "error": "invalid_utf8", "bytes": [237,160,128]},
     {"in": "%F4%90%80%80", "plus_is_space": false, "error": "invalid_utf8", "bytes": [244,144,128,128]},
     {"in": "%E2%82", "plus_is_space": false, "error": "invalid_utf8", "bytes": [226,130]}
+  ],
+  "form_pairs": [
+    {"in": "", "out": []},
+    {"in": "&&&", "out": []},
+    {"in": "&a=1&&b=2&", "out": [["a", "1"], ["b", "2"]]},
+    {"in": "flag&empty=&=value&=", "out": [["flag", ""], ["empty", ""], ["", "value"], ["", ""]]},
+    {"in": "tag=a&tag=b", "out": [["tag", "a"], ["tag", "b"]]},
+    {"in": "a=b=c;d", "out": [["a", "b=c;d"]]},
+    {"in": "first+name=caf%C3%A9+%2b&%26%3D=%3d%26", "out": [["first name", "café +"], ["&=", "=&"]]},
+    {"in": "a=%2526%253D%252B", "out": [["a", "%26%3D%2B"]]},
+    {"in": "日=😀&bom=%EF%BB%BF&nul=%00", "out": [["日", "😀"], ["bom", "\uFEFF"], ["nul", "\u0000"]]},
+    {"in": "?q=x#y", "out": [["?q", "x#y"]]},
+    {"in": "%", "error": "malformed_escape", "offset": 0},
+    {"in": "a=%1", "error": "malformed_escape", "offset": 2},
+    {"in": "a=%G0", "error": "malformed_escape", "offset": 2},
+    {"in": "ok=1&&bad%=x", "error": "malformed_escape", "offset": 9},
+    {"in": "日=ok&x=%41%", "error": "malformed_escape", "offset": 12},
+    {"in": "%FF=x", "error": "invalid_utf8", "offset": 0},
+    {"in": "ok=1&bad=%41%FF", "error": "invalid_utf8", "offset": 12},
+    {"in": "日=ok&x=é%FF", "error": "invalid_utf8", "offset": 11},
+    {"in": "x=%C3%28", "error": "invalid_utf8", "offset": 2},
+    {"in": "x=%E2%82", "error": "invalid_utf8", "offset": 2},
+    {"in": "x=%C0%AF", "error": "invalid_utf8", "offset": 2},
+    {"in": "x=%ED%A0%80", "error": "invalid_utf8", "offset": 2},
+    {"in": "x=%F4%90%80%80", "error": "invalid_utf8", "offset": 2},
+    {"in": "x=%41+日%FF", "error": "invalid_utf8", "offset": 9},
+    {"in": "x=%FF%G0", "error": "malformed_escape", "offset": 5},
+    {"in": "%FF=%G0", "error": "invalid_utf8", "offset": 0}
   ],
   "safe_href": [
     {

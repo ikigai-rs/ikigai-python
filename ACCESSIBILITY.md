@@ -25,6 +25,9 @@ The published package (`src/ikigai/`):
   `DecodeError` in `postcard.py`, `TemplateError` in `template.py`); and `PercentDecodeError` in
   `html.py`, worded as `ikigai_fn::html`'s (`percent_decode: malformed percent-escape at byte 3`,
   `percent_decode: decoded bytes are not UTF-8`), with its kind and offset as attributes.
+  `FormPairsError` uses the Rust form parser's words (`form_pairs: malformed
+  percent-escape at byte 3`, `form_pairs: decoded bytes are not UTF-8 at byte 2`),
+  with the decode kind, original-input byte offset and underlying error as attributes.
 - **A plain-text description.** A served endpoint's Meta face, asked for as `text/plain`
   (`description_text` in `serve.py`): its id and title, its verbs, one line per input
   (`input name [source] (optional): summary`), its argument groups, and its outputs.
@@ -83,7 +86,9 @@ the tests below pin the rest.
 - `tests/test_serve.py` (`test_meta_faces`), `tests/test_families.py` and
   `tests/test_serve_shape.py` pin lines of the plain-text description.
 - `tests/test_html.py` pins the escaping, link and percent-decoding rules against the shared HTML
-  vectors, and `test_percent_decode_error_words` pins the decoder's two refusals' words;
+  vectors, including every `form_pairs` case. `test_percent_decode_error_words` pins
+  the decoder's two refusals' words, and `test_form_pairs_error_words_and_source` pins
+  the form parser's words, original-input offsets and underlying errors;
   `tests/test_tictactoe_app.py` pins that the page loads `conflict.js` and that it writes with
   `textContent` (`test_the_page_loads_the_script_that_swaps_a_409_into_the_status_region`), that a
   hostile mark is escaped, and, when a `ttt-host` binary is present, that the page and its files
