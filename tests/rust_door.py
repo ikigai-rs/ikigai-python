@@ -31,6 +31,17 @@ def require_ikigai(request) -> str:
     return IKIGAI
 
 
+def isolated(ikigai: str, root: Path) -> list[str]:
+    """``ikigai --config-home ROOT/home --files ROOT/files``: the argv head for any ``ikigai``
+    a test starts, so it reads no config home of this machine's (``--config-home`` wins over
+    ``XDG_CONFIG_HOME`` and ``~/.config/ikigai``) and serves no file root of its own."""
+    home = root / "home"
+    files = root / "files"
+    home.mkdir(parents=True, exist_ok=True)
+    files.mkdir(parents=True, exist_ok=True)
+    return [ikigai, "--config-home", str(home), "--files", str(files)]
+
+
 def generate(ikigai: str, directory: Path) -> Path:
     """``ikigai cert generate --dir directory``: server.{crt,key} and client.{crt,key}."""
     done = subprocess.run(

@@ -27,7 +27,7 @@ from ikigai.wire import (
     decode_hello,
     encode_hello,
 )
-from tests.rust_door import require_ikigai
+from tests.rust_door import isolated, require_ikigai
 
 VECTORS = [
     (IssueWith(), "000000"),
@@ -358,7 +358,7 @@ def door(request, socket_dir):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         path = socket_dir / "door.sock"
         process = subprocess.Popen(
-            [binary, "serve", str(path), "--prefer", f"urn:py:={peer_path}"],
+            [*isolated(binary, socket_dir), "serve", str(path), "--prefer", f"urn:py:={peer_path}"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,

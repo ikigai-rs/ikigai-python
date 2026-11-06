@@ -31,7 +31,7 @@ import pytest
 
 import ikigai
 from ikigai.serve import Server, endpoint
-from tests.rust_door import require_ikigai
+from tests.rust_door import isolated, require_ikigai
 
 IKIGAI = shutil.which("ikigai")
 
@@ -51,7 +51,7 @@ def wire_mismatch() -> str | None:
     with tempfile.TemporaryDirectory(prefix="ik-probe-") as d:
         path = Path(d) / "kernel.sock"
         process = subprocess.Popen(
-            [IKIGAI, "serve", str(path)],
+            [*isolated(IKIGAI, Path(d)), "serve", str(path)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -86,14 +86,15 @@ def run_repl(
     override: str | None = None,
     timeout: float = 60.0,
 ) -> str:
-    argv = [IKIGAI]
-    if mount:
-        argv += ["--mount", mount]
-    if override:
-        argv += ["--override", override]
-    for command in commands:
-        argv += ["-c", command]
-    done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    with tempfile.TemporaryDirectory(prefix="ik-repl-") as d:
+        argv = isolated(IKIGAI, Path(d))
+        if mount:
+            argv += ["--mount", mount]
+        if override:
+            argv += ["--override", override]
+        for command in commands:
+            argv += ["-c", command]
+        done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     assert done.returncode == 0, f"{argv} failed:\n{done.stdout}\n{done.stderr}"
     # Cache annotations and the batch tally go to stderr; return both streams.
     return done.stdout + done.stderr
@@ -169,9 +170,9 @@ def test_rust_host_describes_a_python_endpoint(python_peer):
     assert 'ik:inputName "who"' in out
 
 
-def test_python_error_text_reaches_the_rust_user(python_peer):
+def test_python_error_text_reaches_the_rust_user(python_peer, tmp_path):
     argv = [
-        IKIGAI,
+        *isolated(IKIGAI, tmp_path),
         "--mount",
         f"urn:py:={python_peer}",
         "-c",
@@ -187,9 +188,10 @@ def test_python_error_text_reaches_the_rust_user(python_peer):
 
 @pytest.fixture
 def rust_server(socket_dir, matched_host):
+    """``ikigai serve`` on a Unix socket, under a scratch config home and file root."""
     path = socket_dir / "kernel.sock"
     process = subprocess.Popen(
-        [IKIGAI, "serve", str(path)],
+        [*isolated(IKIGAI, socket_dir), "serve", str(path)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -293,7 +295,13 @@ def test_rust_client_and_python_server_pair_cleanly(socket_dir):
     thread.start()
     try:
         done = subprocess.run(
-            [IKIGAI, "--mount", f"urn:py:={path}", "-c", "source urn:py:hello who=Ada"],
+            [
+                *isolated(IKIGAI, socket_dir),
+                "--mount",
+                f"urn:py:={path}",
+                "-c",
+                "source urn:py:hello who=Ada",
+            ],
             capture_output=True,
             text=True,
             timeout=60,
@@ -325,7 +333,13 @@ def test_a_python_conflict_reaches_the_rust_user(socket_dir, matched_host):
     thread.start()
     try:
         done = subprocess.run(
-            [IKIGAI, "--mount", f"urn:py:={path}", "-c", "source urn:py:claim square=b2"],
+            [
+                *isolated(IKIGAI, socket_dir),
+                "--mount",
+                f"urn:py:={path}",
+                "-c",
+                "source urn:py:claim square=b2",
+            ],
             capture_output=True,
             text=True,
             timeout=60,
@@ -361,13 +375,13 @@ def ttt_store(socket_dir, matched_host):
     thread.join(timeout=5)
 
 
-def test_rust_host_sees_a_sink_through_the_mount_on_the_next_read(ttt_store):
+def test_rust_host_sees_a_sink_through_the_mount_on_the_next_read(ttt_store, tmp_path):
     # Source → Sink → Source through a real host. The store's read counter is the proof
     # that the host served nothing from its own cache: every Source ran here (the
     # 0.1.64 rule, above), and so every read after a write sees it.
     path, store = ttt_store
     cell = "urn:iki:tutorial:ttt:stored:1:1"
-    argv = [IKIGAI, "--override", f"urn:iki:tutorial:ttt:stored:={path}"]
+    argv = [*isolated(IKIGAI, tmp_path), "--override", f"urn:iki:tutorial:ttt:stored:={path}"]
     for command in (
         f"sink {cell} X",
         f"source {cell}",
@@ -424,11 +438,11 @@ def test_rust_host_lists_and_describes_a_python_family(ttt_store):
     assert 'ik:source "binding"' in out
 
 
-def test_rust_host_refuses_a_second_spelling_of_a_square(ttt_store):
+def test_rust_host_refuses_a_second_spelling_of_a_square(ttt_store, tmp_path):
     path, store = ttt_store
     done = subprocess.run(
         [
-            IKIGAI,
+            *isolated(IKIGAI, tmp_path),
             "--override",
             f"urn:iki:tutorial:ttt:stored:={path}",
             "-c",
@@ -442,3 +456,26 @@ def test_rust_host_refuses_a_second_spelling_of_a_square(ttt_store):
         done.stdout + done.stderr
     )
     assert store.marks == {}
+
+
+# -- hermeticity --------------------------------------------------------------
+
+
+@pytest.fixture
+def poisoned_config_home(tmp_path, monkeypatch):
+    """A machine config home that stops any ``ikigai`` reading it from starting: its
+    ``config.toml`` names an arrangement file that does not exist. Listed BEFORE
+    ``rust_server`` so the environment is in place when the fixture starts the door."""
+    home = tmp_path / "xdg"
+    (home / "ikigai").mkdir(parents=True)
+    (home / "ikigai" / "config.toml").write_text('arrangement = "no-such-arrangement.ttl"\n')
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
+    wire_mismatch.cache_clear()  # the probe starts a door too; run it under this environment
+    yield home
+    wire_mismatch.cache_clear()
+
+
+def test_the_rust_server_reads_no_config_home_of_the_machines(poisoned_config_home, rust_server):
+    # The fixture's door must come up and answer whatever this machine's config home says.
+    with ikigai.connect(rust_server) as k:
+        assert k.source("urn:iki:fn:toUpper", **{"in": "hi"}).text == "HI"
