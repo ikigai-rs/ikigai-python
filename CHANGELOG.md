@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The integration tests no longer read this machine's ikigai config** (ledger #3172). The
+  `rust_server` fixture, the version probe, the `--prefer` door in `tests/test_issue_with.py`
+  and every `ikigai -c` the integration tests run now start `ikigai` with a scratch
+  `--config-home` and `--files` (`tests/rust_door.isolated`), as the QUIC door already did.
+  Before, a `config.toml` under `$XDG_CONFIG_HOME/ikigai` or `~/.config/ikigai` reached them:
+  one naming a missing arrangement stopped `ikigai serve` starting, so every test using
+  `rust_server` errored. `test_the_rust_server_reads_no_config_home_of_the_machines` plants that
+  config and drives the fixture's door.
 - **The served floor conceals an existence-sensitive door** (ledger #2889). A refused caller
   of a door marked `existence_sensitive` now gets exactly the miss a name bound nowhere gets,
   `UnresolvedError` naming the target (the same bytes on the wire), never `DeniedError`, so it
