@@ -28,6 +28,7 @@ from fasthtml.common import (
     Div,
     Form,
     Input,
+    Label,
     P,
     Small,
     Table,
@@ -78,6 +79,7 @@ def connection_lost(request, exc: ConnectionLost):
 
 app, rt = fast_app(
     lifespan=kernel_connection,
+    htmlkw={"lang": "en"},
     exception_handlers={EndpointError: endpoint_error, ConnectionLost: connection_lost},
     secret_key="ikigai-examples",  # examples keep no sessions; skip the keyfile
 )
@@ -91,15 +93,17 @@ async def resolved(iri: str, **args):
 
 def demo_form(title: str, action: str, field: str, target: str):
     """A form per endpoint: htmx GETs the route, the fragment swaps in."""
+    input_id = f"{target}-input"
     return Div(
         H2(title),
         Form(
-            Input(name=field, placeholder=field, required=True),
+            Label(field, fr=input_id),
+            Input(id=input_id, name=field, placeholder=field, required=True),
             Button("Resolve"),
             hx_get=action,
             hx_target=f"#{target}",
         ),
-        Div(id=target),
+        Div(id=target, aria_live="polite"),
     )
 
 

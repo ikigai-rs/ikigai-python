@@ -11,7 +11,7 @@ and how to report a barrier. It is not a conformance claim. Adapted from the
 | Status | Evaluation in progress. No conformance claim. |
 | Owner | the maintainers of this repository |
 | Report a barrier | [a GitHub issue](https://github.com/ikigai-rs/ikigai-python/issues/new?labels=accessibility) with the `accessibility` label; anything security-sensitive through [private vulnerability reporting](https://github.com/ikigai-rs/ikigai-python/security/advisories/new) |
-| Last reviewed | 2026-10-31 |
+| Last reviewed | 2026-11-07 |
 
 ## What it emits that people read
 
@@ -65,6 +65,9 @@ package carries unchanged.
   with a heading; its stylesheet (`host.css`) is light by default and dark under
   `prefers-color-scheme: dark`, and its comment states that text and links clear 4.5:1 and rules
   3:1.
+- **The FastHTML example** declares English with `<html lang="en">` on its index and catalog
+  pages. Each form input has a visible, explicitly associated label and a unique id; each
+  result target is a persistent `aria-live="polite"` region for incoming result fragments.
 - **A refused move is announced as text.** `conflict.js` writes the `409` answer into the status
   region with `textContent`, never as HTML, and the board is left as it was.
 - **No color is written** anywhere in the package or its console lines.
@@ -93,18 +96,18 @@ the tests below pin the rest.
   `textContent` (`test_the_page_loads_the_script_that_swaps_a_409_into_the_status_region`), that a
   hostile mark is escaped, and, when a `ttt-host` binary is present, that the page and its files
   are the host's byte for byte.
+- `tests/test_examples_fasthtml.py` uses Starlette's TestClient to pin English on the index and
+  catalog (`test_pages_declare_english`) and each form's unique input id, visible associated
+  label and polite live result region
+  (`test_each_form_input_has_a_visible_label_and_a_live_result`).
 - **No automated accessibility checker, browser or assistive technology has been used on this
-  output.** No test pins the page shell's `lang`, `main` or `nav`, and the stylesheet's contrast
-  is a comment, not a measurement made here.
+  output.** No test pins the tic-tac-toe page shell's `lang`, `main` or `nav`, and the
+  stylesheet's contrast is a comment, not a measurement made here.
 
 ## Known limitations
 
 Found by reading the source on 2026-10-31, not by testing with people or assistive technology:
 
-- The FastHTML example's page (`examples/fasthtml_app.py`) passes no `htmlkw`, so FastHTML writes
-  `<html>` with no `lang`; its inputs are named only by a `placeholder`, with no `<label>`; and
-  the region a result is swapped into is not a live region, so a screen reader is not told a
-  result arrived.
 - Decode and protocol errors are fragments that do not say what to do (`varint too long`,
   `invalid Option tag 0x…`); they are meant for implementors, but they reach whoever calls the
   client.
@@ -132,3 +135,4 @@ goes through
 | Date | Change |
 |---|---|
 | 2026-10-31 | First version. |
+| 2026-11-07 | FastHTML pages declare English; forms have explicit labels and polite live result regions, pinned by headless tests. |
