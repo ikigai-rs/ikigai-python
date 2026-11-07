@@ -2,6 +2,8 @@
 headlessly with Starlette's TestClient (fragments and pages are plain HTML —
 no browser or JS runtime needed to verify them)."""
 
+from html.parser import HTMLParser
+
 import pytest
 
 import ikigai
@@ -19,6 +21,41 @@ def test_index_offers_a_form_per_endpoint(examples_peer):
         assert 'hx-get="/hello"' in page
         assert 'hx-get="/upper"' in page
         assert 'hx-get="/reverse"' in page
+
+
+class PageElements(HTMLParser):
+    def __init__(self, page):
+        super().__init__()
+        self.elements = []
+        self.feed(page)
+
+    def handle_starttag(self, tag, attrs):
+        self.elements.append((tag, dict(attrs)))
+
+
+@pytest.mark.parametrize("path", ["/", "/catalog"])
+def test_pages_declare_english(examples_peer, path):
+    with TestClient(app) as client:
+        elements = PageElements(client.get(path).text).elements
+    assert any(tag == "html" and attrs.get("lang") == "en" for tag, attrs in elements)
+
+
+def test_each_form_input_has_a_visible_label_and_a_live_result(examples_peer):
+    with TestClient(app) as client:
+        page = client.get("/").text
+    elements = PageElements(page).elements
+    inputs = [attrs for tag, attrs in elements if tag == "input"]
+    assert len(inputs) == 3
+    ids = [attrs.get("id") for attrs in inputs]
+    assert all(ids) and len(set(ids)) == len(ids)
+    for target, field in (("hello-out", "who"), ("upper-out", "text"), ("reverse-out", "text")):
+        input_id = f"{target}-input"
+        assert any(attrs.get("id") == input_id and attrs.get("name") == field for attrs in inputs)
+        assert f'<label for="{input_id}">{field}</label>' in page
+        assert any(
+            tag == "div" and attrs.get("id") == target and attrs.get("aria-live") == "polite"
+            for tag, attrs in elements
+        )
 
 
 def test_hello_both_faces(examples_peer):
