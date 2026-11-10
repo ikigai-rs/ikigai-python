@@ -948,6 +948,159 @@
       "contract": "urn:ikigai:contract:bodySink:sink:b3:454e2a795e896c1e0cede124adf875c0bf8b64cf2bd74f2ae38c94c9a390d282",
       "id": "bodySink",
       "name": "body/failures-and-sensitive"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:c7b7437a3f856b28af93228be624fd2eb9fce57196337b1c07b9775359ee3ce7",
+      "id": "ledgerAppend",
+      "name": "resend/undeclared"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": null,
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:c7b7437a3f856b28af93228be624fd2eb9fce57196337b1c07b9775359ee3ce7",
+      "id": "ledgerAppend",
+      "name": "resend/absent-is-null (same digest as resend/undeclared)"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": "safe",
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:9e0f1fda015b61c4ec6e4bc396f5932433af1e85500e05b60f8e13cf2ead4709",
+      "id": "ledgerAppend",
+      "name": "resend/safe"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": {
+          "key": "key"
+        },
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:80a0f34d2049c1c8b6580b544ddabb5020ea54a9bc0ef70131fa686eddeff5a8",
+      "id": "ledgerAppend",
+      "name": "resend/keyed"
+    },
+    {
+      "action": {
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": {
+          "key": "content"
+        },
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:c13f4133eb96afc88593e4ed90106295afa8d1b7e371151a905ff9e00a24adee",
+      "id": "ledgerAppend",
+      "name": "resend/keyed-by-another-input"
+    },
+    {
+      "action": {
+        "existence_sensitive": true,
+        "failures": [
+          "transient"
+        ],
+        "inputs": [
+          {
+            "name": "content",
+            "required": true,
+            "summary": "the entry"
+          },
+          {
+            "name": "key",
+            "required": false,
+            "summary": "the idempotency key"
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": {
+          "key": "key"
+        },
+        "verb": "Sink"
+      },
+      "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:31e36da514afbb77e2b3ae04b1efe597dc0ad838d7c580003ecaa9f713407407",
+      "id": "ledgerAppend",
+      "name": "resend/keyed-after-failures-and-flag"
     }
   ],
   "doors": [
@@ -2466,6 +2619,67 @@
       "name": "core/reads-body",
       "pattern": "urn:core:reads-body",
       "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:reads-body> a ik:Endpoint ;\n    ik:id \"reads-body\" ;\n    ik:summary \"body reader and ordinary inputs, flat and per action (ledger #2470)\" ;\n    ik:verb \"Sink\", \"Meta\" ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:content> ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:ordinary> ;\n    ik:input <urn:ikigai:endpoint:reads-body:input:explicit-false> ;\n    ik:action <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57> .\n\n<urn:ikigai:endpoint:reads-body:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:readsBody true .\n\n<urn:ikigai:endpoint:reads-body:input:ordinary> ik:inputName \"ordinary\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:endpoint:reads-body:input:explicit-false> ik:inputName \"explicit-false\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:readsBody true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:ordinary> ik:inputName \"ordinary\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:explicit-false> ik:inputName \"explicit-false\" ;\n    ik:source \"argument\" ;\n    ik:required true .\n\n<urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:mayFail ik:TransientFailure ;\n    ik:existenceSensitive true ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:content> ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:ordinary> ;\n    ik:input <urn:ikigai:contract:reads-body:sink:b3:e162563d14f3f0b37b10af4bbd67da1fd58aa78457e730fe9ebf71e720680e57:input:explicit-false> .\n"
+    },
+    {
+      "actions": [
+        {
+          "contract": "urn:ikigai:contract:resend:source:b3:30adbebedec281d255e119c562ede51b876c44762c90bbf73877324c6b181dee",
+          "match": "urn:ikigai:match:source:urn:core:resend",
+          "verb": "Source"
+        },
+        {
+          "contract": "urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33",
+          "match": "urn:ikigai:match:sink:urn:core:resend",
+          "verb": "Sink"
+        },
+        {
+          "contract": "urn:ikigai:contract:resend:delete:b3:c6930cd571b5b4e542f089c6ff2ef619c45d631d79465e6416e151d9f8002d79",
+          "match": "urn:ikigai:match:delete:urn:core:resend",
+          "verb": "Delete"
+        }
+      ],
+      "description": {
+        "actions": [
+          {
+            "inputs": [
+              {
+                "name": "content",
+                "required": true,
+                "summary": "the entry"
+              },
+              {
+                "name": "key",
+                "required": false,
+                "summary": "the idempotency key"
+              }
+            ],
+            "resend": {
+              "key": "key"
+            },
+            "verb": "Sink"
+          },
+          {
+            "resend": "safe",
+            "verb": "Delete"
+          }
+        ],
+        "id": "resend",
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "summary": "a keyed append, a safe delete and a read that declares nothing (ledger #3381)",
+        "title": "",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ]
+      },
+      "name": "core/resend",
+      "pattern": "urn:core:resend",
+      "turtle": "@prefix ik: <https://ikigai-rs.dev/ns#> .\n\n<urn:ikigai:endpoint:resend> a ik:Endpoint ;\n    ik:id \"resend\" ;\n    ik:summary \"a keyed append, a safe delete and a read that declares nothing (ledger #3381)\" ;\n    ik:verb \"Source\", \"Sink\", \"Delete\", \"Meta\" ;\n    ik:output \"text/plain\" ;\n    ik:action <urn:ikigai:contract:resend:source:b3:30adbebedec281d255e119c562ede51b876c44762c90bbf73877324c6b181dee> ;\n    ik:action <urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33> ;\n    ik:action <urn:ikigai:contract:resend:delete:b3:c6930cd571b5b4e542f089c6ff2ef619c45d631d79465e6416e151d9f8002d79> .\n\n<urn:ikigai:contract:resend:source:b3:30adbebedec281d255e119c562ede51b876c44762c90bbf73877324c6b181dee> a ik:Action ;\n    ik:verb \"Source\" ;\n    ik:output \"text/plain\" .\n\n<urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33:input:content> ik:inputName \"content\" ;\n    ik:source \"argument\" ;\n    ik:required true ;\n    ik:summary \"the entry\" .\n\n<urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33:input:key> ik:inputName \"key\" ;\n    ik:source \"argument\" ;\n    ik:required false ;\n    ik:summary \"the idempotency key\" .\n\n<urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33> a ik:Action ;\n    ik:verb \"Sink\" ;\n    ik:resendKey <urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33:input:key> ;\n    ik:input <urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33:input:content> ;\n    ik:input <urn:ikigai:contract:resend:sink:b3:33003288000a6e829fc1502b27222a212f071aa4511abd71c0a06f75386bcc33:input:key> .\n\n<urn:ikigai:contract:resend:delete:b3:c6930cd571b5b4e542f089c6ff2ef619c45d631d79465e6416e151d9f8002d79> a ik:Action ;\n    ik:verb \"Delete\" ;\n    ik:resendSafe true .\n"
     }
   ],
   "form": "ikigai:contract:v1",

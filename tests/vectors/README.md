@@ -1,7 +1,16 @@
-`contract_cases.json` and `contract_vectors.json` are verbatim copies from
-[ikigai-core revision 7a0cd8fc658eb6988af24bf062b75840163ad1ba](https://github.com/ikigai-rs/ikigai-core/commit/7a0cd8fc658eb6988af24bf062b75840163ad1ba),
-including the ten `body/*` contract cases and the `core/reads-body` Turtle door.
-Copy both files without reformatting; `.gitattributes` keeps their line endings LF.
+`contract_cases.json`, `contract_vectors.json`, `failure_class_cases.json` and
+`failure_class_vectors.json` are verbatim copies from
+[ikigai-core revision dc6d0ac6c48d9c31b0059609c564705627853bf5](https://github.com/ikigai-rs/ikigai-core/commit/dc6d0ac6c48d9c31b0059609c564705627853bf5).
+They include the body-reader and resend contracts, the `core/resend` Turtle door,
+and the gave-up failures and JSON faces from core 0.3.4/0.3.5.
+Copy these files without reformatting; `.gitattributes` keeps their line endings LF.
+
+A declared `resend` selects contract v2 and appends byte 5 after the fixed-input
+tail, followed by byte 0 for `"safe"`, or byte 1 and the length-prefixed key name
+for `{"key": name}`. Absent or null feeds nothing and declares no resend safety.
+Never infer resend safety from the verb. The upstream vectors README documents
+all canonical digest tails. Gave-up elapsed time is rounded down to milliseconds;
+retry-after delays are rounded up.
 
 The supplemental
 `fixed_contract_vectors.json` pins named request metadata against

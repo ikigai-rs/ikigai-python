@@ -223,3 +223,51 @@ def test_the_contract_module_doctests_hold():
     # A doc comment that states a shape leaving the process is only trusted if it runs.
     failed, attempted = doctest.testmod(ikigai.contract)
     assert attempted and not failed
+
+
+def test_absent_and_null_resend_preserve_the_undeclared_contract():
+    action = CONTRACT["resend/undeclared"]["action"]
+    assert action.get("resend") is None
+    assert contract_iri("append", action) == contract_iri("append", {**action, "resend": None})
+    assert not ikigai.contract._uses_v2({"verb": "Source", "resend": None})
+
+
+@pytest.mark.parametrize("verb", ["source", "sink", "exists", "delete"])
+@pytest.mark.parametrize("resend", [None, "safe", {"key": "key"}])
+def test_authoring_preserves_each_verbs_resend_declaration(verb, resend):
+    from ikigai.serve import family
+
+    door = family("urn:test:resend")
+
+    @getattr(door, verb)(resend=resend)
+    def handler(key: str = "", content: str = ""):
+        return "ok"
+
+    spec = door.description_json()["actions"][0]
+    assert spec.get("resend") == resend
+    if resend is None:
+        assert "resend" not in spec
+        assert "ik:resend" not in door.description_turtle()
+    else:
+        assert "ik:resend" in door.description_turtle()
+
+
+def test_flat_authoring_carries_resend_through_synthesized_actions():
+    from ikigai.serve import action_specs, endpoint
+
+    @endpoint("urn:test:keyed", resend={"key": "key"})
+    def handler(key: str):
+        return "ok"
+
+    door = handler.ikigai_endpoint
+    assert door.description_json()["resend"] == {"key": "key"}
+    assert action_specs(door.description_json())[0]["resend"] == {"key": "key"}
+    assert "ik:resendKey" in door.description_turtle()
+
+
+@pytest.mark.parametrize("resend", ["unsafe", {}, {"key": 1}, {"key": "missing"}])
+def test_authoring_refuses_invalid_resend_declarations(resend):
+    from ikigai.serve import endpoint
+
+    with pytest.raises(ValueError):
+        endpoint("urn:test:invalid", resend=resend)(lambda: "ok")

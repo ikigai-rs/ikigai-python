@@ -1,12 +1,14 @@
-"""The core 0.1.108 failure classes against the shared vectors (ledger #1896, #1546).
+"""The core 0.3.5 failure classes against the shared vectors (ledger #1896, #1546).
 
 ``tests/vectors/failure_class_vectors.json`` is a VERBATIM copy of ikigai-vocab's
-``tests/vectors/failure_class_vectors.json`` (core and vocab 0.1.108). To pick up new
+``tests/vectors/failure_class_vectors.json`` (core main). To pick up new
 rows, copy that file again, unedited; it stays ``eol=lf`` through ``.gitattributes``.
 
-Every case holds five things here: ``kind``, ``class`` (with ``transient``), ``display``,
+Every case pins the error faces and taxonomy here: ``kind``, ``class`` (with
+``transient``), ``display``,
 the wire tag (RECEIVE side: bytes built below by hand, never by this face's encoder) and
-the edge status with its ``Retry-After`` (``examples.error_status``).
+the edge status with its ``Retry-After`` (``examples.error_status``), JSON round trips,
+and Turtle counts.
 """
 
 from __future__ import annotations
@@ -71,6 +73,8 @@ def the_error(case: dict) -> ikigai.EndpointError:
             return ikigai.DepthExceededError(e["depth"], e["target"])
         case "retry-after":
             return ikigai.RetryAfterError(case["retry_after_ms"], e["detail"])
+        case "gave-up":
+            return ikigai.GaveUpError(e["attempts"], e["elapsed_us"] // 1000, e["detail"])
         case "over-budget":
             return ikigai.OverBudgetError(e["detail"])
         case "refused":
@@ -97,6 +101,8 @@ def the_payload(case: dict) -> bytes:
         case "retry-after":
             ms = case["retry_after_ms"]
             return opt(None if ms is None else encode_varint(ms)) + s(e["detail"])
+        case "gave-up":
+            return encode_varint(e["attempts"]) + encode_varint(case["elapsed_ms"]) + s(e["detail"])
         case "over-budget":
             return s(e["detail"])
         case "unsupported":
@@ -107,7 +113,7 @@ def the_payload(case: dict) -> bytes:
 
 
 def test_the_vectors_have_rows_and_every_class():
-    assert len(CASES) == 19
+    assert len(CASES) == 22
     assert {c["word"] for c in VECTORS["classes"]} == CLASSES
     assert {c["class"] for c in CASES} == CLASSES
 
@@ -151,9 +157,9 @@ def test_retry_after_is_not_transient_and_in_its_own_class():
 
 
 def test_an_unknown_tag_still_decodes_as_endpoint():
-    got = wire.decode_reply(b"\x05" + encode_varint(14) + s("whatever")).error
+    got = wire.decode_reply(b"\x05" + encode_varint(15) + s("whatever")).error
     assert type(got) is ikigai.EndpointError
-    assert "unknown wire error variant 14" in got.message
+    assert "unknown wire error variant 15" in got.message
 
 
 def test_a_malformed_v9_payload_is_a_protocol_error():
@@ -187,3 +193,86 @@ def test_errors_with_different_payloads_are_not_equal():
     assert ikigai.RetryAfterError(1, "x") != ikigai.RetryAfterError(2, "x")
     assert ikigai.UnsupportedError("x") != ikigai.UnsupportedError("x", ikigai.Verb.SINK)
     assert len({ikigai.RetryAfterError(1, "x"), ikigai.RetryAfterError(1, "x")}) == 1
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c["name"])
+def test_json_face_matches_core_and_reads_back(case):
+    error = the_error(case)
+    assert error.to_json() == case["json"]
+    assert ikigai.EndpointError.from_json(case["json"]) == error
+    assert getattr(error, "attempts", None) == case["attempts"]
+    assert getattr(error, "elapsed_ms", None) == case["elapsed_ms"]
+
+
+def test_gave_up_turtle_matches_core_documented_example():
+    error = ikigai.GaveUpError(9, 120000, "unavailable: down")
+    assert error.to_turtle() == (
+        "@prefix ik: <https://ikigai-rs.dev/ns#> .\n"
+        "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
+        "[] a ik:Failure ;\n    "
+        'ik:failureKind "gave-up" ;\n    '
+        "ik:failureClass ik:TransientFailure ;\n    "
+        'ik:failureMessage "gave up after 9 attempts over 120000 ms: unavailable: down" ;\n    '
+        'ik:attempts "9"^^xsd:nonNegativeInteger ;\n    '
+        'ik:elapsedMillis "120000"^^xsd:nonNegativeInteger .\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("attempts", -1),
+        ("attempts", 2**32),
+        ("attempts", True),
+        ("attempts", "nine"),
+        ("elapsed_ms", -1),
+        ("elapsed_ms", 2**64),
+        ("elapsed_ms", False),
+        ("elapsed_ms", 1.5),
+        ("detail", None),
+    ],
+)
+def test_gave_up_json_refuses_invalid_fields(field, value):
+    face = {"kind": "gave-up", "attempts": 1, "elapsed_ms": 1, "detail": "down"}
+    face[field] = value
+    with pytest.raises(ikigai.InvalidArgumentError) as caught:
+        ikigai.EndpointError.from_json(face)
+    assert caught.value.name == field
+
+
+@pytest.mark.parametrize("field", ["attempts", "elapsed_ms", "detail"])
+def test_gave_up_json_requires_its_fields(field):
+    face = {"kind": "gave-up", "attempts": 1, "elapsed_ms": 1, "detail": "down"}
+    del face[field]
+    with pytest.raises(ikigai.InvalidArgumentError) as caught:
+        ikigai.EndpointError.from_json(face)
+    assert caught.value.name == field
+
+
+def test_gave_up_counts_survive_json_wire_and_equality():
+    error = ikigai.GaveUpError(2**32 - 1, 2**64 - 1, 'down "now"\\\n\r\t')
+    assert wire.decode_reply(wire.encode_reply(wire.ErrorTypedReply(error))).error == error
+    assert ikigai.EndpointError.from_json(error.to_json()) == error
+    assert error != ikigai.GaveUpError(1, error.elapsed_ms, error.detail)
+    assert error != ikigai.GaveUpError(error.attempts, 1, error.detail)
+    assert len({error, ikigai.EndpointError.from_json(error.to_json())}) == 1
+    assert 'down \\"now\\"\\\\\\n\\r\\t' in error.to_turtle()
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c["name"])
+def test_turtle_describes_each_failure_class_and_its_counts(case):
+    error = the_error(case)
+    turtle = error.to_turtle()
+    class_name = "".join(part.capitalize() for part in case["class"].split("-"))
+    assert f"ik:failureClass ik:{class_name}Failure" in turtle
+    assert f'ik:failureKind "{case["kind"]}"' in turtle
+    for key, predicate in [
+        ("attempts", "attempts"),
+        ("elapsed_ms", "elapsedMillis"),
+        ("retry_after_ms", "retryAfterMillis"),
+    ]:
+        count = case[key]
+        if count is None:
+            assert f"ik:{predicate} " not in turtle
+        else:
+            assert f'ik:{predicate} "{count}"^^xsd:nonNegativeInteger' in turtle

@@ -1237,6 +1237,49 @@
           }
         ]
       }
+    },
+    {
+      "name": "core/resend",
+      "pattern": "urn:core:resend",
+      "description": {
+        "id": "resend",
+        "title": "",
+        "summary": "a keyed append, a safe delete and a read that declares nothing (ledger #3381)",
+        "verbs": [
+          "Source",
+          "Sink",
+          "Delete",
+          "Meta"
+        ],
+        "inputs": [],
+        "outputs": [
+          "text/plain"
+        ],
+        "actions": [
+          {
+            "verb": "Sink",
+            "inputs": [
+              {
+                "name": "content",
+                "summary": "the entry",
+                "required": true
+              },
+              {
+                "name": "key",
+                "summary": "the idempotency key",
+                "required": false
+              }
+            ],
+            "resend": {
+              "key": "key"
+            }
+          },
+          {
+            "verb": "Delete",
+            "resend": "safe"
+          }
+        ]
+      }
     }
   ],
   "contracts": [
@@ -2139,6 +2182,153 @@
           "transient"
         ],
         "existence_sensitive": true
+      }
+    },
+    {
+      "name": "resend/undeclared",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ]
+      }
+    },
+    {
+      "name": "resend/absent-is-null (same digest as resend/undeclared)",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": null
+      }
+    },
+    {
+      "name": "resend/safe",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": "safe"
+      }
+    },
+    {
+      "name": "resend/keyed",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": {
+          "key": "key"
+        }
+      }
+    },
+    {
+      "name": "resend/keyed-by-another-input",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": {
+          "key": "content"
+        }
+      }
+    },
+    {
+      "name": "resend/keyed-after-failures-and-flag",
+      "id": "ledgerAppend",
+      "action": {
+        "verb": "Sink",
+        "inputs": [
+          {
+            "name": "content",
+            "summary": "the entry",
+            "required": true
+          },
+          {
+            "name": "key",
+            "summary": "the idempotency key",
+            "required": false
+          }
+        ],
+        "outputs": [
+          "text/plain"
+        ],
+        "failures": [
+          "transient"
+        ],
+        "existence_sensitive": true,
+        "resend": {
+          "key": "key"
+        }
       }
     }
   ],
