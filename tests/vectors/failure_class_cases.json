@@ -1,0 +1,172 @@
+{
+  "about": "Inputs for failure_class_vectors.json (crates/ikigai-vocab/tests/failure_class_vectors.rs). Each `error` names a variant by its kind word and gives its payload: `iri`, `name`, `detail`, `message`, `depth` and `target`, `verb` (as ikigai_core::Verb serializes, omitted for none), `delay_us` (microseconds, omitted for none), `attempts` and `elapsed_us` (microseconds).",
+  "cases": [
+    {
+      "name": "unresolved",
+      "error": {
+        "kind": "unresolved",
+        "iri": "urn:x:missing"
+      }
+    },
+    {
+      "name": "missing-argument",
+      "error": {
+        "kind": "missing-argument",
+        "name": "in"
+      }
+    },
+    {
+      "name": "invalid-argument",
+      "error": {
+        "kind": "invalid-argument",
+        "name": "mode",
+        "detail": "not one of added, removed"
+      }
+    },
+    {
+      "name": "endpoint",
+      "error": {
+        "kind": "endpoint",
+        "message": "the parser failed"
+      }
+    },
+    {
+      "name": "denied",
+      "error": {
+        "kind": "denied",
+        "message": "`urn:cap:fs:read` is required"
+      }
+    },
+    {
+      "name": "not-found",
+      "error": {
+        "kind": "not-found",
+        "message": "no such item"
+      }
+    },
+    {
+      "name": "conflict",
+      "error": {
+        "kind": "conflict",
+        "message": "1,1 is taken"
+      }
+    },
+    {
+      "name": "timeout",
+      "error": {
+        "kind": "timeout",
+        "message": "the origin did not answer in 30 s"
+      }
+    },
+    {
+      "name": "unavailable",
+      "error": {
+        "kind": "unavailable",
+        "message": "connection refused"
+      }
+    },
+    {
+      "name": "depth-exceeded",
+      "error": {
+        "kind": "depth-exceeded",
+        "depth": 65,
+        "target": "urn:x:self"
+      }
+    },
+    {
+      "name": "retry-after/seconds",
+      "error": {
+        "kind": "retry-after",
+        "delay_us": 30000000,
+        "detail": "rate-limited: 5 requests per minute"
+      }
+    },
+    {
+      "name": "retry-after/a-fraction-of-a-second-rounds-up",
+      "error": {
+        "kind": "retry-after",
+        "delay_us": 1500000,
+        "detail": "the store is saturated"
+      }
+    },
+    {
+      "name": "retry-after/a-fraction-of-a-millisecond-rounds-up",
+      "error": {
+        "kind": "retry-after",
+        "delay_us": 1200,
+        "detail": "held off"
+      }
+    },
+    {
+      "name": "retry-after/zero-is-never-a-zero-header",
+      "error": {
+        "kind": "retry-after",
+        "delay_us": 0,
+        "detail": "come back now"
+      }
+    },
+    {
+      "name": "retry-after/no-delay",
+      "error": {
+        "kind": "retry-after",
+        "detail": "not now"
+      }
+    },
+    {
+      "name": "over-budget",
+      "error": {
+        "kind": "over-budget",
+        "detail": "the query ran past its 5000 ms budget"
+      }
+    },
+    {
+      "name": "refused",
+      "error": {
+        "kind": "refused",
+        "message": "api.example.com answered 401"
+      }
+    },
+    {
+      "name": "unsupported/a-verb",
+      "error": {
+        "kind": "unsupported",
+        "verb": "Sink",
+        "detail": "the log is append-only"
+      }
+    },
+    {
+      "name": "unsupported/a-host-facility",
+      "error": {
+        "kind": "unsupported",
+        "detail": "the host configured no clock"
+      }
+    },
+    {
+      "name": "gave-up/minutes",
+      "error": {
+        "kind": "gave-up",
+        "attempts": 9,
+        "elapsed_us": 120000000,
+        "detail": "unavailable: the hub refused the connection"
+      }
+    },
+    {
+      "name": "gave-up/a-fraction-of-a-millisecond-rounds-down",
+      "error": {
+        "kind": "gave-up",
+        "attempts": 3,
+        "elapsed_us": 1900,
+        "detail": "timeout: the origin did not answer in 1 ms"
+      }
+    },
+    {
+      "name": "gave-up/one-attempt",
+      "error": {
+        "kind": "gave-up",
+        "attempts": 1,
+        "elapsed_us": 250000,
+        "detail": "unavailable: connection refused"
+      }
+    }
+  ]
+}

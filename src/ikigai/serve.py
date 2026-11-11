@@ -593,6 +593,7 @@ class Action:
         arguments: dict | None = None,
         output_from=None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """``verb`` and ``handler`` are the action; ``template`` supplies the bindings
         (each variable is an input, first in order). ``cacheable`` is refused for a
@@ -647,6 +648,17 @@ class Action:
         self.arguments = _arguments_json(arguments)
         self.output_from = _output_from_json(output_from)
         self.existence_sensitive = bool(existence_sensitive)
+        if (
+            resend is not None
+            and resend != "safe"
+            and not (
+                isinstance(resend, dict)
+                and set(resend) == {"key"}
+                and isinstance(resend["key"], str)
+            )
+        ):
+            raise ValueError('resend must be "safe", {"key": input_name}, or None')
+        self.resend = dict(resend) if isinstance(resend, dict) else resend
         names = {spec.name for spec in self.args}
         for ref in self._references():
             if ref not in names:
@@ -654,6 +666,8 @@ class Action:
 
     def _references(self):
         """Every input name the contract's shape refers to."""
+        if isinstance(self.resend, dict):
+            yield self.resend["key"]
         for spec in self.args:
             yield from spec.needs
             for value, note in spec.values.items():
@@ -690,6 +704,8 @@ class Action:
             out["output_from"] = self.output_from
         if self.existence_sensitive:
             out["existence_sensitive"] = True
+        if self.resend is not None:
+            out["resend"] = self.resend
         return out
 
 
@@ -786,7 +802,7 @@ class _Door:
             out.update(
                 {
                     k: source[k]
-                    for k in ("groups", "arguments", "output_from", "existence_sensitive")
+                    for k in ("groups", "arguments", "output_from", "existence_sensitive", "resend")
                     if k in source
                 }
             )
@@ -859,6 +875,7 @@ def action_specs(description: dict) -> list[dict]:
                         "arguments",
                         "output_from",
                         "existence_sensitive",
+                        "resend",
                     )
                     if key in description
                 },
@@ -1061,10 +1078,10 @@ def to_turtle(description: dict) -> str:
     def input_predicates(owner: str, arg: dict) -> str:
         node = (
             f"ik:inputName {lit(arg['name'])} ;\n"
-            f"    ik:source {lit(arg['source'])} ;\n"
-            f"    ik:required {'true' if arg['required'] else 'false'}"
+            f"    ik:source {lit(arg.get('source', 'argument'))} ;\n"
+            f"    ik:required {'true' if arg.get('required', True) else 'false'}"
         )
-        if arg["summary"]:
+        if arg.get("summary", ""):
             node += f" ;\n    ik:summary {lit(arg['summary'])}"
         if arg.get("class") is not None:
             node += f" ;\n    ik:class {iri_term(arg['class'])}"
@@ -1183,6 +1200,11 @@ def to_turtle(description: dict) -> str:
             action_preds.append(f"ik:mayFail {failure_term(cls)}")
         if spec.get("existence_sensitive", False):
             action_preds.append("ik:existenceSensitive true")
+        resend = spec.get("resend")
+        if resend == "safe":
+            action_preds.append("ik:resendSafe true")
+        elif resend is not None:
+            action_preds.append(f"ik:resendKey <{action_iri}:input:{name_fragment(resend['key'])}>")
         for arg in spec.get("inputs", []):
             node_iri = f"{action_iri}:input:{name_fragment(arg['name'])}"
             extra_nodes.append(f"<{node_iri}> {input_predicates(action_iri, arg)} .")
@@ -1220,6 +1242,7 @@ class EndpointDef(_Door):
         arguments: dict | None = None,
         output_from: str | dict | None = None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """Wrap ``handler`` as the Source action of ``iri``. ``id`` defaults to the
         handler's name; ``summary`` to the handler docstring's first line."""
@@ -1242,6 +1265,7 @@ class EndpointDef(_Door):
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
 
     # The flat form's contract, read through (the names predate actions).
@@ -1291,6 +1315,7 @@ def endpoint(
     arguments: dict | None = None,
     output_from: str | dict | None = None,
     existence_sensitive: bool = False,
+    resend: str | dict | None = None,
 ):
     """Declare a function as a single-verb Source endpoint.
 
@@ -1312,6 +1337,8 @@ def endpoint(
     Either way the declaration is REAL: the host engine routes ``key=value``
     arguments by it. ``cacheable=True`` marks the result a pure function of
     its inputs (``Expiry::Never``) — the HOST kernel then caches it.
+    ``resend="safe"`` declares unconditional resend safety; ``resend={"key": name}``
+    requires the named input as an idempotency key. Absent or ``None`` declares no safety.
     ``existence_sensitive=True`` hides the name from a caller the floor refuses:
     it is answered ``Unresolved``, as a name bound nowhere, never ``Denied`` (see
     :func:`conceals`). For more than one verb over one name, use :func:`family`."""
@@ -1331,6 +1358,7 @@ def endpoint(
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
         return fn
 
@@ -1426,6 +1454,7 @@ class Family(_Door):
         arguments: dict | None = None,
         output_from: str | dict | None = None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """Declare the Source verb (bare ``@f.source`` or ``@f.source(...)``)."""
         contract = dict(
@@ -1438,6 +1467,7 @@ class Family(_Door):
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
         return self._decorator(Verb.SOURCE, fn, contract)
 
@@ -1453,6 +1483,7 @@ class Family(_Door):
         arguments: dict | None = None,
         output_from: str | dict | None = None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """Declare the Sink verb; the body arrives as ``content``."""
         contract = dict(
@@ -1464,6 +1495,7 @@ class Family(_Door):
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
         return self._decorator(Verb.SINK, fn, contract)
 
@@ -1479,6 +1511,7 @@ class Family(_Door):
         arguments: dict | None = None,
         output_from: str | dict | None = None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """Declare the Delete verb."""
         contract = dict(
@@ -1490,6 +1523,7 @@ class Family(_Door):
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
         return self._decorator(Verb.DELETE, fn, contract)
 
@@ -1505,6 +1539,7 @@ class Family(_Door):
         arguments: dict | None = None,
         output_from: str | dict | None = None,
         existence_sensitive: bool = False,
+        resend: str | dict | None = None,
     ):
         """Declare the Exists verb, replacing the "Source would succeed" default."""
         contract = dict(
@@ -1516,6 +1551,7 @@ class Family(_Door):
             arguments=arguments,
             output_from=output_from,
             existence_sensitive=existence_sensitive,
+            resend=resend,
         )
         return self._decorator(Verb.EXISTS, fn, contract)
 

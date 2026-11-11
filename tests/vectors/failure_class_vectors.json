@@ -1,9 +1,11 @@
 {
-  "about": "Failure-class vectors (ledger #1546) computed from tests/vectors/failure_class_cases.json by crates/ikigai-vocab/tests/failure_class_vectors.rs, which fails if this file differs from what it computes. Per case, ikigai-core computes `kind` (Error::kind), `class` (Error::class, a FailureClass word), `transient` (Error::is_transient), `display` (the Display form a v8 peer receives inside Endpoint) and `retry_after_ms` (Error::retry_after_millis: the delay in whole milliseconds rounded UP, the wire form). The rest is the DECIDED table this file pins for the faces (decision 4 of ledger #1546): `wire_tag` is the wire v9 discriminant (0-8 as today, 9-13 appended; ikigai-wire owns the encoding), and `http` is the edge's answer: `status`, and `retry_after`, the Retry-After header in delay-seconds rounded up and never 0, null when no header is sent. `classes` lists every class with its vocabulary individual.",
+  "about": "Failure-class vectors (ledger #1546) computed from tests/vectors/failure_class_cases.json by crates/ikigai-vocab/tests/failure_class_vectors.rs, which fails if this file differs from what it computes. Per case, ikigai-core computes `kind` (Error::kind), `class` (Error::class, a FailureClass word), `transient` (Error::is_transient), `display` (the Display form a v8 peer receives inside Endpoint) and `retry_after_ms` (Error::retry_after_millis: the delay in whole milliseconds rounded UP, the wire form), `attempts` and `elapsed_ms` (Error::attempts and Error::elapsed_millis: a gave-up's attempt count and its time spent in whole milliseconds rounded DOWN, null for every other kind) and `json` (Error::to_json, the JSON face Error::from_json reads back). The rest is the DECIDED table this file pins for the faces (decision 4 of ledger #1546): `wire_tag` is the wire v9 discriminant (0-8 as today, 9-14 appended; ikigai-wire owns the encoding), and `http` is the edge's answer: `status`, and `retry_after`, the Retry-After header in delay-seconds rounded up and never 0, null when no header is sent. `classes` lists every class with its vocabulary individual.",
   "cases": [
     {
+      "attempts": null,
       "class": "permanent",
       "display": "no endpoint resolved for urn:x:missing",
+      "elapsed_ms": null,
       "error": {
         "iri": "urn:x:missing",
         "kind": "unresolved"
@@ -12,6 +14,10 @@
         "retry_after": null,
         "status": 404
       },
+      "json": {
+        "iri": "urn:x:missing",
+        "kind": "unresolved"
+      },
       "kind": "unresolved",
       "name": "unresolved",
       "retry_after_ms": null,
@@ -19,8 +25,10 @@
       "wire_tag": 0
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "missing required argument `in`",
+      "elapsed_ms": null,
       "error": {
         "kind": "missing-argument",
         "name": "in"
@@ -29,6 +37,10 @@
         "retry_after": null,
         "status": 400
       },
+      "json": {
+        "kind": "missing-argument",
+        "name": "in"
+      },
       "kind": "missing-argument",
       "name": "missing-argument",
       "retry_after_ms": null,
@@ -36,8 +48,10 @@
       "wire_tag": 1
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "invalid argument `mode`: not one of added, removed",
+      "elapsed_ms": null,
       "error": {
         "detail": "not one of added, removed",
         "kind": "invalid-argument",
@@ -47,6 +61,11 @@
         "retry_after": null,
         "status": 400
       },
+      "json": {
+        "detail": "not one of added, removed",
+        "kind": "invalid-argument",
+        "name": "mode"
+      },
       "kind": "invalid-argument",
       "name": "invalid-argument",
       "retry_after_ms": null,
@@ -54,8 +73,10 @@
       "wire_tag": 2
     },
     {
+      "attempts": null,
       "class": "unknown",
       "display": "endpoint error: the parser failed",
+      "elapsed_ms": null,
       "error": {
         "kind": "endpoint",
         "message": "the parser failed"
@@ -64,6 +85,10 @@
         "retry_after": null,
         "status": 500
       },
+      "json": {
+        "kind": "endpoint",
+        "message": "the parser failed"
+      },
       "kind": "endpoint",
       "name": "endpoint",
       "retry_after_ms": null,
@@ -71,8 +96,10 @@
       "wire_tag": 3
     },
     {
+      "attempts": null,
       "class": "denied",
       "display": "denied: `urn:cap:fs:read` is required",
+      "elapsed_ms": null,
       "error": {
         "kind": "denied",
         "message": "`urn:cap:fs:read` is required"
@@ -81,6 +108,10 @@
         "retry_after": null,
         "status": 403
       },
+      "json": {
+        "kind": "denied",
+        "message": "`urn:cap:fs:read` is required"
+      },
       "kind": "denied",
       "name": "denied",
       "retry_after_ms": null,
@@ -88,8 +119,10 @@
       "wire_tag": 4
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "not found: no such item",
+      "elapsed_ms": null,
       "error": {
         "kind": "not-found",
         "message": "no such item"
@@ -98,6 +131,10 @@
         "retry_after": null,
         "status": 404
       },
+      "json": {
+        "kind": "not-found",
+        "message": "no such item"
+      },
       "kind": "not-found",
       "name": "not-found",
       "retry_after_ms": null,
@@ -105,8 +142,10 @@
       "wire_tag": 5
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "conflict: 1,1 is taken",
+      "elapsed_ms": null,
       "error": {
         "kind": "conflict",
         "message": "1,1 is taken"
@@ -115,6 +154,10 @@
         "retry_after": null,
         "status": 409
       },
+      "json": {
+        "kind": "conflict",
+        "message": "1,1 is taken"
+      },
       "kind": "conflict",
       "name": "conflict",
       "retry_after_ms": null,
@@ -122,8 +165,10 @@
       "wire_tag": 8
     },
     {
+      "attempts": null,
       "class": "transient",
       "display": "timeout: the origin did not answer in 30 s",
+      "elapsed_ms": null,
       "error": {
         "kind": "timeout",
         "message": "the origin did not answer in 30 s"
@@ -132,6 +177,10 @@
         "retry_after": null,
         "status": 504
       },
+      "json": {
+        "kind": "timeout",
+        "message": "the origin did not answer in 30 s"
+      },
       "kind": "timeout",
       "name": "timeout",
       "retry_after_ms": null,
@@ -139,8 +188,10 @@
       "wire_tag": 6
     },
     {
+      "attempts": null,
       "class": "transient",
       "display": "unavailable: connection refused",
+      "elapsed_ms": null,
       "error": {
         "kind": "unavailable",
         "message": "connection refused"
@@ -149,6 +200,10 @@
         "retry_after": null,
         "status": 503
       },
+      "json": {
+        "kind": "unavailable",
+        "message": "connection refused"
+      },
       "kind": "unavailable",
       "name": "unavailable",
       "retry_after_ms": null,
@@ -156,8 +211,10 @@
       "wire_tag": 7
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "nesting budget exceeded: sub-request for urn:x:self would run at depth 65",
+      "elapsed_ms": null,
       "error": {
         "depth": 65,
         "kind": "depth-exceeded",
@@ -167,6 +224,11 @@
         "retry_after": null,
         "status": 500
       },
+      "json": {
+        "depth": 65,
+        "kind": "depth-exceeded",
+        "target": "urn:x:self"
+      },
       "kind": "depth-exceeded",
       "name": "depth-exceeded",
       "retry_after_ms": null,
@@ -174,8 +236,10 @@
       "wire_tag": 9
     },
     {
+      "attempts": null,
       "class": "retry-after",
       "display": "retry after 30000 ms: rate-limited: 5 requests per minute",
+      "elapsed_ms": null,
       "error": {
         "delay_us": 30000000,
         "detail": "rate-limited: 5 requests per minute",
@@ -185,6 +249,11 @@
         "retry_after": 30,
         "status": 429
       },
+      "json": {
+        "detail": "rate-limited: 5 requests per minute",
+        "kind": "retry-after",
+        "retry_after_ms": 30000
+      },
       "kind": "retry-after",
       "name": "retry-after/seconds",
       "retry_after_ms": 30000,
@@ -192,8 +261,10 @@
       "wire_tag": 10
     },
     {
+      "attempts": null,
       "class": "retry-after",
       "display": "retry after 1500 ms: the store is saturated",
+      "elapsed_ms": null,
       "error": {
         "delay_us": 1500000,
         "detail": "the store is saturated",
@@ -203,6 +274,11 @@
         "retry_after": 2,
         "status": 429
       },
+      "json": {
+        "detail": "the store is saturated",
+        "kind": "retry-after",
+        "retry_after_ms": 1500
+      },
       "kind": "retry-after",
       "name": "retry-after/a-fraction-of-a-second-rounds-up",
       "retry_after_ms": 1500,
@@ -210,8 +286,10 @@
       "wire_tag": 10
     },
     {
+      "attempts": null,
       "class": "retry-after",
       "display": "retry after 2 ms: held off",
+      "elapsed_ms": null,
       "error": {
         "delay_us": 1200,
         "detail": "held off",
@@ -221,6 +299,11 @@
         "retry_after": 1,
         "status": 429
       },
+      "json": {
+        "detail": "held off",
+        "kind": "retry-after",
+        "retry_after_ms": 2
+      },
       "kind": "retry-after",
       "name": "retry-after/a-fraction-of-a-millisecond-rounds-up",
       "retry_after_ms": 2,
@@ -228,8 +311,10 @@
       "wire_tag": 10
     },
     {
+      "attempts": null,
       "class": "retry-after",
       "display": "retry after 0 ms: come back now",
+      "elapsed_ms": null,
       "error": {
         "delay_us": 0,
         "detail": "come back now",
@@ -239,6 +324,11 @@
         "retry_after": 1,
         "status": 429
       },
+      "json": {
+        "detail": "come back now",
+        "kind": "retry-after",
+        "retry_after_ms": 0
+      },
       "kind": "retry-after",
       "name": "retry-after/zero-is-never-a-zero-header",
       "retry_after_ms": 0,
@@ -246,8 +336,10 @@
       "wire_tag": 10
     },
     {
+      "attempts": null,
       "class": "retry-after",
       "display": "retry later: not now",
+      "elapsed_ms": null,
       "error": {
         "detail": "not now",
         "kind": "retry-after"
@@ -256,6 +348,10 @@
         "retry_after": null,
         "status": 429
       },
+      "json": {
+        "detail": "not now",
+        "kind": "retry-after"
+      },
       "kind": "retry-after",
       "name": "retry-after/no-delay",
       "retry_after_ms": null,
@@ -263,8 +359,10 @@
       "wire_tag": 10
     },
     {
+      "attempts": null,
       "class": "over-budget",
       "display": "over budget: the query ran past its 5000 ms budget",
+      "elapsed_ms": null,
       "error": {
         "detail": "the query ran past its 5000 ms budget",
         "kind": "over-budget"
@@ -273,6 +371,10 @@
         "retry_after": null,
         "status": 422
       },
+      "json": {
+        "detail": "the query ran past its 5000 ms budget",
+        "kind": "over-budget"
+      },
       "kind": "over-budget",
       "name": "over-budget",
       "retry_after_ms": null,
@@ -280,8 +382,10 @@
       "wire_tag": 11
     },
     {
+      "attempts": null,
       "class": "refused",
       "display": "refused: api.example.com answered 401",
+      "elapsed_ms": null,
       "error": {
         "kind": "refused",
         "message": "api.example.com answered 401"
@@ -290,6 +394,10 @@
         "retry_after": null,
         "status": 502
       },
+      "json": {
+        "kind": "refused",
+        "message": "api.example.com answered 401"
+      },
       "kind": "refused",
       "name": "refused",
       "retry_after_ms": null,
@@ -297,8 +405,10 @@
       "wire_tag": 12
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "unsupported: the log is append-only",
+      "elapsed_ms": null,
       "error": {
         "detail": "the log is append-only",
         "kind": "unsupported",
@@ -308,6 +418,11 @@
         "retry_after": null,
         "status": 405
       },
+      "json": {
+        "detail": "the log is append-only",
+        "kind": "unsupported",
+        "verb": "Sink"
+      },
       "kind": "unsupported",
       "name": "unsupported/a-verb",
       "retry_after_ms": null,
@@ -315,8 +430,10 @@
       "wire_tag": 13
     },
     {
+      "attempts": null,
       "class": "permanent",
       "display": "unsupported: the host configured no clock",
+      "elapsed_ms": null,
       "error": {
         "detail": "the host configured no clock",
         "kind": "unsupported"
@@ -325,11 +442,96 @@
         "retry_after": null,
         "status": 501
       },
+      "json": {
+        "detail": "the host configured no clock",
+        "kind": "unsupported"
+      },
       "kind": "unsupported",
       "name": "unsupported/a-host-facility",
       "retry_after_ms": null,
       "transient": false,
       "wire_tag": 13
+    },
+    {
+      "attempts": 9,
+      "class": "transient",
+      "display": "gave up after 9 attempts over 120000 ms: unavailable: the hub refused the connection",
+      "elapsed_ms": 120000,
+      "error": {
+        "attempts": 9,
+        "detail": "unavailable: the hub refused the connection",
+        "elapsed_us": 120000000,
+        "kind": "gave-up"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 503
+      },
+      "json": {
+        "attempts": 9,
+        "detail": "unavailable: the hub refused the connection",
+        "elapsed_ms": 120000,
+        "kind": "gave-up"
+      },
+      "kind": "gave-up",
+      "name": "gave-up/minutes",
+      "retry_after_ms": null,
+      "transient": true,
+      "wire_tag": 14
+    },
+    {
+      "attempts": 3,
+      "class": "transient",
+      "display": "gave up after 3 attempts over 1 ms: timeout: the origin did not answer in 1 ms",
+      "elapsed_ms": 1,
+      "error": {
+        "attempts": 3,
+        "detail": "timeout: the origin did not answer in 1 ms",
+        "elapsed_us": 1900,
+        "kind": "gave-up"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 503
+      },
+      "json": {
+        "attempts": 3,
+        "detail": "timeout: the origin did not answer in 1 ms",
+        "elapsed_ms": 1,
+        "kind": "gave-up"
+      },
+      "kind": "gave-up",
+      "name": "gave-up/a-fraction-of-a-millisecond-rounds-down",
+      "retry_after_ms": null,
+      "transient": true,
+      "wire_tag": 14
+    },
+    {
+      "attempts": 1,
+      "class": "transient",
+      "display": "gave up after 1 attempt over 250 ms: unavailable: connection refused",
+      "elapsed_ms": 250,
+      "error": {
+        "attempts": 1,
+        "detail": "unavailable: connection refused",
+        "elapsed_us": 250000,
+        "kind": "gave-up"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 503
+      },
+      "json": {
+        "attempts": 1,
+        "detail": "unavailable: connection refused",
+        "elapsed_ms": 250,
+        "kind": "gave-up"
+      },
+      "kind": "gave-up",
+      "name": "gave-up/one-attempt",
+      "retry_after_ms": null,
+      "transient": true,
+      "wire_tag": 14
     }
   ],
   "classes": [

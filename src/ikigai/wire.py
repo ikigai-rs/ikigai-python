@@ -99,7 +99,7 @@ class EndpointError(WireError):
     the taxonomy, and this is what crosses the wire, so a prefix here would be
     doubled by the next peer's rendering. :meth:`display` is the other form:
     the error as ``ikigai_core::Error``'s ``Display`` spells it, for a person.
-    ``transient`` is True only for Timeout/Unavailable: re-issuing might
+    ``transient`` is True only for Timeout/Unavailable/GaveUp: re-issuing might
     succeed, which is what retry/failover logic gates on (mirrors
     ``ikigai_core::Error::is_transient``); :meth:`failure_class` is the finer
     rule (``ikigai_core::Error::class``): ``RetryAfterError`` is NOT transient."""
@@ -133,6 +133,131 @@ class EndpointError(WireError):
         'invalid argument `n`: not a number'
         """
         return self._display_prefix + self.message
+
+    def to_json(self) -> dict:
+        """Core's JSON error face, with durations in whole milliseconds."""
+        face = {"kind": self.kind}
+        if isinstance(self, UnresolvedError):
+            face["iri"] = self.iri
+        elif isinstance(self, MissingArgumentError):
+            face["name"] = self.name
+        elif isinstance(self, InvalidArgumentError):
+            face.update(name=self.name, detail=self.detail)
+        elif isinstance(self, DepthExceededError):
+            face.update(depth=self.depth, target=self.target)
+        elif isinstance(self, RetryAfterError):
+            face["detail"] = self.detail
+            if self.delay_ms is not None:
+                face["retry_after_ms"] = self.delay_ms
+        elif isinstance(self, GaveUpError):
+            face.update(attempts=self.attempts, elapsed_ms=self.elapsed_ms, detail=self.detail)
+        elif isinstance(self, UnsupportedError):
+            face["detail"] = self.detail
+            if self.verb is not None:
+                face["verb"] = self.verb.wire_name
+        elif isinstance(self, OverBudgetError):
+            face["detail"] = self.detail
+        else:
+            face["message"] = self.message
+        return face
+
+    @staticmethod
+    def from_json(value: object) -> EndpointError:
+        """Read core's JSON error face; refuse malformed fields as InvalidArgumentError."""
+        if not isinstance(value, dict):
+            raise InvalidArgumentError("error", "expected a JSON object")
+
+        def text(field):
+            result = value.get(field)
+            if not isinstance(result, str):
+                raise InvalidArgumentError(field, "expected a string")
+            return result
+
+        def whole(field, bits=64):
+            result = value.get(field)
+            if type(result) is not int or not 0 <= result < 1 << bits:
+                detail = (
+                    "expected a whole number from 0 to 4294967295"
+                    if bits == 32
+                    else "expected a whole number"
+                )
+                raise InvalidArgumentError(field, detail)
+            return result
+
+        def iri(field):
+            from .contract import is_iri
+
+            result = text(field)
+            if not is_iri(result):
+                raise InvalidArgumentError(field, "expected an IRI")
+            return result
+
+        kind = text("kind")
+        match kind:
+            case "unresolved":
+                return UnresolvedError(iri("iri"))
+            case "missing-argument":
+                return MissingArgumentError(text("name"))
+            case "invalid-argument":
+                return InvalidArgumentError(text("name"), text("detail"))
+            case "depth-exceeded":
+                return DepthExceededError(whole("depth", 32), iri("target"))
+            case "retry-after":
+                delay = None if value.get("retry_after_ms") is None else whole("retry_after_ms")
+                return RetryAfterError(delay, text("detail"))
+            case "gave-up":
+                return GaveUpError(whole("attempts", 32), whole("elapsed_ms"), text("detail"))
+            case "over-budget":
+                return OverBudgetError(text("detail"))
+            case "unsupported":
+                verb = None
+                if value.get("verb") is not None:
+                    try:
+                        verb = next(v for v in Verb if v.wire_name == value["verb"])
+                    except StopIteration as e:
+                        raise InvalidArgumentError("verb", "expected a verb") from e
+                return UnsupportedError(text("detail"), verb)
+        constructors = {
+            "endpoint": EndpointError,
+            "denied": DeniedError,
+            "not-found": NotFoundError,
+            "conflict": ConflictError,
+            "timeout": TimeoutError,
+            "unavailable": UnavailableError,
+            "refused": RefusedError,
+        }
+        if kind in constructors:
+            return constructors[kind](text("message"))
+        raise InvalidArgumentError("kind", f"`{kind}` is not the kind of any error")
+
+    def to_turtle(self) -> str:
+        """Describe one blank ik:Failure node, with typed counts and core's display text."""
+        message = (
+            self.display()
+            .replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        )
+        cls = "".join(part.capitalize() for part in self.failure_class().split("-"))
+        ttl = (
+            "@prefix ik: <https://ikigai-rs.dev/ns#> .\n"
+            "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
+            "[] a ik:Failure ;\n    "
+            f'ik:failureKind "{self.kind}" ;\n    '
+            f"ik:failureClass ik:{cls}Failure ;\n    "
+            f'ik:failureMessage "{message}"'
+        )
+        counts = (
+            ("attempts", getattr(self, "attempts", None)),
+            ("elapsedMillis", getattr(self, "elapsed_ms", None)),
+            ("retryAfterMillis", getattr(self, "delay_ms", None)),
+        )
+        for name, count in counts:
+            if count is not None:
+                ttl += f' ;\n    ik:{name} "{count}"^^xsd:nonNegativeInteger'
+        return ttl + " .\n"
 
     def failure_class(self) -> str:
         """Who may repeat this failure, and when (``ikigai_core::Error::class``): one
@@ -352,6 +477,33 @@ class RefusedError(EndpointError):
     kind = "refused"
     _failure_class = "refused"
     _display_prefix = "refused: "
+
+
+class GaveUpError(EndpointError):
+    """A retry overlay exhausted its attempts or deadline (wire v9, tag 14).
+
+    Class transient: another caller may succeed, but a retry overlay must not
+    retry this error itself, which would multiply attempts.
+    """
+
+    kind = "gave-up"
+    transient = True
+    _failure_class = "transient"
+
+    def __init__(self, attempts: int, elapsed_ms: int, detail: str):
+        """Keep the attempt count, elapsed whole milliseconds (rounded down), and detail."""
+        super().__init__(detail)
+        self.attempts = attempts
+        self.elapsed_ms = elapsed_ms
+        self.detail = detail
+
+    def display(self) -> str:
+        """Core's sentence, including singular ``attempt`` for a count of one."""
+        noun = "attempt" if self.attempts == 1 else "attempts"
+        return f"gave up after {self.attempts} {noun} over {self.elapsed_ms} ms: {self.detail}"
+
+    def _identity(self) -> tuple:
+        return (self.attempts, self.elapsed_ms, self.detail)
 
 
 class UnsupportedError(EndpointError):
@@ -674,7 +826,7 @@ class IssueWithCall:
 
 Call = Issue | IsCached | EntriesCall | IssueAs | IssueTraced | IssueWithCall
 
-#: The first wire version that has ``Call::IssueWith`` and error tags 9-13.
+#: The first wire version that has ``Call::IssueWith`` and error tags 9-14.
 ISSUE_WITH_SINCE = 9
 
 
@@ -871,6 +1023,11 @@ def _put_wire_error(out: bytearray, error: EndpointError) -> None:
     elif isinstance(error, RefusedError):
         out += encode_varint(12)
         _put_string(out, error.message)
+    elif isinstance(error, GaveUpError):
+        out += encode_varint(14)
+        out += encode_varint(error.attempts)
+        out += encode_varint(error.elapsed_ms)
+        _put_string(out, error.detail)
     elif isinstance(error, UnsupportedError):
         out += encode_varint(13)
         _put_option_varint(out, None if error.verb is None else int(error.verb))
@@ -954,18 +1111,26 @@ def encode_call(call: Call) -> bytes:
     return bytes(out)
 
 
-_V9_ERRORS = (DepthExceededError, RetryAfterError, OverBudgetError, RefusedError, UnsupportedError)
+_V9_ERRORS = (
+    DepthExceededError,
+    RetryAfterError,
+    OverBudgetError,
+    RefusedError,
+    UnsupportedError,
+    GaveUpError,
+)
 
 
 def downgrade_error(error: EndpointError, peer_version: int) -> EndpointError:
     """``error`` as a peer speaking ``peer_version`` can receive it. A v7
     peer has no ``Conflict`` variant, so it gets ``Endpoint("conflict:
     {msg}")`` — the Rust core's ``Display`` of the error, which is exactly
-    what crossed untyped before v8. Every other variant is unchanged."""
+    what crossed untyped before v8. A v7/v8 peer receives v9 errors as
+    ``Endpoint(display)`` too."""
     if isinstance(error, ConflictError) and peer_version < CONFLICT_SINCE:
         return EndpointError(f"conflict: {error.message}")
     if isinstance(error, _V9_ERRORS) and peer_version < ISSUE_WITH_SINCE:
-        # A v7/v8 peer has no tags 9-13: it gets what it has always received for them.
+        # A v7/v8 peer has no tags 9-14: it gets what it has always received for them.
         return EndpointError(error.display())
     return error
 
@@ -1123,7 +1288,7 @@ def _get_wire_error(r: Reader) -> EndpointError:
         return UnavailableError(r.string())
     if variant == 8:
         return ConflictError(r.string())
-    # Wire v9 tags (RECEIVE only; the layouts follow core's field order).
+    # Wire v9 tags (the layouts follow core's field order).
     if variant == 9:
         return DepthExceededError(r.varint(32), r.string())
     if variant == 10:
@@ -1141,6 +1306,8 @@ def _get_wire_error(r: Reader) -> EndpointError:
             except ValueError as e:
                 raise DecodeError(f"unknown verb in Unsupported: {e}") from e
         return UnsupportedError(r.string(), verb)
+    if variant == 14:
+        return GaveUpError(r.varint(32), r.varint(64), r.string())
     # A NEWER peer's taxonomy addition (the enum is append-only, and additions
     # are wire-version events, so the hello should have refused this peer —
     # belt and braces). The payload layout is unknowable, so consume the rest

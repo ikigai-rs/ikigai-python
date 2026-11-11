@@ -10,6 +10,7 @@ from ikigai import (
     DeniedError,
     DepthExceededError,
     EndpointError,
+    GaveUpError,
     InvalidArgumentError,
     MissingArgumentError,
     NotFoundError,
@@ -27,7 +28,7 @@ def error_status(exc: EndpointError) -> int:
     """The wire taxonomy → HTTP status table every example app shares, pinned to
     ``failure_class_vectors.json`` (core 0.1.108, ledger #1546): the payoff of typed
     errors crossing the wire. Unresolved and NotFound 404, Denied 403, Conflict 409,
-    bad input 400, Unavailable 503, Timeout 504, RetryAfter 429 (with
+    bad input 400, Unavailable and GaveUp 503, Timeout 504, RetryAfter 429 (with
     :func:`retry_after_header`), OverBudget 422, Refused 502, an Unsupported verb 405
     (a missing host facility 501), and the blanket 500 for a plain Endpoint failure,
     DepthExceeded and an unknown-future variant. (A 412 is for a precondition the
@@ -40,7 +41,7 @@ def error_status(exc: EndpointError) -> int:
         return 409
     if isinstance(exc, MissingArgumentError | InvalidArgumentError):
         return 400
-    if isinstance(exc, UnavailableError):
+    if isinstance(exc, UnavailableError | GaveUpError):
         return 503
     if isinstance(exc, TimeoutError):
         return 504

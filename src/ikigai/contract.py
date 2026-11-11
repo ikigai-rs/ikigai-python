@@ -520,7 +520,8 @@ def _input_key(arg: dict) -> tuple:
 def _uses_v2(action: dict) -> bool:
     """Core's ``uses_v2``: whether the contract uses a construct v1 cannot carry."""
     return bool(
-        action.get("failures") is not None
+        action.get("resend") is not None
+        or action.get("failures") is not None
         or action.get("existence_sensitive", False)
         or action.get("groups")
         or action.get("arguments")
@@ -643,6 +644,13 @@ def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
     if fixed:
         _feed_u8(h, 4)
         _feed_set(h, fixed)
+    # Resend declarations follow the fixed-input tail only when present.
+    resend = action.get("resend")
+    if resend is not None:
+        _feed_u8(h, 5)
+        _feed_u8(h, 0 if resend == "safe" else 1)
+        if resend != "safe":
+            _feed_str(h, resend["key"])
     return "b3:" + h.hexdigest()
 
 
@@ -664,7 +672,7 @@ def contract_id(endpoint_id: str, action: dict) -> str:
     ``list``, ``values``, ``examples``, ``fixed``, ``reads_body: true`` or an empty ``one_of``;
     an action's ``groups``,
     open or envelope ``arguments``, ``output_from``, stated ``failures`` (even an empty
-    list), or ``existence_sensitive: true``) is digested under ``ikigai:contract:v2``
+    list), ``resend``, or ``existence_sensitive: true``) is digested under ``ikigai:contract:v2``
     instead (:func:`_contract_id_v2`; byte layout in core's ``tests/vectors/README.md``),
     so every contract that uses none keeps its v1 digest.
     """
