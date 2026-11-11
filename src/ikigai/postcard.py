@@ -89,7 +89,9 @@ class Reader:
             if not b & 0x80:
                 break
             shift += 7
-            if shift >= max_bits + 7:
+            # Rust postcard reads at most ceil(max_bits / 7) bytes, even
+            # when an extra zero group would leave the value in range.
+            if shift >= max_bits:
                 raise DecodeError("varint too long")
         if n >= 1 << max_bits:
             raise DecodeError(f"varint exceeds u{max_bits}")

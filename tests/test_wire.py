@@ -468,3 +468,41 @@ def test_only_conflict_changes_for_a_v7_peer(reply):
     if isinstance(reply, ErrorTypedReply) and isinstance(reply.error, ConflictError):
         return
     assert wire.encode_reply(reply, peer_version=7) == wire.encode_reply(reply)
+
+
+def test_call_rejects_an_overlong_u32_discriminant():
+    # Entries (2) encoded in six bytes: Rust postcard refuses this u32.
+    with pytest.raises(ProtocolError):
+        wire.decode_call(b"\x82\x80\x80\x80\x80\x00")
+
+
+def test_reply_rejects_an_overlong_u64_string_length():
+    # Error("") with an eleven-byte usize length on a 64-bit Rust peer.
+    with pytest.raises(ProtocolError):
+        wire.decode_reply(b"\x03" + b"\x80" * 10 + b"\x00")
+
+
+def test_read_frame_handles_partial_headers_payloads_and_coalesced_frames():
+    class Fragmented(io.BytesIO):
+        def read(self, n=-1):
+            return super().read(min(n, 1))
+
+    stream = Fragmented(wire.frame(b"first") + wire.frame(b"second"))
+    assert wire.read_frame(stream) == b"first"
+    assert wire.read_frame(stream) == b"second"
+    with pytest.raises(EOFError):
+        wire.read_frame(stream)
+
+
+@pytest.mark.parametrize("prefix", [b"\x00", b"\x00\x00", b"\x00\x00\x00"])
+def test_read_frame_rejects_eof_in_each_partial_header(prefix):
+    with pytest.raises(EOFError, match="mid-frame"):
+        wire.read_frame(io.BytesIO(prefix))
+
+
+def test_frame_size_limit_is_inclusive_in_both_directions():
+    payload = b"x" * wire.MAX_FRAME
+    framed = wire.frame(payload)
+    assert wire.read_frame(io.BytesIO(framed)) == payload
+    with pytest.raises(ProtocolError, match="exceeds"):
+        wire.frame(payload + b"x")

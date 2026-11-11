@@ -62,3 +62,52 @@ def test_trailing_bytes_are_rejected():
     r.u8()
     with pytest.raises(DecodeError, match="trailing"):
         r.finish()
+
+
+@pytest.mark.parametrize("bits", [16, 32, 64])
+def test_varint_rejects_more_than_the_rust_integer_byte_limit(bits):
+    # postcard 1.1.3 de/deserializer.rs bounds reads by ceil(bits / 7),
+    # even when all payload groups are zero and the value itself fits.
+    limit = (bits + 6) // 7
+    with pytest.raises(DecodeError):
+        Reader(b"\x80" * limit + b"\x00").varint(bits)
+
+
+@pytest.mark.parametrize("bits", [16, 32, 64])
+def test_varint_rejects_continuation_at_the_rust_integer_byte_limit(bits):
+    limit = (bits + 6) // 7
+    reader = Reader(b"\x80" * limit + b"\x02")
+    with pytest.raises(DecodeError):
+        reader.varint(bits)
+    # The next field must not be consumed while looking for a terminator.
+    assert reader.u8() == 2
+
+
+@pytest.mark.parametrize("bits", [16, 32, 64])
+def test_varint_accepts_nonminimal_encodings_within_the_rust_byte_limit(bits):
+    # Rust accepts these; decode/encode normalizes them rather than preserving bytes.
+    limit = (bits + 6) // 7
+    assert Reader(b"\x80" * (limit - 1) + b"\x00").varint(bits) == 0
+
+
+@pytest.mark.parametrize("bits", [16, 32, 64])
+def test_varint_maximum_and_one_past_for_each_width(bits):
+    maximum = (1 << bits) - 1
+    assert Reader(encode_varint(maximum)).varint(bits) == maximum
+    with pytest.raises(DecodeError):
+        Reader(encode_varint(maximum + 1)).varint(bits)
+
+
+@pytest.mark.parametrize("encoded", [b"", b"\x80", b"\xff\xff\xff\xff"])
+def test_truncated_varint_is_refused(encoded):
+    with pytest.raises(DecodeError, match="truncated"):
+        Reader(encoded).varint()
+
+
+@pytest.mark.parametrize("size", [0, 127, 128, 1 << 20])
+def test_byte_string_round_trip_at_length_boundaries(size):
+    data = b"x" * size
+    encoded = encode_varint(size) + data
+    reader = Reader(encoded)
+    assert reader.byte_string() == data
+    reader.finish()
