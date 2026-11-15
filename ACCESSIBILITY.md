@@ -28,6 +28,9 @@ The published package (`src/ikigai/`):
   `FormPairsError` uses the Rust form parser's words (`form_pairs: malformed
   percent-escape at byte 3`, `form_pairs: decoded bytes are not UTF-8 at byte 2`),
   with the decode kind, original-input byte offset and underlying error as attributes.
+- **Base64url errors.** `Base64Error` in `base64.py` names the URL-safe profile and
+  the broken alphabet, length, padding or unused-bit rule, using ikigai-http's words;
+  it carries code `base64-invalid` and never echoes input.
 - **A plain-text description.** A served endpoint's Meta face, asked for as `text/plain`
   (`description_text` in `serve.py`): its id and title, its verbs, one line per input
   (`input name [source] (optional): summary`), its argument groups, and its outputs.
@@ -117,6 +120,15 @@ not a browser: it does not render CSS, execute JavaScript or exercise assistive 
 | Actionable decode/protocol error text | Fail | Source review on 2026-11-12: `src/ikigai/postcard.py` still raises `varint too long` and `invalid Option tag 0x…` without recovery instructions. This is the known wording limitation below, not a measured WCAG failure. |
 | Description of an input without a summary | Fail | Source review on 2026-11-12: `src/ikigai/serve.py::_Door.description_text` interpolates an empty `arg.summary` after the colon. This is the known content limitation below, not a measured WCAG failure. |
 
+The base64url checks ran on 2026-11-15 with Python 3.13.18 and pytest 9.2.0:
+`python -m pytest -q tests/test_auth.py` (106 passed). They check wording and input
+exclusion, not assistive-technology presentation.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Base64url refusal words and input exclusion | Pass | `tests/test_auth.py::test_base64_url_error_words`, `test_base64_error_never_contains_input` and all shared URL-safe vectors, command above. |
+| Base64url errors with assistive technology | Blocked | No screen reader, Braille display or other assistive-technology session was available. |
+
 ## Known limitations
 
 Found by reading the source on 2026-10-31 and confirmed by source review on 2026-11-12,
@@ -154,3 +166,4 @@ goes through
 | 2026-10-31 | First version. |
 | 2026-11-07 | FastHTML pages declare English; forms have explicit labels and polite live result regions, pinned by headless tests. |
 | 2026-11-12 | Record Pass, Fail and Blocked results with current main test evidence and explicit browser and assistive-technology gaps. |
+| 2026-11-15 | Document canonical base64url refusal words and automated input-exclusion evidence. |

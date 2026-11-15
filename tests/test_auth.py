@@ -1,7 +1,7 @@
 """``ikigai.auth`` and ``ikigai.base64`` against the shared vectors (ledger #1861).
 
 ``tests/vectors/auth_vectors.json`` is a VERBATIM copy of ikigai-http's
-``tests/vectors/auth_vectors.json`` at commit ffadc89 (ikigai-http PR 19). To pick up new
+``tests/vectors/auth_vectors.json`` at commit 064e474 (ikigai-http PR 46). To pick up new
 vectors, copy that file again, unedited; it stays ``eol=lf`` through ``.gitattributes``.
 """
 
@@ -32,6 +32,8 @@ def test_every_section_is_run():
         "scheme",
         "base64",
         "base64_refusals",
+        "base64_url",
+        "base64_url_refusals",
     }
 
 
@@ -128,3 +130,54 @@ def test_no_credential_in_repr_or_errors():
     with pytest.raises(base64.Base64Error) as e:
         base64.decode("Zh==")
     assert "Zh" not in repr(e.value) and e.value.__cause__ is None
+
+
+@pytest.mark.parametrize("case", cases("base64_url"))
+def test_base64_url(case):
+    data = unhex(case)
+    assert base64.encode_url(data) == case["encoded"]
+    for encoded in (case["encoded"], case["encoded"].encode()):
+        assert base64.decode_url(encoded) == data
+
+
+@pytest.mark.parametrize("case", cases("base64_url_refusals"))
+def test_base64_url_refusals(case):
+    for encoded in (case["encoded"], case["encoded"].encode("utf-8")):
+        with pytest.raises(base64.Base64Error) as e:
+            base64.decode_url(encoded)
+        assert e.value.code == case["error"]
+
+
+@pytest.mark.parametrize("decoder", ["decode", "decode_url"])
+def test_base64_error_never_contains_input(decoder):
+    secret = "c2VjcmV0!!"
+    with pytest.raises(base64.Base64Error) as e:
+        getattr(base64, decoder)(secret)
+    shown = str(e.value) + repr(e.value)
+    assert "c2VjcmV0" not in shown
+    assert "!" not in shown
+    assert e.value.__cause__ is None
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "why"),
+    [
+        ("Z!", "symbol", "a character outside the URL-safe alphabet, or misplaced padding"),
+        ("Z=g", "symbol", "a character outside the URL-safe alphabet, or misplaced padding"),
+        ("A", "length", "a length that no unpadded encoding has"),
+        ("Zh", "pad-bits", "nonzero unused bits in the last symbol (RFC 4648 §3.5)"),
+        ("Zg==", "padding", "padding is not allowed"),
+    ],
+)
+def test_base64_url_error_words(text, kind, why):
+    with pytest.raises(base64.Base64Error) as e:
+        base64.decode_url(text)
+    assert e.value.kind == kind
+    assert str(e.value) == (
+        "not canonical base64url (RFC 4648 §5, URL-safe alphabet, unpadded): " + why
+    )
+
+
+@pytest.mark.parametrize("data", [b"\xfb\xff", bytearray(b"\xfb\xff"), memoryview(b"\xfb\xff")])
+def test_base64_url_accepts_bytes_like_data(data):
+    assert base64.encode_url(data) == "-_8"

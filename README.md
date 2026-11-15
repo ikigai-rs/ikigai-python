@@ -305,10 +305,12 @@ What a served endpoint gets for free, because its describe face is real:
   `basic-password-control` and `bearer-token-syntax` on `AuthError.code`. An
   `Authorization` shows only its scheme in `repr`; the value is `as_str()`. No
   credential is in a repr or exception text. `ikigai.base64` is the one base64
-  (standard alphabet, padding required, canonical pad bits, no whitespace; code
-  `base64-invalid`). `tests/test_auth.py` runs every case in
+  with `encode`/`decode` (standard alphabet, padding required) and
+  `encode_url`/`decode_url` (RFC 4648 section 5, URL-safe `-` and `_`, no padding).
+  Both require canonical unused bits and refuse whitespace; errors carry code
+  `base64-invalid`, never input. URL-safe errors also name the broken rule. `tests/test_auth.py` runs every case in
   `tests/vectors/auth_vectors.json`, a verbatim copy of ikigai-http's file at
-  commit ffadc89; to pick up new vectors, copy that file again, unedited.
+  commit 064e474 (0.7.2); to pick up new vectors, copy that file again, unedited.
 - **Match and contract IRIs**: `ikigai.contract` mirrors core's
   `match_iri`/`parse_match_iri` (`urn:ikigai:match:{verb}:{pattern}`, the row a
   host's `urn:kernel:actions` gives one door and verb) and

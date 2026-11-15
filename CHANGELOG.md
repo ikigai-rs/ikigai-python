@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `ikigai.base64.encode_url` and `decode_url`: canonical RFC 4648 section 5
+  base64url without padding, using only the standard library. Refuse padding,
+  non-URL-safe characters, impossible lengths and nonzero unused bits with
+  `Base64Error` (`base64-invalid`), with reason text that never echoes input.
+  Sync the shared auth vectors verbatim with ikigai-http 0.7.2 (commit 064e474)
+  and run every URL-safe round-trip and refusal case.
+
 - **The integration tests no longer read this machine's ikigai config** (ledger #3172). The
   `rust_server` fixture, the version probe, the `--prefer` door in `tests/test_issue_with.py`
   and every `ikigai -c` the integration tests run now start `ikigai` with a scratch

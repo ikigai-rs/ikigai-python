@@ -214,5 +214,39 @@
     { "name": "url-safe-alphabet", "source": "RFC 4648 section 5 characters are not in the section 4 alphabet", "encoded": "-_8=", "error": "base64-invalid" },
     { "name": "padding-mid-stream", "source": "RFC 4648 section 3.3 (= only at the end)", "encoded": "Zm8=Zm8=", "error": "base64-invalid" },
     { "name": "nonzero-pad-bits", "source": "RFC 4648 section 3.5 (canonical: pad bits MUST be zero)", "encoded": "Zh==", "error": "base64-invalid" }
+  ],
+  "base64_url": [
+    { "name": "rfc4648-empty", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "", "encoded": "" },
+    { "name": "rfc4648-f", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "f", "encoded": "Zg" },
+    { "name": "rfc4648-fo", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "fo", "encoded": "Zm8" },
+    { "name": "rfc4648-foo", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "foo", "encoded": "Zm9v" },
+    { "name": "rfc4648-foob", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "foob", "encoded": "Zm9vYg" },
+    { "name": "rfc4648-fooba", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "fooba", "encoded": "Zm9vYmE" },
+    { "name": "rfc4648-foobar", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "text": "foobar", "encoded": "Zm9vYmFy" },
+    { "name": "alphabet-62-and-63", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "hex": "fbff", "encoded": "-_8" },
+    { "name": "alphabet-63-63", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "hex": "fffe", "encoded": "__4" },
+    { "name": "zero-byte", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "hex": "00", "encoded": "AA" },
+    { "name": "all-ones", "source": "RFC 4648 sections 5 and 10; URL-safe alphabet, padding omitted", "hex": "ffffff", "encoded": "____" }
+  ],
+  "base64_url_refusals": [
+    { "name": "one-character", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "A", "error": "base64-invalid" },
+    { "name": "length-five", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "AAAAA", "error": "base64-invalid" },
+    { "name": "two-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg==", "error": "base64-invalid" },
+    { "name": "one-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zm8=", "error": "base64-invalid" },
+    { "name": "short-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg=", "error": "base64-invalid" },
+    { "name": "unnecessary-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zm9v=", "error": "base64-invalid" },
+    { "name": "only-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "====", "error": "base64-invalid" },
+    { "name": "inner-padding", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg=Zg", "error": "base64-invalid" },
+    { "name": "standard-plus", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "+w", "error": "base64-invalid" },
+    { "name": "standard-slash", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "/w", "error": "base64-invalid" },
+    { "name": "mixed-alphabet", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "-_8/", "error": "base64-invalid" },
+    { "name": "space", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Z g", "error": "base64-invalid" },
+    { "name": "tab", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg\t", "error": "base64-invalid" },
+    { "name": "line-break", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg\n", "error": "base64-invalid" },
+    { "name": "carriage-return", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zg\r", "error": "base64-invalid" },
+    { "name": "non-alphabet", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Z!", "error": "base64-invalid" },
+    { "name": "non-ascii", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Z\u00f6", "error": "base64-invalid" },
+    { "name": "nonzero-four-unused-bits", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zh", "error": "base64-invalid" },
+    { "name": "nonzero-two-unused-bits", "source": "RFC 4648 sections 3.3, 3.5 and 5; canonical unpadded profile", "encoded": "Zm9", "error": "base64-invalid" }
   ]
 }
