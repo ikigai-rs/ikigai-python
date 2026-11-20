@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A floor denial carries its missing scopes** (ledger #3842, ikigai-core 0.4.0).
+  `DeniedError.lacking` is every scope the declared-capability floor found missing, in
+  declaration order: a tuple, empty for an endpoint's own refusal. `EndpointError.from_json`
+  reads an optional `"lacking"` list on a `denied` error, and `to_json` writes it only when
+  it is not empty, so a plain denial's JSON face is unchanged. A served `Space`'s floor now
+  fills it. The binary wire still carries the message alone. The shared failure-class
+  vectors are synced verbatim with ikigai-core df867e4, including the new
+  `denied-by-the-floor` row.
+
 - Add `ikigai.base64.encode_url` and `decode_url`: canonical RFC 4648 section 5
   base64url without padding, using only the standard library. Refuse padding,
   non-URL-safe characters, impossible lengths and nonzero unused bits with

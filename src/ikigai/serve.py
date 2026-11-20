@@ -1831,7 +1831,11 @@ class Space:
             # Meta requires nothing, so it is never Denied.
             lacking = unsatisfied_scopes(description, request.verb, capability)
             if lacking:
-                return ErrorTypedReply(DeniedError(denial_message(lacking[0], request.target)))
+                # The sentence names the first; `lacking` carries them all, in
+                # declaration order (core's `Error::lacking`, ledger #3842).
+                return ErrorTypedReply(
+                    DeniedError(denial_message(lacking[0], request.target), lacking)
+                )
         if request.verb == Verb.META:
             # A description does not depend on the bindings — and the
             # catalog's own pattern text matches its template, so Meta on

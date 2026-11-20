@@ -1,4 +1,4 @@
-"""The core 0.3.5 failure classes against the shared vectors (ledger #1896, #1546).
+"""The core 0.3.5/0.4.0 failure classes against the shared vectors (ledger #1896, #1546).
 
 ``tests/vectors/failure_class_vectors.json`` is a VERBATIM copy of ikigai-vocab's
 ``tests/vectors/failure_class_vectors.json`` (core main). To pick up new
@@ -60,7 +60,7 @@ def the_error(case: dict) -> ikigai.EndpointError:
         case "endpoint":
             return ikigai.EndpointError(e["message"])
         case "denied":
-            return ikigai.DeniedError(e["message"])
+            return ikigai.DeniedError(e["message"], e.get("lacking", []))
         case "not-found":
             return ikigai.NotFoundError(e["message"])
         case "conflict":
@@ -83,6 +83,15 @@ def the_error(case: dict) -> ikigai.EndpointError:
             verb = ikigai.Verb[e["verb"].upper()] if "verb" in e else None
             return ikigai.UnsupportedError(e["detail"], verb)
     raise AssertionError(e)
+
+
+def off_the_wire(case: dict) -> ikigai.EndpointError:
+    """The case's error as the binary wire delivers it: tag 4 carries a denial's message
+    alone, so a floor refusal's ``lacking`` stays behind (core PR 323)."""
+    error = the_error(case)
+    if isinstance(error, ikigai.DeniedError):
+        return ikigai.DeniedError(error.message)
+    return error
 
 
 def the_payload(case: dict) -> bytes:
@@ -113,7 +122,7 @@ def the_payload(case: dict) -> bytes:
 
 
 def test_the_vectors_have_rows_and_every_class():
-    assert len(CASES) == 22
+    assert len(CASES) == 23
     assert {c["word"] for c in VECTORS["classes"]} == CLASSES
     assert {c["class"] for c in CASES} == CLASSES
 
@@ -131,7 +140,7 @@ def test_kind_class_transient_and_display(case):
 def test_the_wire_tag_decodes_to_the_same_error(case):
     payload = encode_varint(case["wire_tag"]) + the_payload(case)
     got = wire.decode_reply(b"\x05" + payload).error
-    assert got == the_error(case)
+    assert got == off_the_wire(case)
     assert type(got) is type(the_error(case))
     assert (got.kind, got.failure_class(), got.display()) == (
         case["kind"],
@@ -202,6 +211,53 @@ def test_json_face_matches_core_and_reads_back(case):
     assert ikigai.EndpointError.from_json(case["json"]) == error
     assert getattr(error, "attempts", None) == case["attempts"]
     assert getattr(error, "elapsed_ms", None) == case["elapsed_ms"]
+
+
+FLOOR = next(c for c in CASES if c["name"] == "denied-by-the-floor")
+PLAIN_DENIED = next(c for c in CASES if c["name"] == "denied")
+
+
+def test_a_floor_denial_reads_its_lacking_scopes_and_writes_them_back():
+    error = ikigai.EndpointError.from_json(FLOOR["json"])
+    assert type(error) is ikigai.DeniedError
+    assert error.lacking == ("urn:cap:fs:read", "urn:cap:fs:*")
+    assert error.to_json() == FLOOR["json"]
+    assert ikigai.EndpointError.from_json(error.to_json()) == error
+    assert len({error, ikigai.EndpointError.from_json(error.to_json())}) == 1
+    # Kind, class, wire tag and status are the plain denial's; only the JSON face grows.
+    for field in ("kind", "class", "transient", "wire_tag", "http"):
+        assert FLOOR[field] == PLAIN_DENIED[field]
+    assert error.display() == FLOOR["display"]
+    assert error != ikigai.DeniedError(error.message)
+
+
+@pytest.mark.parametrize("lacking", [None, []], ids=["null", "empty"])
+def test_a_denial_without_lacking_decodes_as_before(lacking):
+    face = dict(PLAIN_DENIED["json"])
+    assert "lacking" not in face
+    plain = ikigai.EndpointError.from_json(face)
+    assert plain == ikigai.DeniedError(face["message"])
+    assert plain.lacking == ()
+    assert plain.to_json() == PLAIN_DENIED["json"]
+    face["lacking"] = lacking
+    assert ikigai.EndpointError.from_json(face) == plain
+    # An empty list is never written.
+    assert ikigai.DeniedError(face["message"], []).to_json() == PLAIN_DENIED["json"]
+
+
+@pytest.mark.parametrize("lacking", ["urn:cap:fs:read", [1], [None], {"a": "b"}])
+def test_a_malformed_lacking_is_refused(lacking):
+    face = dict(FLOOR["json"], lacking=lacking)
+    with pytest.raises(ikigai.InvalidArgumentError) as caught:
+        ikigai.EndpointError.from_json(face)
+    assert caught.value.name == "lacking"
+
+
+def test_the_wire_carries_a_floor_denial_as_its_message_alone():
+    error = the_error(FLOOR)
+    raw = wire.encode_reply(wire.ErrorTypedReply(error))
+    assert raw == wire.encode_reply(wire.ErrorTypedReply(ikigai.DeniedError(error.message)))
+    assert wire.decode_reply(raw).error.lacking == ()
 
 
 def test_gave_up_turtle_matches_core_documented_example():
