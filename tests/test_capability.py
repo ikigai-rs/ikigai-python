@@ -248,6 +248,8 @@ def denied(reply, scope, target):
     assert isinstance(reply, ErrorTypedReply), reply
     assert isinstance(reply.error, DeniedError), reply.error
     assert reply.error.message == denial_message(scope, target)
+    # The sentence names the first missing scope; `lacking` lists them all (ledger #3842).
+    assert reply.error.lacking[0] == scope
     return True
 
 
@@ -325,6 +327,22 @@ def test_an_undeclared_mutating_verb_needs_everything_declared():
     reply = call(Verb.DELETE, "urn:py:diary:mon", both)
     assert isinstance(reply, ErrorTypedReply) and not isinstance(reply.error, DeniedError)
     assert "not supported" in reply.error.message
+
+
+def test_a_floor_denial_lacks_every_unmet_scope_in_declaration_order():
+    # Core's `Error::lacking` (core PR 323): every scope the floor found missing, spelled
+    # as declared, while the sentence still names only the first.
+    reply = call(Verb.DELETE, "urn:py:diary:mon", scoped())
+    assert denied(reply, "urn:cap:diary:read", "urn:py:diary:mon")
+    assert reply.error.lacking == ("urn:cap:diary:read", "urn:cap:diary:write")
+    reply = call(Verb.DELETE, "urn:py:diary:mon", scoped("urn:cap:diary:read"))
+    assert reply.error.lacking == ("urn:cap:diary:write",)
+    reply = call(Verb.SOURCE, "urn:py:fetch", scoped())
+    assert reply.error.lacking == ("urn:cap:net:*",)
+    # The JSON face carries them and reads them back.
+    face = reply.error.to_json()
+    assert face["lacking"] == ["urn:cap:net:*"]
+    assert ikigai.EndpointError.from_json(face) == reply.error
 
 
 def test_meta_is_never_gated_and_an_unbound_name_is_unresolved():

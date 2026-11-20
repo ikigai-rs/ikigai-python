@@ -38,6 +38,17 @@
       }
     },
     {
+      "name": "denied-by-the-floor",
+      "error": {
+        "kind": "denied",
+        "message": "capability does not grant `urn:cap:fs:read` (declared by `urn:fs:etc`)",
+        "lacking": [
+          "urn:cap:fs:read",
+          "urn:cap:fs:*"
+        ]
+      }
+    },
+    {
       "name": "not-found",
       "error": {
         "kind": "not-found",

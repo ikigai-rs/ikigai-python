@@ -120,6 +120,37 @@
     },
     {
       "attempts": null,
+      "class": "denied",
+      "display": "denied: capability does not grant `urn:cap:fs:read` (declared by `urn:fs:etc`)",
+      "elapsed_ms": null,
+      "error": {
+        "kind": "denied",
+        "lacking": [
+          "urn:cap:fs:read",
+          "urn:cap:fs:*"
+        ],
+        "message": "capability does not grant `urn:cap:fs:read` (declared by `urn:fs:etc`)"
+      },
+      "http": {
+        "retry_after": null,
+        "status": 403
+      },
+      "json": {
+        "kind": "denied",
+        "lacking": [
+          "urn:cap:fs:read",
+          "urn:cap:fs:*"
+        ],
+        "message": "capability does not grant `urn:cap:fs:read` (declared by `urn:fs:etc`)"
+      },
+      "kind": "denied",
+      "name": "denied-by-the-floor",
+      "retry_after_ms": null,
+      "transient": false,
+      "wire_tag": 4
+    },
+    {
+      "attempts": null,
       "class": "permanent",
       "display": "not found: no such item",
       "elapsed_ms": null,

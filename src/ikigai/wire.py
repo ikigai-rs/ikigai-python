@@ -39,6 +39,7 @@ from __future__ import annotations
 import builtins
 import struct
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import BinaryIO
@@ -159,6 +160,8 @@ class EndpointError(WireError):
             face["detail"] = self.detail
         else:
             face["message"] = self.message
+            if isinstance(self, DeniedError) and self.lacking:
+                face["lacking"] = list(self.lacking)
         return face
 
     @staticmethod
@@ -217,9 +220,15 @@ class EndpointError(WireError):
                     except StopIteration as e:
                         raise InvalidArgumentError("verb", "expected a verb") from e
                 return UnsupportedError(text("detail"), verb)
+            case "denied":
+                lacking = value.get("lacking")
+                if lacking is None:
+                    lacking = []
+                if not isinstance(lacking, list) or not all(isinstance(s, str) for s in lacking):
+                    raise InvalidArgumentError("lacking", "expected a list of strings")
+                return DeniedError(text("message"), lacking)
         constructors = {
             "endpoint": EndpointError,
-            "denied": DeniedError,
             "not-found": NotFoundError,
             "conflict": ConflictError,
             "timeout": TimeoutError,
@@ -338,11 +347,33 @@ class InvalidArgumentError(EndpointError):
 class DeniedError(EndpointError):
     """``WireError::Denied``: the capability did not authorize it — a
     PERMANENT denial (a failover must not paper over it; an HTTP face says
-    403)."""
+    403).
+
+    ``lacking`` is every scope the kernel's declared-capability floor found missing,
+    in declaration order and spelled as declared (a family keeps its ``*``):
+    ``ikigai_core::Error::lacking``. It is empty for an endpoint's own run-time
+    refusal. Only the JSON face carries it, and only when it is not empty; the
+    binary wire's tag 4 carries the message alone, so a denial read off the wire
+    lacks nothing.
+
+    >>> DeniedError("no").lacking
+    ()
+    >>> DeniedError("no", ["urn:cap:fs:read"]).to_json()["lacking"]
+    ['urn:cap:fs:read']
+    """
 
     _display_prefix = "denied: "
     kind = "denied"
     _failure_class = "denied"
+
+    def __init__(self, message: str, lacking: Iterable[str] = ()):
+        """``message`` as for every error; ``lacking`` the floor's missing scopes,
+        kept as a tuple."""
+        super().__init__(message)
+        self.lacking: tuple[str, ...] = tuple(lacking)
+
+    def _identity(self) -> tuple:
+        return (self.message, self.lacking)
 
 
 class NotFoundError(EndpointError):

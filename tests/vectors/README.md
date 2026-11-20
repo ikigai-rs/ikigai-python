@@ -1,8 +1,14 @@
 `contract_cases.json`, `contract_vectors.json`, `failure_class_cases.json` and
 `failure_class_vectors.json` are verbatim copies from
-[ikigai-core revision dc6d0ac6c48d9c31b0059609c564705627853bf5](https://github.com/ikigai-rs/ikigai-core/commit/dc6d0ac6c48d9c31b0059609c564705627853bf5).
+[ikigai-core revision df867e4d86f3c119618b636f78d45e56ef117c65](https://github.com/ikigai-rs/ikigai-core/commit/df867e4d86f3c119618b636f78d45e56ef117c65).
 They include the body-reader and resend contracts, the `core/resend` Turtle door,
-and the gave-up failures and JSON faces from core 0.3.4/0.3.5.
+the gave-up failures and JSON faces from core 0.3.4/0.3.5, and the
+`denied-by-the-floor` row from core 0.4.0.
+
+A `denied` error's JSON face may carry `lacking`, the list of scopes the kernel's
+declared-capability floor found missing. It is written only when the list is not empty,
+so a plain `denied` is unchanged. `DeniedError.lacking` reads it as a tuple, empty when
+absent. The binary wire's tag 4 carries the message alone.
 Copy these files without reformatting; `.gitattributes` keeps their line endings LF.
 
 A declared `resend` selects contract v2 and appends byte 5 after the fixed-input
