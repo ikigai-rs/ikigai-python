@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Design note: the caller's capability in a served handler** (ledger #1584),
+  `docs/design/handler-capability.md`. It covers both this face and ikigai-ts. A new test,
+  `tests/test_handler_capability.py`, reproduces the gap (a handler cannot read the
+  capability its call resolves under) and proves a path ACL over the existing wire. No
+  change to `src/`.
+
 - **A floor denial carries its missing scopes** (ledger #3842, ikigai-core 0.4.0).
   `DeniedError.lacking` is every scope the declared-capability floor found missing, in
   declaration order: a tuple, empty for an endpoint's own refusal. `EndpointError.from_json`
