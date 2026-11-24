@@ -650,14 +650,16 @@ class Action:
         self.existence_sensitive = bool(existence_sensitive)
         if (
             resend is not None
-            and resend != "safe"
+            and resend not in ("safe", "unsafe")
             and not (
                 isinstance(resend, dict)
                 and set(resend) == {"key"}
                 and isinstance(resend["key"], str)
             )
         ):
-            raise ValueError('resend must be "safe", {"key": input_name}, or None')
+            raise ValueError('resend must be "safe", "unsafe", {"key": input_name}, or None')
+        if resend == "unsafe" and not _is_mutating(verb):
+            raise ValueError(f"{where}: a {verb.wire_name} action cannot declare unsafe resend")
         self.resend = dict(resend) if isinstance(resend, dict) else resend
         names = {spec.name for spec in self.args}
         for ref in self._references():
@@ -1203,6 +1205,8 @@ def to_turtle(description: dict) -> str:
         resend = spec.get("resend")
         if resend == "safe":
             action_preds.append("ik:resendSafe true")
+        elif resend == "unsafe":
+            action_preds.append("ik:resendSafe false")
         elif resend is not None:
             action_preds.append(f"ik:resendKey <{action_iri}:input:{name_fragment(resend['key'])}>")
         for arg in spec.get("inputs", []):
@@ -1338,7 +1342,8 @@ def endpoint(
     arguments by it. ``cacheable=True`` marks the result a pure function of
     its inputs (``Expiry::Never``) — the HOST kernel then caches it.
     ``resend="safe"`` declares unconditional resend safety; ``resend={"key": name}``
-    requires the named input as an idempotency key. Absent or ``None`` declares no safety.
+    requires the named input as an idempotency key. ``resend="unsafe"`` forbids
+    resending a mutating action and is refused on reads. Absent or ``None`` declares no safety.
     ``existence_sensitive=True`` hides the name from a caller the floor refuses:
     it is answered ``Unresolved``, as a name bound nowhere, never ``Denied`` (see
     :func:`conceals`). For more than one verb over one name, use :func:`family`."""

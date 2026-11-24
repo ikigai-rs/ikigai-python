@@ -265,9 +265,32 @@ def test_flat_authoring_carries_resend_through_synthesized_actions():
     assert "ik:resendKey" in door.description_turtle()
 
 
-@pytest.mark.parametrize("resend", ["unsafe", {}, {"key": 1}, {"key": "missing"}])
+@pytest.mark.parametrize("resend", ["invalid", {}, {"key": 1}, {"key": "missing"}])
 def test_authoring_refuses_invalid_resend_declarations(resend):
     from ikigai.serve import endpoint
 
     with pytest.raises(ValueError):
         endpoint("urn:test:invalid", resend=resend)(lambda: "ok")
+
+
+@pytest.mark.parametrize("verb", ["sink", "delete"])
+def test_unsafe_mutation_is_declared_in_json_and_turtle(verb):
+    from ikigai.serve import family
+
+    door = family("urn:test:unsafe")
+
+    @getattr(door, verb)(resend="unsafe")
+    def handler(content: str = ""):
+        return "ok"
+
+    assert door.description_json()["actions"][0]["resend"] == "unsafe"
+    assert "ik:resendSafe false" in door.description_turtle()
+
+
+@pytest.mark.parametrize("verb", ["source", "exists"])
+def test_unsafe_read_is_refused(verb):
+    from ikigai.serve import family
+
+    door = family("urn:test:unsafe-read")
+    with pytest.raises(ValueError, match="cannot declare unsafe resend"):
+        getattr(door, verb)(resend="unsafe")(lambda: "ok")

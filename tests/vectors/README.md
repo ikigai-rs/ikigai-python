@@ -1,6 +1,7 @@
-`contract_cases.json`, `contract_vectors.json`, `failure_class_cases.json` and
-`failure_class_vectors.json` are verbatim copies from
-[ikigai-core revision df867e4d86f3c119618b636f78d45e56ef117c65](https://github.com/ikigai-rs/ikigai-core/commit/df867e4d86f3c119618b636f78d45e56ef117c65).
+`contract_cases.json` and `contract_vectors.json` are verbatim copies from
+[ikigai-core revision cee286a647f8dc6ca6132631de4be75232113e12](https://github.com/ikigai-rs/ikigai-core/commit/cee286a647f8dc6ca6132631de4be75232113e12).
+`failure_class_cases.json` and `failure_class_vectors.json` are verbatim copies from
+[revision df867e4d86f3c119618b636f78d45e56ef117c65](https://github.com/ikigai-rs/ikigai-core/commit/df867e4d86f3c119618b636f78d45e56ef117c65).
 They include the body-reader and resend contracts, the `core/resend` Turtle door,
 the gave-up failures and JSON faces from core 0.3.4/0.3.5, and the
 `denied-by-the-floor` row from core 0.4.0.
@@ -12,8 +13,8 @@ absent. The binary wire's tag 4 carries the message alone.
 Copy these files without reformatting; `.gitattributes` keeps their line endings LF.
 
 A declared `resend` selects contract v2 and appends byte 5 after the fixed-input
-tail, followed by byte 0 for `"safe"`, or byte 1 and the length-prefixed key name
-for `{"key": name}`. Absent or null feeds nothing and declares no resend safety.
+tail, followed by byte 0 for `"safe"`, byte 1 and the length-prefixed key name
+for `{"key": name}`, or byte 2 for `"unsafe"`. Absent or null feeds nothing and declares no resend safety.
 Never infer resend safety from the verb. The upstream vectors README documents
 all canonical digest tails. Gave-up elapsed time is rounded down to milliseconds;
 retry-after delays are rounded up.
