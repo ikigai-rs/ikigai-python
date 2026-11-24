@@ -648,8 +648,8 @@ def _contract_id_v2(endpoint_id: str, action: dict, verb: Verb) -> str:
     resend = action.get("resend")
     if resend is not None:
         _feed_u8(h, 5)
-        _feed_u8(h, 0 if resend == "safe" else 1)
-        if resend != "safe":
+        _feed_u8(h, 0 if resend == "safe" else 2 if resend == "unsafe" else 1)
+        if isinstance(resend, dict):
             _feed_str(h, resend["key"])
     return "b3:" + h.hexdigest()
 

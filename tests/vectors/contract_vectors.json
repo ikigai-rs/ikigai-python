@@ -1101,6 +1101,29 @@
       "contract": "urn:ikigai:contract:ledgerAppend:sink:b3:31e36da514afbb77e2b3ae04b1efe597dc0ad838d7c580003ecaa9f713407407",
       "id": "ledgerAppend",
       "name": "resend/keyed-after-failures-and-flag"
+    },
+    {
+      "action": {
+        "outputs": [
+          "text/plain"
+        ],
+        "verb": "Delete"
+      },
+      "contract": "urn:ikigai:contract:space:delete:b3:4d47446e625f06212a79a427e2b782627d124c34702a584dd0021b1efd287327",
+      "id": "space",
+      "name": "resend/undeclared-delete"
+    },
+    {
+      "action": {
+        "outputs": [
+          "text/plain"
+        ],
+        "resend": "unsafe",
+        "verb": "Delete"
+      },
+      "contract": "urn:ikigai:contract:space:delete:b3:dd127478910d17ee83d6c1b2eacd7089d69b2769f8bed6827fc4ae29e1082c48",
+      "id": "space",
+      "name": "resend/unsafe-delete"
     }
   ],
   "doors": [
