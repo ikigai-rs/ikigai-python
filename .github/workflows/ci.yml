@@ -44,6 +44,10 @@ jobs:
       # tutorial's main, run the parity test against a ttt-host built there, and bring the
       # Python face up to date in the same PR.
       TTT_HOST_REV: "8c30fe704537c1a87ca384e6e5de1ab4443827d6"
+      # The lectern-slides commit the deck test (tests/test_resources_interop.py) renders
+      # lectern's sample deck with. Its dependencies are hash-locked in
+      # tests/lectern-requirements.txt: move both together.
+      LECTERN_REV: "918301f85bcf957c7b2b9ff846cc807ea0b24561"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,5 +83,18 @@ jobs:
           echo "TTT_HOST=$HOME/ttt-host/bin/ttt-host" >> "$GITHUB_ENV"
       - name: Install
         run: python -m pip install -e '.[dev,examples,quic]'
+      - name: Check out lectern-slides (the deck test's renderer and sample deck)
+        uses: actions/checkout@v4
+        with:
+          repository: bsletten/lectern-slides
+          ref: ${{ env.LECTERN_REV }}
+          path: _lectern-slides
+          persist-credentials: false
+      - name: Install lectern, hash-locked, and require the deck test
+        run: |
+          python -m pip install --require-hashes -r tests/lectern-requirements.txt
+          python -m pip install --no-deps --no-build-isolation ./_lectern-slides
+          echo "LECTERN_SAMPLE_DECK=$GITHUB_WORKSPACE/_lectern-slides/examples/sample-deck" >> "$GITHUB_ENV"
+          echo "IKIGAI_REQUIRE_LECTERN=1" >> "$GITHUB_ENV"
       - name: Interop (the whole suite, against a local Rust door)
         run: python -m pytest -q --require-interop
