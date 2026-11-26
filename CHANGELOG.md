@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **List a container, and read a lectern deck from the kernel** (ledger #4469, after ledger
+  #4149; 0.1.3, a patch release). `Client.children(container)` answers the IRIs directly under a container through
+  the listing face ikigai-fs already serves, `Source <dir> as=text/uri-list`; no new kernel
+  resource. `tests/vectors/listing_vectors.json` pins that face's exact bytes for a sample
+  tree and how a body parses (RFC 2483), for the TypeScript face to share, and the interop job
+  holds the live kernel to it. `ikigai.resources.KernelResources` adapts a client to
+  lectern's `get`/`list` protocol without importing lectern: absent is `None`, and a denial is
+  a `DeniedError` that names the IRI, never "file not found". `get` puts a `urn:file:` IRI
+  into ikigai-fs's canonical percent-encoding first (`canonical_file_iri`: lectern leaves
+  sub-delims such as `(`, `+`, `&` and `'` literal, and ikigai-fs refuses that spelling), so
+  `q&a.md` reads from the kernel as from disk; `list` answers child IRIs under the container as
+  the caller spelled it. `get` answers `None` for a container, as a disk source does for a
+  directory, instead of the directory's listing. The vectors' `canonical` cases pin the
+  spelling. `tests/test_resources_interop.py` renders
+  lectern's sample deck from a kernel and from disk and requires the same output; it runs
+  where lectern 0.2 is installed and `LECTERN_SAMPLE_DECK` names the deck, as shipped and with
+  a slide and a partial renamed to sub-delim names; it skips otherwise, and fails instead when
+  `IKIGAI_REQUIRE_LECTERN` is set. `tests/lectern-requirements.txt` hash-locks lectern's own
+  dependencies for the interop job.
+
 - **Design note: the caller's capability in a served handler** (ledger #1584),
   `docs/design/handler-capability.md`. It covers both this face and ikigai-ts. A new test,
   `tests/test_handler_capability.py`, reproduces the gap (a handler cannot read the

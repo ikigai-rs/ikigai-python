@@ -1,0 +1,125 @@
+{
+  "about": "The container listing face: Source <container> as=text/uri-list. The `kernel` cases are what ikigai-fs answers (ikigai-cli 0.2.8, the interop job's pin) over `tree`, byte for byte; tests/test_resources_interop.py asserts the live kernel still answers each `body` exactly. The `parse` cases pin how a body reads as IRIs (RFC 2483: CRLF or LF, `#` comments, blank lines dropped). Shared with the TypeScript face; copy without reformatting. The `canonical` cases pin how a reader spells a `urn:file:` IRI before asking ikigai-fs for it: each segment decoded to bytes, then unreserved characters (A-Z a-z 0-9 - . _ ~) literal and every other byte as uppercase %XX; `/` separates segments and an escaped %2F stays escaped; any other scheme is unchanged. ikigai-fs refuses every other spelling of a path.",
+  "tree": [
+    "deck/.hidden.md",
+    "deck/00-title.md",
+    "deck/10-body.md",
+    "deck/a(b)+c.md",
+    "deck/don't.md",
+    "deck/q&a.md",
+    "deck/theme.css",
+    "deck/sub/20-nested.md",
+    "deck/with space.md",
+    "deck/ü.md",
+    "empty/"
+  ],
+  "kernel": [
+    {
+      "container": "urn:file:deck",
+      "media_type": "text/uri-list",
+      "body": "urn:file:deck/.hidden.md\nurn:file:deck/00-title.md\nurn:file:deck/10-body.md\nurn:file:deck/a%28b%29%2Bc.md\nurn:file:deck/don%27t.md\nurn:file:deck/q%26a.md\nurn:file:deck/sub\nurn:file:deck/theme.css\nurn:file:deck/with%20space.md\nurn:file:deck/%C3%BC.md",
+      "children": [
+        "urn:file:deck/.hidden.md",
+        "urn:file:deck/00-title.md",
+        "urn:file:deck/10-body.md",
+        "urn:file:deck/a%28b%29%2Bc.md",
+        "urn:file:deck/don%27t.md",
+        "urn:file:deck/q%26a.md",
+        "urn:file:deck/sub",
+        "urn:file:deck/theme.css",
+        "urn:file:deck/with%20space.md",
+        "urn:file:deck/%C3%BC.md"
+      ]
+    },
+    {
+      "container": "urn:file:deck/sub",
+      "media_type": "text/uri-list",
+      "body": "urn:file:deck/sub/20-nested.md",
+      "children": [
+        "urn:file:deck/sub/20-nested.md"
+      ]
+    },
+    {
+      "container": "urn:file:empty",
+      "media_type": "text/uri-list",
+      "body": "",
+      "children": []
+    }
+  ],
+  "parse": [
+    {
+      "name": "crlf",
+      "body": "urn:file:a/x.md\r\nurn:file:a/y.md\r\n",
+      "children": [
+        "urn:file:a/x.md",
+        "urn:file:a/y.md"
+      ]
+    },
+    {
+      "name": "trailing-lf",
+      "body": "urn:file:a/x.md\n",
+      "children": [
+        "urn:file:a/x.md"
+      ]
+    },
+    {
+      "name": "comments-and-blank-lines",
+      "body": "# a listing\nurn:file:a/x.md\n\n#urn:file:a/hidden\nurn:file:a/y.md",
+      "children": [
+        "urn:file:a/x.md",
+        "urn:file:a/y.md"
+      ]
+    },
+    {
+      "name": "empty",
+      "body": "",
+      "children": []
+    }
+  ],
+  "canonical": [
+    {
+      "spelled": "urn:file:deck/a(b)+c.md",
+      "canonical": "urn:file:deck/a%28b%29%2Bc.md"
+    },
+    {
+      "spelled": "urn:file:deck/q&a.md",
+      "canonical": "urn:file:deck/q%26a.md"
+    },
+    {
+      "spelled": "urn:file:deck/don't.md",
+      "canonical": "urn:file:deck/don%27t.md"
+    },
+    {
+      "spelled": "urn:file:deck/with space.md",
+      "canonical": "urn:file:deck/with%20space.md"
+    },
+    {
+      "spelled": "urn:file:deck/ü.md",
+      "canonical": "urn:file:deck/%C3%BC.md"
+    },
+    {
+      "spelled": "urn:file:deck/%c3%bc.md",
+      "canonical": "urn:file:deck/%C3%BC.md"
+    },
+    {
+      "spelled": "urn:file:deck/x%7e-_.md",
+      "canonical": "urn:file:deck/x~-_.md"
+    },
+    {
+      "spelled": "urn:file:deck/100%25.md",
+      "canonical": "urn:file:deck/100%25.md"
+    },
+    {
+      "spelled": "urn:file:deck/a%2Fb.md",
+      "canonical": "urn:file:deck/a%2Fb.md"
+    },
+    {
+      "spelled": "urn:file:deck/a%28b%29%2Bc.md",
+      "canonical": "urn:file:deck/a%28b%29%2Bc.md"
+    },
+    {
+      "spelled": "urn:deck:q&a.md",
+      "canonical": "urn:deck:q&a.md"
+    }
+  ]
+}
