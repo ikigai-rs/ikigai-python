@@ -31,6 +31,10 @@ The published package (`src/ikigai/`):
 - **Base64url errors.** `Base64Error` in `base64.py` names the URL-safe profile and
   the broken alphabet, length, padding or unused-bit rule, using ikigai-http's words;
   it carries code `base64-invalid` and never echoes input.
+- **A refused deck read.** `ikigai.resources.KernelResources` words a denial as the action and
+  the IRI first, then the kernel's own message (`reading urn:file:deck/a.md was refused: …`),
+  so the reader learns which resource was refused before why. It is a `DeniedError`, never
+  worded as a missing file.
 - **A plain-text description.** A served endpoint's Meta face, asked for as `text/plain`
   (`description_text` in `serve.py`): its id and title, its verbs, one line per input
   (`input name [source] (optional): summary`), its argument groups, and its outputs.

@@ -90,6 +90,21 @@ def coerce_arg(value) -> ArgRef:
     raise TypeError(f"cannot send {type(value).__name__} as an argument (use str or bytes)")
 
 
+#: The media type of a container listing (RFC 2483): one IRI per line.
+URI_LIST = "text/uri-list"
+
+
+def parse_uri_list(data: bytes) -> list[str]:
+    """The IRIs in a ``text/uri-list`` body (RFC 2483), in order: lines split on CRLF or
+    LF, ``#`` comment lines and blank lines dropped. Invalid UTF-8 raises
+    :class:`ProtocolError`, since a listing that is not text is not a listing."""
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ProtocolError(f"a text/uri-list body is not UTF-8: {e}") from None
+    return [line for line in text.replace("\r\n", "\n").split("\n") if line and line[0] != "#"]
+
+
 def build_request(verb: Verb, iri: str, args: dict) -> Request:
     """A :class:`Request` with each arg run through :func:`coerce_arg`. Raises
     ``TypeError`` for a value that cannot be sent (see :func:`coerce_arg`)."""
@@ -233,6 +248,25 @@ class Client:
         if error is not None:
             raise error
         raise ProtocolError(f"unexpected reply to Entries: {reply!r}")
+
+    def children(self, container: str, **args) -> list[str]:
+        """The full IRIs of the resources directly under ``container``, in the order the
+        kernel answers them.
+
+        This is ``Source container as=text/uri-list``, the listing face ikigai-fs gives a
+        ``urn:file:`` directory (``urn:file:deck`` answers ``urn:file:deck/a.md``, …,
+        sorted, percent-encoded, one per line, never cached). Any endpoint that answers
+        ``text/uri-list`` for a container serves the same way. The body is read as
+        RFC 2483 says: lines end in CRLF or LF, a line starting with ``#`` is a comment,
+        and an empty body is an empty container. ``tests/vectors/listing_vectors.json``
+        pins the face byte for byte.
+
+        A container is named canonically, with no trailing ``/``: ikigai-fs refuses
+        ``urn:file:deck/``. Naming a file or a missing path raises
+        :class:`InvalidArgumentError` (the face is for directories only), and a denial
+        raises :class:`DeniedError`, as for any ``source``."""
+        args["as"] = URI_LIST
+        return parse_uri_list(self.source(container, **args).data)
 
     def is_cached(self, iri: str, **args) -> bool:
         """Whether sourcing ``iri`` with these args would be served from the

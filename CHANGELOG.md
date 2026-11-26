@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **List a container, and read a lectern deck from the kernel** (ledger #4469, after ledger
+  #4149). `Client.children(container)` answers the IRIs directly under a container through
+  the listing face ikigai-fs already serves, `Source <dir> as=text/uri-list`; no new kernel
+  resource. `tests/vectors/listing_vectors.json` pins that face's exact bytes for a sample
+  tree and how a body parses (RFC 2483), for the TypeScript face to share, and the interop job
+  holds the live kernel to it. `ikigai.resources.KernelResources` adapts a client to
+  lectern's `get`/`list` protocol without importing lectern: absent is `None`, and a denial is
+  a `DeniedError` that names the IRI, never "file not found". `tests/test_resources_interop.py` renders
+  lectern's sample deck from a kernel and from disk and requires the same output; it runs
+  where lectern 0.2 is installed and `LECTERN_SAMPLE_DECK` names the deck, and skips
+  otherwise (CI does not install lectern yet).
+
 - **Design note: the caller's capability in a served handler** (ledger #1584),
   `docs/design/handler-capability.md`. It covers both this face and ikigai-ts. A new test,
   `tests/test_handler_capability.py`, reproduces the gap (a handler cannot read the

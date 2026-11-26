@@ -91,10 +91,18 @@ k.exists("urn:file:notes.txt")  # "true" — the file the sink just wrote
 k.meta("urn:iki:fn:toUpper")      # self-description, text/turtle by default
 k.describe("urn:iki:fn:toUpper")  # the JSON Meta face, parsed — ArgSpecs and all
 k.entries()                   # the catalog: [SpaceEntry(pattern, endpoint, origin)]
+k.children("urn:file:talks")  # a directory's child IRIs: ["urn:file:talks/a.md", …]
 k.is_cached("urn:iki:fn:toUpper", **{"in": "hi"})
 k.source_traced("urn:iki:fn:toUpper", **{"in": "hi"})   # (rep, [TraceEvent…])
 k.close()                     # or use it as a context manager
 ```
+
+`children(container)` is `source(container, as="text/uri-list")` read as a list of IRIs,
+the listing face ikigai-fs gives a `urn:file:` directory (named without a trailing `/`).
+`ikigai.resources.KernelResources(k)` puts `get(iri) -> bytes | None` and
+`list(container) -> [iri, …]` over a client, the shape lectern's `KernelSource` reads a
+deck through, so lectern can render a deck the kernel serves. Absent is `None`; a denial
+is a `DeniedError` naming the IRI. ikigai-python never imports lectern.
 
 Notes:
 
