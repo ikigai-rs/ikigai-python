@@ -1,27 +1,11 @@
-"""A served handler and the caller's capability (ledger #1584,
-``docs/design/handler-capability.md``).
+"""Served handler access to the caller capability and a path ACL."""
 
-Two parts:
-
-- **The gap, reproduced.** Today a handler receives its declared inputs and
-  :func:`ikigai.serve.current_run` (retries, deadline), and nothing else, so a rule finer
-  than the declared floor (a path ACL) cannot be written. ``test_the_gap_*`` pins that.
-  The strict ``xfail`` turns into a failure the day the proposed ``current_caller`` lands,
-  so whoever lands it removes the marker and keeps the test.
-- **The proof.** The design needs no wire change and no change to the floor. A ``Space``
-  that puts the capability it already resolves under into a context variable before
-  routing is enough for a handler to apply a path ACL. That ``Space`` lives HERE, in the
-  test, not in ``src/``. Default behavior is unchanged.
-"""
-
-import contextvars
 import dataclasses
 
 import pytest
 
-import ikigai.serve
 from ikigai.capability import denial_message
-from ikigai.serve import Space, current_run, endpoint
+from ikigai.serve import Caller, Space, current_caller, current_run, endpoint, with_caller
 from ikigai.wire import (
     Capability,
     DeniedError,
@@ -59,19 +43,12 @@ def test_the_gap_a_handler_sees_only_its_inputs_and_the_run():
     assert isinstance(reply, Resolved)
     # The run carries the retry pool and the deadline, and no capability.
     assert [f.name for f in dataclasses.fields(seen["run"])] == ["retries", "deadline"]
-    # And no public accessor hands one over.
-    public = [n for n in dir(ikigai.serve) if not n.startswith("_")]
-    assert not any("caller" in n.lower() for n in public)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ledger #1584: a served handler cannot read the caller's capability yet",
-)
 def test_the_gap_a_path_acl_cannot_be_written_with_the_public_api():
     @endpoint("urn:py:acl", requires=["urn:cap:acl:read:*"])
     def guarded(path: str) -> str:
-        caller = ikigai.serve.current_caller()  # the proposed accessor
+        caller = current_caller()
         if not caller.allows(f"urn:cap:acl:read:{path}"):
             raise DeniedError(f"capability does not grant `read` on `{path}`")
         return path
@@ -87,35 +64,10 @@ def test_the_gap_a_path_acl_cannot_be_written_with_the_public_api():
 
 # -- the proof -------------------------------------------------------------------------
 
-#: The capability of the call being served, as the proof's Space sets it.
-_CALLER: contextvars.ContextVar[Capability | None] = contextvars.ContextVar(
-    "proof_caller", default=None
-)
-
-
-def current_caller() -> Capability | None:
-    """The proof's accessor: the capability the served call resolves under, ``None``
-    outside a served call."""
-    return _CALLER.get()
-
-
-class CallerSpace(Space):
-    """A ``Space`` that exposes the capability it ALREADY resolves under (root for a plain
-    ``Issue``, the carried one otherwise) for the length of one resolution. The floor runs
-    before the handler, as it always has."""
-
-    def _resolve(self, request, alias_first=False, capability=None):
-        token = _CALLER.set(Capability.root() if capability is None else capability)
-        try:
-            return super()._resolve(request, alias_first, capability)
-        finally:
-            _CALLER.reset(token)
-
-
 ACL = "urn:cap:docs:read:"
 
 
-def acl_allows(capability: Capability, path: str) -> bool:
+def acl_allows(capability: Caller, path: str) -> bool:
     """The reference path ACL from the design note: among the caller's
     ``urn:cap:docs:read:[-]<dir>`` scopes that contain ``path``, the deepest decides, a deny
     wins a tie, and no match denies. Root allows everything."""
@@ -151,7 +103,7 @@ def read_doc(path: str) -> str:
     return f"contents of {path}"
 
 
-SPACE = CallerSpace([read_doc])
+SPACE = Space([read_doc])
 
 
 def scoped(*scopes):
@@ -224,17 +176,27 @@ def test_every_call_form_hands_the_handler_the_capability_it_resolves_under():
 
 def test_the_capability_is_scoped_to_one_call():
     ask("/home/notes/a", scoped(ACL + "/home/notes"))
-    assert current_caller() is None
+    with pytest.raises(LookupError):
+        current_caller()
 
 
-def test_the_stock_space_is_unchanged():
-    # The same handler under the stock Space: the floor admits, and the handler has no
-    # capability to read, which is the gap this note is about.
-    reply = Space([read_doc]).dispatch(
-        IssueAs(
-            Request(Verb.SOURCE, "urn:py:docs", {"path": Inline(b"/home/a")}),
-            scoped(ACL + "/home"),
-        )
-    )
-    assert isinstance(reply, ErrorTypedReply)
-    assert "NoneType" in reply.error.message or "is_root" in reply.error.message
+def test_caller_view_and_nested_contexts():
+    cap = scoped(ACL + "/home", ACL + "-/home/secret", "urn:cap:principal:urn:alice")
+    with with_caller(cap) as caller:
+        assert current_caller() is caller
+        assert caller.principal() == "urn:alice"
+        assert caller.scopes == cap.scopes
+        assert caller.under(ACL) == (ACL + "-/home/secret", ACL + "/home")
+        assert caller.allows(ACL + "/home")
+        assert not caller.allows(ACL + "-/home/secret")
+        assert caller.satisfies(ACL + "*")
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            caller.capability = Capability.root()
+        with pytest.raises(RuntimeError), with_caller(Capability.root()) as root:
+            assert root.is_root and root.scopes is None and root.under(ACL) == ()
+            raise RuntimeError("test restoration")
+        assert current_caller() is caller
+        ask("/anything")
+        assert current_caller() is caller
+    with pytest.raises(LookupError):
+        current_caller()
