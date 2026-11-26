@@ -41,11 +41,15 @@ unchanged existing v1/v2 digests and deduplication. Once these cases enter the s
 upstream vectors, they can move into the regular verbatim copy carried by vector-drift.
 
 `listing_vectors.json` is this repository's own: the container listing face,
-`Source <container> as=text/uri-list`, as ikigai-fs answers it (ikigai-cli 0.2.8 and 0.2.9)
+`Source <container> as=text/uri-list`, as ikigai-fs answers it (ikigai-cli 0.2.8, the interop job's pin)
 over the file tree named in `tree`. Each `kernel` case is a container's exact body, with no
 trailing newline after the last IRI, and the IRIs it reads as. Names are sorted by their
 bytes and percent-encoded; a subdirectory is listed without a trailing `/`. The `parse` cases
-pin RFC 2483 reading: CRLF or LF, `#` comment lines and blank lines dropped.
+pin RFC 2483 reading: CRLF or LF, `#` comment lines and blank lines dropped. The
+`canonical` cases pin how a reader spells a `urn:file:` IRI before asking for it: each
+segment decoded to bytes, then unreserved characters (`A-Z a-z 0-9 - . _ ~`) literal and every
+other byte as uppercase `%XX`, so `a(b)+c.md` is `a%28b%29%2Bc.md`; ikigai-fs refuses any
+other spelling.
 `tests/test_resources_interop.py` asserts the live kernel still answers every `kernel` body
 byte for byte, so a change in ikigai-fs shows up as a failing interop job. The TypeScript face
 can copy the file verbatim.

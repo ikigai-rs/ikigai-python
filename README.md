@@ -101,8 +101,10 @@ k.close()                     # or use it as a context manager
 the listing face ikigai-fs gives a `urn:file:` directory (named without a trailing `/`).
 `ikigai.resources.KernelResources(k)` puts `get(iri) -> bytes | None` and
 `list(container) -> [iri, …]` over a client, the shape lectern's `KernelSource` reads a
-deck through, so lectern can render a deck the kernel serves. Absent is `None`; a denial
-is a `DeniedError` naming the IRI. ikigai-python never imports lectern.
+deck through, so lectern can render a deck the kernel serves. It asks for a `urn:file:` IRI
+in ikigai-fs's canonical percent-encoding (`q&a.md` as `q%26a.md`). Absent is `None`, and so
+is a container; a denial is a `DeniedError` naming the IRI. ikigai-python never imports
+lectern.
 
 Notes:
 

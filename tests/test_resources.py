@@ -14,7 +14,7 @@ import pytest
 
 import ikigai
 from ikigai.client import URI_LIST, parse_uri_list
-from ikigai.resources import KernelResources
+from ikigai.resources import KernelResources, canonical_file_iri
 
 VECTORS = json.loads(
     (Path(__file__).parent / "vectors" / "listing_vectors.json").read_text(encoding="utf-8")
@@ -52,6 +52,10 @@ class FakeClient:
             if iri not in self.dirs:
                 raise ikigai.InvalidArgumentError("as", "a directory listing face only")
             return ikigai.Representation("\n".join(self.dirs[iri]).encode(), URI_LIST)
+        if iri in self.dirs:
+            # ikigai-fs reads a directory as its names, one per line.
+            names = [c.rsplit("/", 1)[-1] for c in self.dirs[iri]]
+            return ikigai.Representation("\n".join(names).encode(), "application/octet-stream")
         if iri not in self.files:
             raise ikigai.NotFoundError(f"`{iri}` does not exist")
         return ikigai.Representation(self.files[iri], "application/octet-stream")
@@ -75,7 +79,27 @@ def test_children_asks_for_the_uri_list_face():
 def test_get_answers_the_raw_bytes():
     client = FakeClient(files={"urn:file:d/a.png": b"\x89PNG"})
     assert KernelResources(client).get("urn:file:d/a.png") == b"\x89PNG"
-    assert client.calls == [("source", "urn:file:d/a.png", {"as": "application/octet-stream"})]
+    assert client.calls == [
+        ("source", "urn:file:d/a.png", {"as": "application/octet-stream"}),
+        ("source", "urn:file:d/a.png", {"as": "text/uri-list"}),
+    ]
+
+
+@pytest.mark.parametrize("case", VECTORS["canonical"], ids=lambda c: c["spelled"])
+def test_a_file_iri_is_put_into_ikigai_fs_canonical_encoding(case):
+    assert canonical_file_iri(case["spelled"]) == case["canonical"]
+
+
+def test_get_asks_for_the_canonical_spelling():
+    client = FakeClient(files={"urn:file:deck/q%26a.md": b"# Q&A\n"})
+    assert KernelResources(client).get("urn:file:deck/q&a.md") == b"# Q&A\n"
+    assert {iri for _, iri, _ in client.calls} == {"urn:file:deck/q%26a.md"}
+
+
+@pytest.mark.parametrize("iri", ["urn:file:d", "urn:file:d/", "urn:file:empty"])
+def test_a_container_is_absent_to_get(iri):
+    client = FakeClient(dirs={"urn:file:d": ["urn:file:d/a.md"], "urn:file:empty": []})
+    assert KernelResources(client).get(iri) is None
 
 
 def test_absent_is_none_not_an_error():
@@ -106,11 +130,17 @@ def test_list_drops_the_trailing_slash_the_kernel_refuses():
     assert [iri for _, iri, _ in client.calls] == ["urn:file:d", "urn:file:d"]
 
 
+def test_a_listing_keeps_the_callers_spelling_of_the_container():
+    client = FakeClient(dirs={"urn:file:q%26a": ["urn:file:q%26a/x%28y%29.md"]})
+    assert KernelResources(client).list("urn:file:q&a/") == ["urn:file:q&a/x%28y%29.md"]
+    assert [iri for _, iri, _ in client.calls] == ["urn:file:q%26a", "urn:file:q%26a"]
+
+
 def test_an_absent_container_lists_nothing():
     assert KernelResources(FakeClient()).list("urn:file:nowhere/") == []
 
 
-def test_the_adapter_never_imports_lectern():
+def test_the_adapter_imports_only_the_standard_library():
     tree = ast.parse(Path(ikigai.resources.__file__).read_text(encoding="utf-8"))
     imported = {
         alias.name.split(".")[0]
@@ -122,4 +152,4 @@ def test_the_adapter_never_imports_lectern():
         for node in ast.walk(tree)
         if isinstance(node, ast.ImportFrom) and node.level == 0
     }
-    assert imported <= {"__future__"}
+    assert imported <= {"__future__", "urllib"}

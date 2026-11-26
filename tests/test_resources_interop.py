@@ -83,22 +83,65 @@ def test_the_kernel_answers_the_listing_vectors_byte_for_byte(kernel):
         assert client.children(case["container"]) == case["children"]
 
 
+def test_the_kernel_reads_each_canonical_spelling_and_refuses_the_others(kernel):
+    client = kernel(_vector_tree)
+    for case in VECTORS["kernel"]:
+        for child in case["children"]:
+            if child.endswith("/sub"):
+                continue
+            assert client.source(child).data == b"x", child
+    for case in VECTORS["canonical"]:
+        spelled, canonical = case["spelled"], case["canonical"]
+        # A literal space is not an IRI at all: the kernel drops the connection rather than
+        # answering, so only spellings that are IRIs are held to the refusal here.
+        if spelled != canonical and spelled.startswith("urn:file:") and " " not in spelled:
+            with pytest.raises(ikigai.InvalidArgumentError, match="canonical percent-encoding"):
+                client.source(spelled)
+
+
 def test_the_adapter_reads_and_lists_through_the_kernel(kernel):
     def fill(files: Path) -> None:
-        (files / "deck").mkdir()
+        (files / "deck" / "q&a").mkdir(parents=True)
+        (files / "deck" / "empty").mkdir()
         (files / "deck" / "a.md").write_bytes(b"# A\n")
         (files / "deck" / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00")
+        (files / "deck" / "a(b)+c.md").write_bytes(b"# sub-delims\n")
+        (files / "deck" / "don't.md").write_bytes(b"# apostrophe\n")
+        (files / "deck" / "q&a" / "x(y).md").write_bytes(b"# nested\n")
 
     resources = KernelResources(kernel(fill))
     assert resources.get("urn:file:deck/a.md") == b"# A\n"
     assert resources.get("urn:file:deck/logo.png") == b"\x89PNG\r\n\x1a\n\x00"
     assert resources.get("urn:file:deck/gone.md") is None
-    assert resources.list("urn:file:deck/") == ["urn:file:deck/a.md", "urn:file:deck/logo.png"]
+    # lectern's KernelSource.iri() leaves sub-delims literal; ikigai-fs wants them escaped.
+    assert resources.get("urn:file:deck/a(b)+c.md") == b"# sub-delims\n"
+    assert resources.get("urn:file:deck/don't.md") == b"# apostrophe\n"
+    assert resources.get("urn:file:deck/q&a/x(y).md") == b"# nested\n"
+    # A container is not a resource, empty or not, as on disk.
+    for container in (
+        "urn:file:deck",
+        "urn:file:deck/",
+        "urn:file:deck/q&a",
+        "urn:file:deck/empty",
+    ):
+        assert resources.get(container) is None, container
+    assert resources.list("urn:file:deck/") == [
+        "urn:file:deck/a%28b%29%2Bc.md",
+        "urn:file:deck/a.md",
+        "urn:file:deck/don%27t.md",
+        "urn:file:deck/empty",
+        "urn:file:deck/logo.png",
+        "urn:file:deck/q%26a",
+    ]
+    assert resources.list("urn:file:deck/q&a/") == ["urn:file:deck/q&a/x%28y%29.md"]
+    assert resources.list("urn:file:deck/empty/") == []
     assert resources.list("urn:file:nowhere/") == []
 
 
-def _lectern(request):
-    """``(lectern modules, sample deck dir)``, or skip; under ``--require-interop`` FAIL."""
+def _lectern():
+    """``(lectern modules, sample deck dir)``, or skip; with ``IKIGAI_REQUIRE_LECTERN`` set,
+    FAIL instead. ``--require-interop`` alone does not require lectern: CI's interop job sets
+    ``IKIGAI_REQUIRE_LECTERN`` in the step that installs it."""
     deck = os.environ.get("LECTERN_SAMPLE_DECK")
     try:
         from lectern import a11y
@@ -124,8 +167,29 @@ def _lectern(request):
     pytest.skip(missing)
 
 
-def test_lecterns_sample_deck_renders_from_the_kernel_as_from_disk(request, kernel, tmp_path):
-    modules, deck = _lectern(request)
+def _sub_delim_names(deck: Path) -> None:
+    """Rename a slide, a partial and an asset of a copied deck to names with sub-delims and an
+    apostrophe, which lectern's ``KernelSource.iri()`` leaves literal and ikigai-fs wants
+    escaped, and point ``deck.toml`` at them."""
+    renames = {
+        "slides/80-closing.md": "slides/80-q&a (don't).md",
+        "_partials/principles.md": "_partials/a(b)+c.md",
+    }
+    toml = (deck / "deck.toml").read_text(encoding="utf-8")
+    for old, new in renames.items():
+        (deck / old).rename(deck / new)
+        assert f'"{old}' in toml, old
+        toml = toml.replace(f'"{old}', f'"{new}')
+    (deck / "deck.toml").write_text(toml, encoding="utf-8")
+
+
+@pytest.mark.parametrize("variant", ["as-shipped", "sub-delim-names"])
+def test_lecterns_sample_deck_renders_from_the_kernel_as_from_disk(variant, kernel, tmp_path):
+    modules, shipped = _lectern()
+    deck = tmp_path / "sample-deck"
+    shutil.copytree(shipped, deck, ignore=shutil.ignore_patterns(".DS_Store"))
+    if variant == "sub-delim-names":
+        _sub_delim_names(deck)
     a11y, resolve_source, assemble_resolved, get_renderer, FilesystemSource, KernelSource = modules
 
     def render(root, src, out_dir: Path):
@@ -135,7 +199,7 @@ def test_lecterns_sample_deck_renders_from_the_kernel_as_from_disk(request, kern
         return built, result
 
     def fill(files: Path) -> None:
-        shutil.copytree(deck, files / "deck", ignore=shutil.ignore_patterns(".DS_Store"))
+        shutil.copytree(deck, files / "deck")
 
     client = kernel(fill)
     root = Path("/kernel/sample-deck")
