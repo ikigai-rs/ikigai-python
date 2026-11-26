@@ -546,7 +546,7 @@ on every call, before its handler is entered, with the same rule a Rust kernel
 applies — so a host that mounts this peer (and memoizes its contract) can rely
 on the peer refusing what the contract does not admit:
 
-- `IssueAs` and `IssueTraced` resolve under the capability they carry. A plain
+- `IssueAs`, `IssueTraced` and `IssueWith` resolve under the capability they carry. A plain
   `Issue` resolves under root, as the Rust IPC door's does: the socket admits
   only its owner, whose entitlement is root.
 - A declared verb needs its own `requires` (a per-verb `requires=` on a family
@@ -568,8 +568,18 @@ on the peer refusing what the contract does not admit:
   beside a marked one is still refused with `DeniedError`. This is core's rule
   (ikigai-core 0.2.2), pinned by its capability vectors.
 
-The floor is coarse: a handler does not see the caller's capability, so a rule
-finer than a declared scope (a path, a host) is not expressible here yet.
+The floor is coarse. For a path or host ACL, a handler can read
+`ikigai.serve.current_caller()`: its `is_root`, `scopes` (a frozenset, or
+`None` for root), `principal()`, `allows(scope)`, `satisfies(scope)` and
+`under(prefix)` expose the effective capability without issuing requests. The
+accessor raises `LookupError` outside a served call. Use
+`with_caller(Capability.scoped([...]))` to run a handler directly in a test.
+
+- Decide before you look: check the ACL before reading the target. If the door
+  must hide existence, raise `NotFoundError` for an ACL refusal.
+- The host may cache an answer according to its expiry. Its cache key includes
+  the capability fingerprint, so an ACL-dependent answer can be cached when it
+  depends only on the capability, arguments and what the handler reads.
 
 ## Wire-protocol notes (for implementors)
 

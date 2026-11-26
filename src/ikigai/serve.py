@@ -110,6 +110,7 @@ rely on the peer refusing what the contract no longer admits.
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import dataclasses
 import inspect
@@ -125,7 +126,7 @@ from pathlib import Path
 
 from . import check as preflight
 from . import contract, wire
-from .capability import denial_message
+from .capability import denial_message, principal
 from .capability import satisfies as capability_satisfies
 from .template import TemplateError, UriTemplate
 from .wire import (
@@ -1677,6 +1678,58 @@ def current_run() -> RunContext:
     return _RUN.get() or RunContext()
 
 
+@dataclasses.dataclass(frozen=True)
+class Caller:
+    """Read-only view of the capability authorizing a served call."""
+
+    capability: Capability
+
+    @property
+    def is_root(self) -> bool:
+        """Whether the caller has root authority."""
+        return self.capability.is_root
+
+    @property
+    def scopes(self) -> frozenset[str] | None:
+        """Held scopes, including exclusions, or None for root."""
+        return self.capability.scopes
+
+    def principal(self) -> str | None:
+        """Return the single principal, if any."""
+        return principal(self.capability)
+
+    def allows(self, scope: str) -> bool:
+        """Check an exact grant."""
+        return self.capability.allows(scope)
+
+    def satisfies(self, scope: str) -> bool:
+        """Check a declared scope, including family presence tests."""
+        return self.capability.satisfies(scope)
+
+    def under(self, prefix: str) -> tuple[str, ...]:
+        """Return matching scopes in sorted order, or an empty tuple for root."""
+        return tuple(sorted(scope for scope in self.scopes or () if scope.startswith(prefix)))
+
+
+_CALLER: contextvars.ContextVar[Caller] = contextvars.ContextVar("ikigai_caller")
+
+
+def current_caller() -> Caller:
+    """Return the caller of the served call; raise LookupError outside one."""
+    return _CALLER.get()
+
+
+@contextlib.contextmanager
+def with_caller(capability: Capability) -> typing.Iterator[Caller]:
+    """Run handler code directly under a stated capability, for tests."""
+    caller = Caller(capability)
+    token = _CALLER.set(caller)
+    try:
+        yield caller
+    finally:
+        _CALLER.reset(token)
+
+
 def _refuse(d, verb: Verb) -> ErrorTypedReply:
     """An undeclared verb: an Endpoint failure naming what IS answered."""
     answered = ", ".join(v.wire_name for v in d.answered_verbs())
@@ -1817,6 +1870,12 @@ class Space:
         declared-capability floor runs after routing and before anything is invoked,
         as a Rust kernel's does: an unbound name is ``Unresolved`` whatever the caller
         holds, ``Meta`` is never gated, and a refused call never enters a handler."""
+        with with_caller(Capability.root() if capability is None else capability):
+            return self._resolve_under_caller(request, alias_first, capability)
+
+    def _resolve_under_caller(
+        self, request: Request, alias_first: bool, capability: Capability | None
+    ) -> Reply:
         d, bindings = self.lookup(request.target, alias_first)
         if d is None:
             # The same variant the Rust kernel answers with, so the host-side
